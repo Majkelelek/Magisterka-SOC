@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Shield, Bot, Eye, Clock, UserCheck, RotateCcw, Home, LogOut, Database, Users } from 'lucide-react';
+import { Shield, Bot, Eye, Clock, UserCheck, RotateCcw, Home, LogOut, Database, Users, BarChart2 } from 'lucide-react';
 import type { UserSession } from '../types/alert';
 
 interface HeaderProps {
-  activeTab: 'home' | 'no-ai' | 'with-ai' | 'admin-users';
-  onTabChange: (tab: 'home' | 'no-ai' | 'with-ai' | 'admin-users') => void;
+  activeTab: 'home' | 'no-ai' | 'with-ai' | 'test-results' | 'admin-users';
+  onTabChange: (tab: 'home' | 'no-ai' | 'with-ai' | 'test-results' | 'admin-users') => void;
   handledCount: number;
   userSession: UserSession | null;
   onLogout: () => void;
@@ -95,6 +95,14 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <Bot size={16} />
               <span>Test 2: Z AI</span>
+            </button>
+
+            <button
+              className={`soc-tab ${activeTab === 'test-results' ? 'active-ai' : ''}`}
+              onClick={() => onTabChange('test-results')}
+            >
+              <BarChart2 size={16} color="#38bdf8" />
+              <span>Wyniki Testów</span>
             </button>
 
             {userSession.role === 'Administrator' && (

@@ -8,6 +8,7 @@ import { NoAiTestView } from './components/NoAiTestView';
 import { AiTestView } from './components/AiTestView';
 import { LoginPage } from './components/LoginPage';
 import { AdminUserPanel } from './components/AdminUserPanel';
+import { TestResultsPage } from './components/TestResultsPage';
 import { TestRulesModal } from './components/TestRulesModal';
 import { ShieldAlert, AlertTriangle, CheckCircle, Activity, BarChart2 } from 'lucide-react';
 
@@ -24,10 +25,11 @@ export const App: React.FC = () => {
     return null;
   });
 
-  const [activeTab, setActiveTab] = useState<'home' | 'no-ai' | 'with-ai' | 'admin-users'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'no-ai' | 'with-ai' | 'test-results' | 'admin-users'>('home');
   const [pendingTab, setPendingTab] = useState<'no-ai' | 'with-ai' | null>(null);
   const [isRulesModalOpen, setIsRulesModalOpen] = useState<boolean>(false);
   const [testStartTime, setTestStartTime] = useState<number | null>(null);
+  const [testSessionId, setTestSessionId] = useState<string | null>(null);
 
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [handledCount, setHandledCount] = useState<number>(0);
@@ -74,7 +76,7 @@ export const App: React.FC = () => {
   }, [userSession]);
 
   // Przechwytywanie przełączenia zakładki testowej -> pokazanie modala z zasadami
-  const handleTabChange = (tab: 'home' | 'no-ai' | 'with-ai' | 'admin-users') => {
+  const handleTabChange = (tab: 'home' | 'no-ai' | 'with-ai' | 'test-results' | 'admin-users') => {
     if (tab === 'no-ai' || tab === 'with-ai') {
       setPendingTab(tab);
       setIsRulesModalOpen(true);
@@ -95,6 +97,8 @@ export const App: React.FC = () => {
     setHandledCount(0);
     setDecisions([]);
     setTestStartTime(Date.now());
+    const newSessionId = crypto.randomUUID();
+    setTestSessionId(newSessionId);
     setActiveTab(pendingTab);
     setLoading(false);
   };
@@ -136,7 +140,13 @@ export const App: React.FC = () => {
 
     // Raport sesji zapisywany do MongoDB / AlertStore
     const durationTotal = testStartTime ? Math.round((now - testStartTime) / 1000) : 120;
+    const currentSessionId = testSessionId || crypto.randomUUID();
+    if (!testSessionId) {
+      setTestSessionId(currentSessionId);
+    }
+
     const session: TestSession = {
+      sessionId: currentSessionId,
       operatorName: userSession?.username || 'SOC_Operator',
       mode: activeTab === 'no-ai' ? 'NoAI' : 'WithAI',
       startTime: testStartTime ? new Date(testStartTime).toISOString() : new Date().toISOString(),
@@ -176,6 +186,8 @@ export const App: React.FC = () => {
           <LoginPage onLoginSuccess={handleLoginSuccess} />
         ) : activeTab === 'admin-users' ? (
           <AdminUserPanel userSession={userSession} />
+        ) : activeTab === 'test-results' ? (
+          <TestResultsPage userSession={userSession} />
         ) : (
           <>
             {activeTab !== 'home' && (

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { registerUserByAdmin, fetchRegisteredUsers, fetchActiveSessions, changeUserPasswordByAdmin } from '../services/api';
 import type { UserSession } from '../types/alert';
-import { UserPlus, ShieldAlert, Users, Lock, User, CheckCircle2, AlertCircle, RefreshCw, ShieldCheck, UserCheck, KeyRound, Key } from 'lucide-react';
+import { UserPlus, ShieldAlert, Users, Lock, User, CheckCircle2, AlertCircle, RefreshCw, ShieldCheck, UserCheck, KeyRound, Key, ChevronDown, ChevronUp, Clock, BarChart2 } from 'lucide-react';
 
 interface AdminUserPanelProps {
   userSession: UserSession;
@@ -11,6 +11,7 @@ export const AdminUserPanel: React.FC<AdminUserPanelProps> = ({ userSession }) =
   const [usersList, setUsersList] = useState<Array<{ id: string; username: string; email: string; role: string }>>([]);
   const [activeSessions, setActiveSessions] = useState<Array<{ id: string; username: string; role: string; createdAt: string; expiresAt: string }>>([]);
   const [testSessions, setTestSessions] = useState<Array<any>>([]);
+  const [expandedSessionId, setExpandedSessionId] = useState<string | null>(null);
   const [loadingUsers, setLoadingUsers] = useState<boolean>(true);
   const [loadingSessions, setLoadingSessions] = useState<boolean>(true);
 
@@ -56,6 +57,69 @@ export const AdminUserPanel: React.FC<AdminUserPanelProps> = ({ userSession }) =
     loadSessions();
     loadTestResults();
   }, []);
+
+  // Helper do kondensacji sesji testowych (grupowanie pojedynczych prób testowych)
+  const getCondensedTestSessions = (rawSessions: Array<any>) => {
+    if (!rawSessions || !Array.isArray(rawSessions)) return [];
+
+    const map = new Map<string, any>();
+
+    rawSessions.forEach((s) => {
+      const operator = s.operatorName || s.OperatorName || 'Anonim';
+      const mode = s.mode || s.Mode || 'NoAI';
+      const startTime = s.startTime || s.StartTime || '';
+      const sessionId = s.sessionId || s.SessionId;
+      
+      // Klucz grupowania: sessionId jeśli istnieje, w przeciwnym razie kombinacja z minutą
+      let key = sessionId;
+      if (!key) {
+        const dateKey = startTime ? new Date(startTime).toISOString().substring(0, 16) : 'unknown';
+        key = `${operator}_${mode}_${dateKey}`;
+      }
+
+      const currentCount = s.alertsHandledCount || s.AlertsHandledCount || (s.decisions?.length || s.Decisions?.length || 0);
+      const existing = map.get(key);
+
+      if (!existing) {
+        map.set(key, s);
+      } else {
+        const existingCount = existing.alertsHandledCount || existing.AlertsHandledCount || (existing.decisions?.length || existing.Decisions?.length || 0);
+        if (currentCount >= existingCount) {
+          map.set(key, s);
+        }
+      }
+    });
+
+    return Array.from(map.values()).sort((a, b) => {
+      const tA = new Date(a.startTime || a.StartTime || 0).getTime();
+      const tB = new Date(b.startTime || b.StartTime || 0).getTime();
+      return tB - tA;
+    });
+  };
+
+  const condensedSessions = getCondensedTestSessions(testSessions);
+
+  const formatDuration = (totalSec: number) => {
+    if (!totalSec || totalSec <= 0) return '0 sek';
+    if (totalSec < 60) return `${totalSec} sek`;
+    const mins = Math.floor(totalSec / 60);
+    const secs = totalSec % 60;
+    return `${mins} min ${secs} sek`;
+  };
+
+  const getActionBadge = (action: string) => {
+    const act = (action || '').toLowerCase();
+    if (act.includes('isolate') || act.includes('izoluj')) {
+      return { label: 'Izolacja Hosta', bg: 'rgba(239, 68, 68, 0.2)', color: '#f87171' };
+    }
+    if (act.includes('block') || act.includes('zablokuj')) {
+      return { label: 'Blokada IP', bg: 'rgba(245, 158, 11, 0.2)', color: '#fbbf24' };
+    }
+    if (act.includes('escalat') || act.includes('eskaluj')) {
+      return { label: 'Eskalacja', bg: 'rgba(168, 85, 247, 0.2)', color: '#c084fc' };
+    }
+    return { label: 'Odrzucenie (Dismiss)', bg: 'rgba(100, 116, 139, 0.2)', color: '#94a3b8' };
+  };
 
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -337,10 +401,10 @@ export const AdminUserPanel: React.FC<AdminUserPanelProps> = ({ userSession }) =
                 </div>
                 <div>
                   <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#ffffff' }}>
-                    Wyniki Testów Operatorów (Zestaw 30 Zdarzeń) ({testSessions.length})
+                    Skondensowane Wyniki Testów Operatorów ({condensedSessions.length} sesji)
                   </h3>
                   <p style={{ fontSize: '0.775rem', color: 'var(--text-muted)' }}>
-                    Administracyjny podgląd zarejestrowanych podejść użytkowników i podjętych decyzji
+                    Zagregowany podgląd zakończonych podejść badawczych i statystyk czasowych
                   </p>
                 </div>
               </div>
@@ -349,7 +413,7 @@ export const AdminUserPanel: React.FC<AdminUserPanelProps> = ({ userSession }) =
               </button>
             </div>
 
-            {testSessions.length === 0 ? (
+            {condensedSessions.length === 0 ? (
               <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
                 Brak zarejestrowanych sesji testowych w bazie.
               </div>
@@ -360,40 +424,146 @@ export const AdminUserPanel: React.FC<AdminUserPanelProps> = ({ userSession }) =
                     <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-muted)' }}>
                       <th style={{ padding: '0.65rem 0.85rem' }}>Operator</th>
                       <th style={{ padding: '0.65rem 0.85rem' }}>Tryb Testu</th>
-                      <th style={{ padding: '0.65rem 0.85rem' }}>Przeanalizowano</th>
-                      <th style={{ padding: '0.65rem 0.85rem' }}>Czas Trwania</th>
+                      <th style={{ padding: '0.65rem 0.85rem' }}>Postęp / Zdarzenia</th>
+                      <th style={{ padding: '0.65rem 0.85rem' }}>Czas Łączny</th>
+                      <th style={{ padding: '0.65rem 0.85rem' }}>Śr. Czas / Zdarzenie</th>
                       <th style={{ padding: '0.65rem 0.85rem' }}>Data Rozpoczęcia</th>
+                      <th style={{ padding: '0.65rem 0.85rem', textAlign: 'right' }}>Szczegóły</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {testSessions.map((ts, idx) => (
-                      <tr key={idx} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                        <td style={{ padding: '0.75rem 0.85rem', fontWeight: 600, color: '#ffffff' }}>
-                          {ts.operatorName || ts.OperatorName}
-                        </td>
-                        <td style={{ padding: '0.75rem 0.85rem' }}>
-                          <span style={{
-                            padding: '0.15rem 0.5rem',
-                            borderRadius: '10px',
-                            fontSize: '0.7rem',
-                            fontWeight: 700,
-                            background: (ts.mode || ts.Mode) === 'WithAI' ? 'rgba(168, 85, 247, 0.15)' : 'rgba(59, 130, 246, 0.15)',
-                            color: (ts.mode || ts.Mode) === 'WithAI' ? '#c084fc' : '#60a5fa'
-                          }}>
-                            {(ts.mode || ts.Mode) === 'WithAI' ? 'Test 2 (Wsparcie AI)' : 'Test 1 (Bez AI)'}
-                          </span>
-                        </td>
-                        <td style={{ padding: '0.75rem 0.85rem', fontWeight: 600, color: '#34d399' }}>
-                          {ts.alertsHandledCount || ts.AlertsHandledCount || (ts.decisions?.length || ts.Decisions?.length || 0)} zdarzeń
-                        </td>
-                        <td style={{ padding: '0.75rem 0.85rem', color: '#f3f4f6' }}>
-                          {ts.totalDurationSeconds || ts.TotalDurationSeconds || 0} sek
-                        </td>
-                        <td style={{ padding: '0.75rem 0.85rem', color: 'var(--text-muted)', fontSize: '0.75rem' }}>
-                          {ts.startTime || ts.StartTime ? new Date(ts.startTime || ts.StartTime).toLocaleString() : 'N/A'}
-                        </td>
-                      </tr>
-                    ))}
+                    {condensedSessions.map((ts, idx) => {
+                      const operator = ts.operatorName || ts.OperatorName || 'Anonim';
+                      const mode = ts.mode || ts.Mode || 'NoAI';
+                      const handledCount = ts.alertsHandledCount || ts.AlertsHandledCount || (ts.decisions?.length || ts.Decisions?.length || 0);
+                      const durationSec = ts.totalDurationSeconds || ts.TotalDurationSeconds || 0;
+                      const startTime = ts.startTime || ts.StartTime ? new Date(ts.startTime || ts.StartTime).toLocaleString() : 'N/A';
+                      const decisionsList = ts.decisions || ts.Decisions || [];
+                      const keyId = ts.sessionId || ts.SessionId || `${operator}_${idx}`;
+                      const isExpanded = expandedSessionId === keyId;
+                      const avgSecPerAlert = handledCount > 0 ? (durationSec / handledCount).toFixed(1) : '0';
+
+                      return (
+                        <React.Fragment key={keyId}>
+                          <tr style={{ borderBottom: '1px solid var(--border-color)', background: isExpanded ? 'rgba(30, 41, 59, 0.4)' : 'transparent' }}>
+                            <td style={{ padding: '0.75rem 0.85rem', fontWeight: 600, color: '#ffffff' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <User size={14} color="var(--ai-cyan)" />
+                                <span>{operator}</span>
+                              </div>
+                            </td>
+                            <td style={{ padding: '0.75rem 0.85rem' }}>
+                              <span style={{
+                                padding: '0.2rem 0.6rem',
+                                borderRadius: '10px',
+                                fontSize: '0.725rem',
+                                fontWeight: 700,
+                                background: mode === 'WithAI' ? 'rgba(168, 85, 247, 0.15)' : 'rgba(59, 130, 246, 0.15)',
+                                color: mode === 'WithAI' ? '#c084fc' : '#60a5fa',
+                                border: mode === 'WithAI' ? '1px solid rgba(168, 85, 247, 0.3)' : '1px solid rgba(59, 130, 246, 0.3)'
+                              }}>
+                                {mode === 'WithAI' ? 'Test 2 (Wsparcie AI)' : 'Test 1 (Bez AI)'}
+                              </span>
+                            </td>
+                            <td style={{ padding: '0.75rem 0.85rem' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ fontWeight: 700, color: handledCount >= 30 ? '#34d399' : '#60a5fa' }}>
+                                  {handledCount} / 30
+                                </span>
+                                {handledCount >= 30 ? (
+                                  <span style={{ fontSize: '0.675rem', padding: '0.1rem 0.4rem', borderRadius: '4px', background: 'rgba(16, 185, 129, 0.2)', color: '#34d399', fontWeight: 600 }}>
+                                    Ukończony
+                                  </span>
+                                ) : (
+                                  <span style={{ fontSize: '0.675rem', padding: '0.1rem 0.4rem', borderRadius: '4px', background: 'rgba(59, 130, 246, 0.2)', color: '#60a5fa', fontWeight: 600 }}>
+                                    W trakcie
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td style={{ padding: '0.75rem 0.85rem', color: '#f3f4f6', fontWeight: 500 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <Clock size={13} color="var(--text-muted)" />
+                                <span>{formatDuration(durationSec)}</span>
+                              </div>
+                            </td>
+                            <td style={{ padding: '0.75rem 0.85rem', color: 'var(--text-muted)', fontSize: '0.775rem' }}>
+                              ~{avgSecPerAlert}s / alert
+                            </td>
+                            <td style={{ padding: '0.75rem 0.85rem', color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+                              {startTime}
+                            </td>
+                            <td style={{ padding: '0.75rem 0.85rem', textAlign: 'right' }}>
+                              <button
+                                onClick={() => setExpandedSessionId(isExpanded ? null : keyId)}
+                                className="btn-action"
+                                style={{
+                                  padding: '0.25rem 0.6rem',
+                                  fontSize: '0.725rem',
+                                  background: isExpanded ? 'rgba(6, 182, 212, 0.2)' : 'rgba(30, 41, 59, 0.8)',
+                                  color: isExpanded ? 'var(--ai-cyan)' : 'var(--text-muted)',
+                                  border: '1px solid var(--border-color)'
+                                }}
+                              >
+                                {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                                <span>{isExpanded ? 'Ukryj' : `Decyzje (${decisionsList.length})`}</span>
+                              </button>
+                            </td>
+                          </tr>
+
+                          {/* Accordion Row z rozbiciem na pojedyncze decyzje */}
+                          {isExpanded && (
+                            <tr>
+                              <td colSpan={7} style={{ padding: '0.75rem 1rem 1.25rem 1rem', background: 'rgba(15, 23, 42, 0.6)', borderBottom: '1px solid var(--border-color)' }}>
+                                <div style={{ background: '#0b0f19', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '1rem' }}>
+                                  <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--ai-cyan)', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <BarChart2 size={15} /> Podjęte Decyzje w Sesji (Łącznie: {decisionsList.length})
+                                  </h4>
+
+                                  {decisionsList.length === 0 ? (
+                                    <p style={{ fontSize: '0.775rem', color: 'var(--text-muted)' }}>Brak zarejestrowanych jednostkowych decyzji w tej sesji.</p>
+                                  ) : (
+                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.775rem' }}>
+                                      <thead>
+                                        <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', color: 'var(--text-muted)', textAlign: 'left' }}>
+                                          <th style={{ padding: '0.4rem 0.6rem' }}>#</th>
+                                          <th style={{ padding: '0.4rem 0.6rem' }}>ID Alertu</th>
+                                          <th style={{ padding: '0.4rem 0.6rem' }}>Podjęta Akcja</th>
+                                          <th style={{ padding: '0.4rem 0.6rem' }}>Czas Decyzji</th>
+                                          <th style={{ padding: '0.4rem 0.6rem' }}>Znacznik Czasu</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {decisionsList.map((d: any, dIdx: number) => {
+                                          const badge = getActionBadge(d.actionTaken || d.ActionTaken);
+                                          return (
+                                            <tr key={dIdx} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                                              <td style={{ padding: '0.4rem 0.6rem', color: 'var(--text-muted)' }}>{dIdx + 1}</td>
+                                              <td style={{ padding: '0.4rem 0.6rem', fontWeight: 600, color: '#e2e8f0' }}>{d.alertId || d.AlertId}</td>
+                                              <td style={{ padding: '0.4rem 0.6rem' }}>
+                                                <span style={{ padding: '0.1rem 0.45rem', borderRadius: '6px', fontSize: '0.675rem', fontWeight: 600, background: badge.bg, color: badge.color }}>
+                                                  {badge.label}
+                                                </span>
+                                              </td>
+                                              <td style={{ padding: '0.4rem 0.6rem', color: '#cbd5e1' }}>
+                                                {d.decisionTimeSeconds || d.DecisionTimeSeconds || 0}s
+                                              </td>
+                                              <td style={{ padding: '0.4rem 0.6rem', color: 'var(--text-muted)', fontSize: '0.725rem' }}>
+                                                {d.timestamp || d.Timestamp ? new Date(d.timestamp || d.Timestamp).toLocaleTimeString() : 'N/A'}
+                                              </td>
+                                            </tr>
+                                          );
+                                        })}
+                                      </tbody>
+                                    </table>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

@@ -1,7 +1,10 @@
+using MongoDB.Bson.Serialization.Attributes;
+
 namespace Server.Models;
 
 public class TestSession
 {
+    [BsonId]
     public string SessionId { get; set; } = Guid.NewGuid().ToString();
     public string OperatorName { get; set; } = "Operator_SOC_1";
     public string Mode { get; set; } = "NoAI"; // "NoAI" or "WithAI"
