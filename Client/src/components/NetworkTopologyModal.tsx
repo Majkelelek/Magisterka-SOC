@@ -1,5 +1,5 @@
-import React from 'react';
-import { X, Server, Shield, Monitor, Network, HardDrive, Lock, Info } from 'lucide-react';
+import React, { useEffect } from 'react';
+import { X, Server, Shield, Monitor, Network, Lock, Info } from 'lucide-react';
 import { VICTIM_NETWORK_TOPOLOGY, type HostInfo } from '../data/networkTopology';
 
 interface NetworkTopologyModalProps {
@@ -8,6 +8,17 @@ interface NetworkTopologyModalProps {
 }
 
 export const NetworkTopologyModal: React.FC<NetworkTopologyModalProps> = ({ isOpen, onClose }) => {
+  // Keydown listener to close modal on ESC key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const firewalls = VICTIM_NETWORK_TOPOLOGY.filter(h => h.role === 'Firewall');
@@ -16,33 +27,42 @@ export const NetworkTopologyModal: React.FC<NetworkTopologyModalProps> = ({ isOp
   const workstations = VICTIM_NETWORK_TOPOLOGY.filter(h => h.role === 'Workstation');
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(5, 10, 20, 0.85)',
-      backdropFilter: 'blur(8px)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 99999,
-      padding: '1.25rem'
-    }}>
-      <div style={{
-        backgroundColor: '#0f172a',
-        border: '1px solid rgba(56, 189, 248, 0.35)',
-        borderRadius: '16px',
-        maxWidth: '900px',
-        width: '100%',
-        maxHeight: '90vh',
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(5, 10, 20, 0.88)',
+        backdropFilter: 'blur(10px)',
+        WebkitBackdropFilter: 'blur(10px)',
         display: 'flex',
-        flexDirection: 'column',
-        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.9)',
-        color: '#f8fafc',
-        overflow: 'hidden'
-      }}>
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 999999,
+        padding: '1.25rem',
+        cursor: 'pointer'
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          backgroundColor: '#0c1322',
+          border: '1px solid rgba(56, 189, 248, 0.35)',
+          borderRadius: '16px',
+          maxWidth: '900px',
+          width: '100%',
+          maxHeight: '90vh',
+          display: 'flex',
+          flexDirection: 'column',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.95)',
+          color: '#f8fafc',
+          overflow: 'hidden',
+          cursor: 'default'
+        }}
+      >
         {/* Modal Header */}
         <div style={{
           padding: '1.25rem 1.5rem',
@@ -73,17 +93,22 @@ export const NetworkTopologyModal: React.FC<NetworkTopologyModalProps> = ({ isOp
           </div>
 
           <button
+            type="button"
             onClick={onClose}
             style={{
               background: 'rgba(255, 255, 255, 0.05)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
               color: '#94a3b8',
-              padding: '6px',
+              padding: '8px',
               borderRadius: '8px',
               cursor: 'pointer',
               display: 'flex',
-              alignItems: 'center'
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.15s ease'
             }}
+            onMouseOver={(e) => (e.currentTarget.style.color = '#ffffff')}
+            onMouseOut={(e) => (e.currentTarget.style.color = '#94a3b8')}
           >
             <X size={20} />
           </button>
@@ -167,6 +192,7 @@ export const NetworkTopologyModal: React.FC<NetworkTopologyModalProps> = ({ isOp
           justifyContent: 'flex-end'
         }}>
           <button
+            type="button"
             onClick={onClose}
             style={{
               background: 'linear-gradient(135deg, #38bdf8, #0284c7)',

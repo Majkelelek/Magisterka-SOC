@@ -69,27 +69,18 @@ public class AlertsController : ControllerBase
             }
 
             // Sync with MongoDB Atlas if connected
-            if (_mongoContext?.IsConnectedToMongo == true && _mongoContext.Alerts != null)
+            if (_mongoContext?.IsConnectedToMongo == true && _mongoContext.Alerts != null && fileAlerts.Count > 0)
             {
                 try
                 {
-                    if (fileAlerts.Count > 0)
-                    {
-                        var bulkOps = fileAlerts.Select(a => new MongoDB.Driver.ReplaceOneModel<Alert>(
-                            MongoDB.Driver.Builders<Alert>.Filter.Eq(x => x.Id, a.Id), a) { IsUpsert = true }).ToList();
-                        await _mongoContext.Alerts.BulkWriteAsync(bulkOps);
-                        Console.WriteLine($"[MongoDB Atlas] Zsynchronizowano {fileAlerts.Count} zdarzeń testowych w bazie danych.");
-                    }
-
-                    var mongoAlerts = await _mongoContext.Alerts.Find(MongoDB.Driver.Builders<Alert>.Filter.Empty).ToListAsync();
-                    if (mongoAlerts.Count > 0)
-                    {
-                        return Ok(mongoAlerts.OrderBy(a => a.Id).ToList());
-                    }
+                    var bulkOps = fileAlerts.Select(a => new MongoDB.Driver.ReplaceOneModel<Alert>(
+                        MongoDB.Driver.Builders<Alert>.Filter.Eq(x => x.Id, a.Id), a) { IsUpsert = true }).ToList();
+                    await _mongoContext.Alerts.BulkWriteAsync(bulkOps);
+                    Console.WriteLine($"[MongoDB Atlas] Zsynchronizowano {fileAlerts.Count} zdarzeń testowych w bazie danych.");
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"[MongoDB Atlas] Błąd odczytu/zapisu z bazy: {ex.Message}");
+                    Console.WriteLine($"[MongoDB Atlas] Błąd synchronizacji z bazą: {ex.Message}");
                 }
             }
 

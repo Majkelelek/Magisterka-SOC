@@ -1,185 +1,195 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import type { Alert } from '../types/alert';
 import { NetFlowInspector } from './NetFlowInspector';
-import { getHostInfoByIp } from '../data/networkTopology';
-import { AlertTriangle, ShieldAlert, Terminal, Search, Inbox, PlusCircle, Award, Check, Lock, Server, ArrowUpRight, XCircle } from 'lucide-react';
+import {
+  ShieldAlert,
+  Search,
+  Lock,
+  Server,
+  ArrowUpRight,
+  XCircle,
+  Terminal,
+  Activity,
+  Globe,
+  FileText,
+  Shield,
+  CheckCircle2,
+  AlertTriangle
+} from 'lucide-react';
 
 interface NoAiTestViewProps {
   alerts: Alert[];
-  onActionTaken: (alertId: string, action: string) => void;
-  onAddSampleAlert?: () => void;
-  onFinishTest?: () => void;
+  handledIds?: string[];
+  onAction: (alertId: string, actionTaken: string) => void;
 }
 
-export const NoAiTestView: React.FC<NoAiTestViewProps> = ({ alerts, onActionTaken, onAddSampleAlert, onFinishTest }) => {
-  const [handledIds, setHandledIds] = useState<string[]>([]);
-  const [selectedAlertId, setSelectedAlertId] = useState<string>('');
+export const NoAiTestView: React.FC<NoAiTestViewProps> = ({
+  alerts,
+  handledIds = [],
+  onAction
+}) => {
+  const [selectedAlertId, setSelectedAlertId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedSeverity, setSelectedSeverity] = useState<string>('All');
 
-  // Pozostałe alerty (te, na które operator nie podjął jeszcze decyzji)
-  const remainingAlerts = alerts.filter(a => !handledIds.includes(a.id));
-  const currentAlert = remainingAlerts.find(a => a.id === selectedAlertId) || remainingAlerts[0];
+  const safeHandledIds = handledIds || [];
+  const safeAlerts = alerts || [];
 
-  useEffect(() => {
-    if (remainingAlerts.length > 0 && (!selectedAlertId || handledIds.includes(selectedAlertId))) {
-      setSelectedAlertId(remainingAlerts[0].id);
-    }
-  }, [handledIds, remainingAlerts, selectedAlertId]);
-
-  const handleAction = (actionName: string) => {
-    if (!currentAlert) return;
-    const alertId = currentAlert.id;
-    
-    // Zapisz decyzję w stanie i backendzie
-    onActionTaken(alertId, actionName);
-    setHandledIds(prev => [...prev, alertId]);
-
-    // Powiadom o zakończeniu testu, jeśli to było ostatnie pytanie
-    if (remainingAlerts.length === 1 && onFinishTest) {
-      onFinishTest();
-    }
-  };
-
-  const getSeverityBadge = (severity: string) => {
-    switch (severity?.toLowerCase()) {
-      case 'critical': return <span className="badge-severity badge-critical"><AlertTriangle size={12} /> CRITICAL</span>;
-      case 'high': return <span className="badge-severity badge-high"><AlertTriangle size={12} /> HIGH</span>;
-      case 'medium': return <span className="badge-severity badge-medium"><AlertTriangle size={12} /> MEDIUM</span>;
-      default: return <span className="badge-severity badge-low"><AlertTriangle size={12} /> LOW</span>;
-    }
-  };
-
-  if (alerts.length === 0) {
-    return (
-      <div className="soc-card" style={{ padding: '4rem 2rem', textAlign: 'center' }}>
-        <Inbox size={48} color="var(--text-muted)" style={{ margin: '0 auto 1rem auto', opacity: 0.5 }} />
-        <h3 style={{ fontSize: '1.25rem', marginBottom: '0.5rem', color: '#ffffff' }}>Brak alertów w zestawie testowym</h3>
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1.5rem', maxWidth: '500px', margin: '0 auto 1.5rem auto' }}>
-          Zestaw testowy nie został jeszcze załadowany. Kliknij przycisk poniżej, aby załadować pytania z bazy danych MongoDB.
-        </p>
-        {onAddSampleAlert && (
-          <button className="btn-action btn-ai-primary" onClick={onAddSampleAlert}>
-            <PlusCircle size={16} /> Załaduj Zestaw Testowy
-          </button>
-        )}
-      </div>
-    );
-  }
-
-  // Ekran podsumowania po obsłużeniu wszystkich 30 alertów
-  if (remainingAlerts.length === 0) {
-    return (
-      <div className="soc-card" style={{ padding: '4rem 2rem', textAlign: 'center', maxWidth: '700px', margin: '2rem auto' }}>
-        <div style={{ background: 'rgba(34, 197, 94, 0.15)', padding: '1.5rem', borderRadius: '50%', display: 'inline-flex', marginBottom: '1.5rem' }}>
-          <Award size={64} color="#4ade80" />
-        </div>
-        <h2 style={{ fontSize: '1.75rem', fontWeight: 700, color: '#ffffff', marginBottom: '0.75rem' }}>
-          Test Zakończony!
-        </h2>
-        <p style={{ color: '#cbd5e1', fontSize: '1rem', lineHeight: '1.6', marginBottom: '1.5rem' }}>
-          Przeanalizowałeś wszystkie <strong>{alerts.length}</strong> zdarzeń w trybie <strong>Tradycyjnym (Bez AI)</strong>.
-          Twoje decyzje zostały zapisane w bazie danych. Administrator może teraz przejrzeć wyniki w panelu zarządczym.
-        </p>
-        <div style={{ background: 'rgba(0,0,0,0.3)', padding: '1.25rem', borderRadius: '12px', border: '1px solid #1e293b', marginBottom: '2rem', display: 'flex', justifyContent: 'space-around' }}>
-          <div>
-            <span style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.8rem' }}>Przeanalizowane alerty</span>
-            <strong style={{ fontSize: '1.5rem', color: '#60a5fa' }}>{handledIds.length} / {alerts.length}</strong>
-          </div>
-          <div>
-            <span style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.8rem' }}>Stan testu</span>
-            <strong style={{ fontSize: '1.25rem', color: '#4ade80', display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'center', marginTop: '4px' }}>
-              <Check size={18} /> Zapisano w bazie
-            </strong>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const remainingAlerts = safeAlerts.filter(a => a && a.id && !safeHandledIds.includes(a.id));
+  const currentAlert = remainingAlerts.find(a => a.id === selectedAlertId) || remainingAlerts[0] || null;
 
   const filteredAlerts = remainingAlerts.filter(a => {
-    const matchesSearch = a.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          a.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          a.sourceIp.includes(searchQuery) ||
-                          a.destinationHost.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesSeverity = selectedSeverity === 'All' || a.severity.toLowerCase() === selectedSeverity.toLowerCase();
+    const titleStr = a.title || '';
+    const idStr = a.id || '';
+    const destHostStr = a.destinationHost || '';
+    const sourceIpStr = a.sourceIp || '';
+    const severityStr = a.severity || '';
+
+    const matchesSearch =
+      titleStr.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      idStr.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      destHostStr.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      sourceIpStr.toLowerCase().includes(searchQuery.toLowerCase());
+
+    const matchesSeverity =
+      selectedSeverity === 'All' ||
+      severityStr.toLowerCase() === selectedSeverity.toLowerCase();
+
     return matchesSearch && matchesSeverity;
   });
 
+  const getSeverityBadge = (severity: string) => {
+    const sev = (severity || '').toLowerCase();
+    switch (sev) {
+      case 'critical':
+        return <span className="badge-severity badge-critical"><ShieldAlert size={12} /> CRITICAL</span>;
+      case 'high':
+        return <span className="badge-severity badge-high"><Activity size={12} /> HIGH</span>;
+      case 'medium':
+        return <span className="badge-severity badge-medium">MEDIUM</span>;
+      case 'low':
+        return <span className="badge-severity badge-low">LOW</span>;
+      default:
+        return <span className="badge-severity badge-low">{severity}</span>;
+    }
+  };
+
+  const getHostInfoByIp = (ip: string) => {
+    const topologyMap: Record<string, { name: string; os: string }> = {
+      '192.168.10.50': { name: 'Web Server 16 Public', os: 'Linux IIS' },
+      '205.174.165.68': { name: 'Web Server 16 Public', os: 'Linux IIS' },
+      '192.168.10.51': { name: 'Ubuntu Server 12 Public', os: 'Ubuntu 20.04' },
+      '205.174.165.66': { name: 'Ubuntu Server 12 Public', os: 'Ubuntu 20.04' },
+      '192.168.10.3': { name: 'DNS + DC Server', os: 'Windows Server 2019' },
+      '192.168.10.15': { name: 'Stacja Robocza 15', os: 'Windows 11 Corp' },
+      '192.168.10.14': { name: 'Stacja Robocza 14', os: 'Windows 11 Corp' },
+      '192.168.10.25': { name: 'Serwer Bazodanowy DB-01', os: 'PostgreSQL Linux' }
+    };
+    return topologyMap[ip] || null;
+  };
+
+  const handleAction = (action: string) => {
+    if (currentAlert) {
+      onAction(currentAlert.id, action);
+    }
+  };
+
   return (
     <div>
-      {/* Pasek postępu testu */}
+      {/* Top Banner Postępu Testu */}
       <div style={{
-        background: '#0f172a',
-        border: '1px solid #1e293b',
+        background: 'linear-gradient(135deg, rgba(13, 20, 36, 0.95), rgba(15, 23, 42, 0.9))',
+        border: '1px solid rgba(56, 189, 248, 0.2)',
         borderRadius: '12px',
-        padding: '0.85rem 1.25rem',
-        marginBottom: '1rem',
+        padding: '0.85rem 1.35rem',
+        marginBottom: '1.25rem',
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'space-between'
+        justifyContent: 'space-between',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.4)'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <ShieldAlert size={20} color="#60a5fa" />
-          <span style={{ fontWeight: 600, fontSize: '0.95rem', color: '#f8fafc' }}>
-            Postęp Testu 1 (Bez AI): <strong>{handledIds.length} / {alerts.length}</strong> przeanalizowanych zdarzeń
-          </span>
-        </div>
-        <div style={{ width: '200px', background: '#1e293b', borderRadius: '8px', height: '8px', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div style={{
-            width: `${(handledIds.length / alerts.length) * 100}%`,
-            background: 'linear-gradient(90deg, #3b82f6, #60a5fa)',
-            height: '100%',
-            transition: 'width 0.3s ease'
-          }} />
+            background: 'rgba(56, 189, 248, 0.15)',
+            border: '1px solid rgba(56, 189, 248, 0.35)',
+            padding: '8px',
+            borderRadius: '8px'
+          }}>
+            <ShieldAlert size={20} color="#38bdf8" />
+          </div>
+          <div>
+            <span style={{ fontWeight: 700, fontSize: '0.95rem', color: '#f8fafc', display: 'block' }}>
+              Środowisko Testowe (Tryb Bez AI)
+            </span>
+            <span style={{ fontSize: '0.775rem', color: 'var(--text-muted)' }}>
+              Przeanalizowano: <strong style={{ color: '#38bdf8' }}>{safeHandledIds.length} z {safeAlerts.length}</strong> zdarzeń
+            </span>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div style={{ width: '220px', background: '#090f1d', borderRadius: '8px', height: '9px', border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+            <div style={{
+              width: `${safeAlerts.length > 0 ? (safeHandledIds.length / safeAlerts.length) * 100 : 0}%`,
+              background: 'linear-gradient(90deg, #2563eb, #38bdf8)',
+              height: '100%',
+              borderRadius: '8px',
+              transition: 'width 0.3s ease'
+            }} />
+          </div>
+          <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#38bdf8', fontFamily: 'JetBrains Mono, monospace' }}>
+            {safeAlerts.length > 0 ? Math.round((safeHandledIds.length / safeAlerts.length) * 100) : 0}%
+          </span>
         </div>
       </div>
 
-      <div className="dashboard-grid">
-        {/* Lewa kolumna: Kolejka alertów (Sticky) */}
+      {/* Układ 3-Kolumnowy (Identyczny jak w teście z AI) */}
+      <div className="dashboard-grid-with-ai">
+        {/* Kolumna 1 (Lewa): Kolejka alertów (Sticky Sidebar) */}
         <div className="soc-card sticky-queue">
           <div className="soc-card-header">
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <ShieldAlert size={18} color="var(--accent-blue)" />
-              <span>Kolejka Alertów ({remainingAlerts.length} pozostało)</span>
+              <Activity size={18} color="#38bdf8" />
+              <span>Kolejka Alertów ({remainingAlerts.length})</span>
             </div>
+            <span style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>Na żywo</span>
           </div>
 
-          {/* Wyszukiwarka & Filtr */}
-          <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--border-color)', background: 'rgba(15, 23, 42, 0.6)' }}>
-            <div style={{ position: 'relative', marginBottom: '0.5rem' }}>
-              <Search size={15} style={{ position: 'absolute', left: '10px', top: '10px', color: 'var(--text-muted)' }} />
+          <div style={{ padding: '0.85rem 1rem', borderBottom: '1px solid var(--border-color)', background: 'rgba(9, 15, 29, 0.7)' }}>
+            <div style={{ position: 'relative', marginBottom: '0.6rem' }}>
+              <Search size={14} style={{ position: 'absolute', left: '10px', top: '10px', color: 'var(--text-muted)' }} />
               <input
                 type="text"
-                placeholder="Szukaj IP, hosta, nazwy..."
+                placeholder="Szukaj po IP, nazwie hosta..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 style={{
                   width: '100%',
-                  background: '#0f172a',
-                  border: '1px solid var(--border-color)',
-                  color: 'white',
-                  padding: '0.45rem 0.5rem 0.45rem 2rem',
+                  background: 'var(--bg-input)',
+                  border: '1px solid rgba(56, 189, 248, 0.2)',
+                  color: '#ffffff',
+                  padding: '0.45rem 0.5rem 0.45rem 2.1rem',
                   borderRadius: '6px',
-                  fontSize: '0.8rem'
+                  fontSize: '0.785rem'
                 }}
               />
             </div>
 
-            <div style={{ display: 'flex', gap: '0.35rem' }}>
+            <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
               {['All', 'Critical', 'High', 'Medium', 'Low'].map((sev) => (
                 <button
                   key={sev}
                   onClick={() => setSelectedSeverity(sev)}
                   style={{
-                    background: selectedSeverity === sev ? 'var(--accent-blue)' : '#1e293b',
-                    color: selectedSeverity === sev ? 'white' : 'var(--text-muted)',
-                    border: selectedSeverity === sev ? '1px solid #3b82f6' : '1px solid transparent',
-                    padding: '0.25rem 0.6rem',
-                    borderRadius: '4px',
-                    fontSize: '0.725rem',
+                    background: selectedSeverity === sev ? 'linear-gradient(135deg, #1d4ed8, #0284c7)' : '#090f1d',
+                    color: selectedSeverity === sev ? '#ffffff' : 'var(--text-muted)',
+                    border: selectedSeverity === sev ? '1px solid #38bdf8' : '1px solid rgba(255, 255, 255, 0.08)',
+                    padding: '0.2rem 0.55rem',
+                    borderRadius: '5px',
+                    fontSize: '0.7rem',
                     cursor: 'pointer',
-                    fontWeight: 600
+                    fontWeight: 600,
+                    transition: 'all 0.15s ease'
                   }}
                 >
                   {sev === 'All' ? 'Wszystkie' : sev}
@@ -188,149 +198,203 @@ export const NoAiTestView: React.FC<NoAiTestViewProps> = ({ alerts, onActionTake
             </div>
           </div>
 
-          {/* Lista alertów */}
           <div className="sticky-queue-list">
-            {filteredAlerts.map((alert) => (
-              <div
-                key={alert.id}
-                className={`alert-item ${currentAlert?.id === alert.id ? 'selected' : ''}`}
-                onClick={() => setSelectedAlertId(alert.id)}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
-                  <span className="mono" style={{ fontSize: '0.75rem', color: '#60a5fa', fontWeight: 700 }}>
-                    {alert.id}
-                  </span>
-                  {getSeverityBadge(alert.severity)}
-                </div>
-                <div className="alert-item-title">{alert.title}</div>
-                <div className="alert-item-meta">
-                  <span>Host: {alert.destinationHost}</span>
-                </div>
+            {filteredAlerts.length === 0 ? (
+              <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                Brak nieobsłużonych alertów.
               </div>
-            ))}
+            ) : (
+              filteredAlerts.map((alert) => (
+                <div
+                  key={alert.id}
+                  className={`alert-item ${currentAlert?.id === alert.id ? 'selected' : ''}`}
+                  onClick={() => setSelectedAlertId(alert.id)}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                    <span className="mono" style={{ fontSize: '0.75rem', color: '#38bdf8', fontWeight: 700 }}>
+                      {alert.id}
+                    </span>
+                    {getSeverityBadge(alert.severity)}
+                  </div>
+                  <div className="alert-item-title">{alert.title}</div>
+                  <div className="alert-item-meta">
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <Globe size={12} color="#64748b" /> {alert.destinationHost}
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
 
-        {/* Prawa kolumna: Widok analityczny */}
+        {/* Kolumna 2 (Środek): Telemetria & Opis Incydentu */}
         {currentAlert ? (
-          <div className="soc-card" style={{ minHeight: '600px' }}>
-            <div className="soc-card-header">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Terminal size={18} color="var(--accent-blue)" />
-                <span>Szczegóły Analityczne Incydentu [{currentAlert.id}]</span>
+          <div className="soc-card">
+            <div style={{ padding: '1.25rem 1.5rem', background: 'linear-gradient(180deg, rgba(15, 23, 42, 0.95), rgba(9, 15, 29, 0.95))', borderBottom: '1px solid rgba(56, 189, 248, 0.18)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '0.75rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                  <span className="mono" style={{ background: 'rgba(56, 189, 248, 0.15)', border: '1px solid rgba(56, 189, 248, 0.35)', color: '#38bdf8', padding: '0.2rem 0.6rem', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 700 }}>
+                    {currentAlert.id}
+                  </span>
+                  {getSeverityBadge(currentAlert.severity)}
+                </div>
+
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Terminal size={14} color="#38bdf8" /> EDR / SIEM Console
+                </div>
               </div>
-              <div>{getSeverityBadge(currentAlert.severity)}</div>
+
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ffffff', lineHeight: 1.35 }}>
+                {currentAlert.title}
+              </h2>
             </div>
 
             <div style={{ padding: '1.35rem' }}>
-              {/* Tytuł Incydentu */}
-              <h2 style={{ fontSize: '1.3rem', fontWeight: 800, marginBottom: '1.25rem', color: '#ffffff', lineHeight: 1.3 }}>
-                {currentAlert.title}
-              </h2>
-
-              {/* Panel Decyzyjny Operatora — Umieszczony na samej górze widoku analitycznego */}
-              <div className="decision-panel">
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-                  <span style={{ fontSize: '0.825rem', fontWeight: 700, color: '#f8fafc', textTransform: uppercase => uppercase, letterSpacing: '0.5px' }}>
-                    ⚡ Panel Decyzyjny Operatora SOC
-                  </span>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                    Wybór decyzji automatycznie zamyka alert i przechodzi do kolejnego
-                  </span>
-                </div>
-                <div className="decision-grid">
-                  <button className="btn-action btn-danger" onClick={() => handleAction('Isolate Host / Block')}>
-                    <Lock size={15} /> Izoluj Hosta / Zablokuj
-                  </button>
-
-                  <button className="btn-action btn-warning" onClick={() => handleAction('Investigate / Reset Password')}>
-                    <Server size={15} /> Badaj / Zresetuj Hasło
-                  </button>
-
-                  <button className="btn-action" onClick={() => handleAction('Escalate / Tier 2')}>
-                    <ArrowUpRight size={15} /> Eskaluj do L2
-                  </button>
-
-                  <button className="btn-action" onClick={() => handleAction('Dismiss / False Positive')}>
-                    <XCircle size={15} /> Zignoruj (False Positive)
-                  </button>
-                </div>
-              </div>
-
-              {/* Sekcja 1: Kontekst Incydentu (SIEM / EDR) */}
-              <div style={{ marginBottom: '1.5rem' }}>
-                <div className="soc-section-title">
-                  <ShieldAlert size={16} /> 1. Kontekst Incydentu (SIEM / EDR)
-                </div>
-
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-                  gap: '0.75rem',
-                  background: 'rgba(15, 23, 42, 0.6)',
-                  padding: '1rem',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border-color)',
-                  marginBottom: '1rem',
-                  fontSize: '0.85rem'
-                }}>
-                  <div>
-                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.75rem', fontWeight: 500 }}>Źródłowy IP:</span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginTop: '2px' }}>
-                      <span className="mono" style={{ fontWeight: 600, color: '#38bdf8' }}>{currentAlert.sourceIp}</span>
-                      {(() => {
-                        const hostInfo = getHostInfoByIp(currentAlert.sourceIp);
-                        if (!hostInfo) return null;
-                        return (
-                          <span style={{
-                            fontSize: '0.675rem',
-                            padding: '0.1rem 0.4rem',
-                            borderRadius: '4px',
-                            background: 'rgba(56, 189, 248, 0.15)',
-                            color: '#38bdf8',
-                            border: '1px solid rgba(56, 189, 248, 0.3)',
-                            fontWeight: 600
-                          }}>
-                            {hostInfo.name} ({hostInfo.os})
-                          </span>
-                        );
-                      })()}
-                    </div>
+              {/* Metadane Incydentu */}
+              <div className="incident-metrics-grid">
+                <div className="metric-box">
+                  <span className="metric-lbl">Źródłowy IP</span>
+                  <div className="metric-val">
+                    <span className="mono" style={{ color: '#38bdf8' }}>{currentAlert.sourceIp}</span>
                   </div>
-                  <div>
-                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.75rem', fontWeight: 500 }}>Docelowy Host:</span>
-                    <span className="mono" style={{ fontWeight: 600, color: '#f8fafc', display: 'block', marginTop: '2px' }}>{currentAlert.destinationHost}</span>
+                  {(() => {
+                    const hostInfo = getHostInfoByIp(currentAlert.sourceIp);
+                    if (!hostInfo) return null;
+                    return (
+                      <span style={{ fontSize: '0.675rem', color: '#94a3b8', display: 'block', marginTop: '2px' }}>
+                        {hostInfo.name} ({hostInfo.os})
+                      </span>
+                    );
+                  })()}
+                </div>
+
+                <div className="metric-box">
+                  <span className="metric-lbl">Docelowy Host</span>
+                  <div className="metric-val">
+                    <span className="mono" style={{ fontSize: '0.825rem' }}>{currentAlert.destinationHost}</span>
                   </div>
-                  <div>
-                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.75rem', fontWeight: 500 }}>Użytkownik:</span>
-                    <span className="mono" style={{ color: '#cbd5e1', display: 'block', marginTop: '2px' }}>
+                </div>
+
+                <div className="metric-box">
+                  <span className="metric-lbl">Konto / Użytkownik</span>
+                  <div className="metric-val">
+                    <span style={{ color: '#cbd5e1', fontSize: '0.825rem' }}>
                       {(!currentAlert.userAccount || currentAlert.userAccount.includes('EXTERNAL_ATTACKER') || currentAlert.userAccount.includes('node_'))
                         ? 'Zewnętrzny / Nieokreślono'
                         : currentAlert.userAccount}
                     </span>
                   </div>
-                  <div>
-                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.75rem', fontWeight: 500 }}>Kategoria Incydentu:</span>
-                    <span style={{ color: '#60a5fa', fontWeight: 600, display: 'block', marginTop: '2px' }}>
-                      {currentAlert.category || 'Anomalia Sieciowa (SIEM)'}
+                </div>
+
+                <div className="metric-box">
+                  <span className="metric-lbl">Kategoria SIEM</span>
+                  <div className="metric-val">
+                    <span style={{ color: '#60a5fa', fontSize: '0.85rem' }}>
+                      {currentAlert.category || 'Anomalia Sieciowa'}
                     </span>
                   </div>
                 </div>
+              </div>
 
-                <div>
-                  <h4 style={{ fontSize: '0.825rem', color: 'var(--text-muted)', marginBottom: '0.4rem', fontWeight: 600 }}>Opis Zdarzenia (SIEM/EDR):</h4>
-                  <p style={{ fontSize: '0.9rem', lineHeight: '1.6', color: '#e2e8f0', background: 'rgba(15, 23, 42, 0.5)', padding: '0.9rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                    {currentAlert.description}
-                  </p>
+              {/* Opis Zdarzenia SIEM */}
+              <div style={{ marginBottom: '1.5rem' }}>
+                <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.45rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <FileText size={14} color="#38bdf8" /> Szegółowy Opis Rekordu SIEM / EDR:
+                </div>
+                <div style={{
+                  background: '#060913',
+                  border: '1px solid rgba(56, 189, 248, 0.2)',
+                  borderRadius: '8px',
+                  padding: '1rem 1.15rem',
+                  color: '#e2e8f0',
+                  fontSize: '0.885rem',
+                  lineHeight: '1.6'
+                }}>
+                  {currentAlert.description}
                 </div>
               </div>
 
-              {/* Sekcja 2: Komponent Analityczny NetFlow */}
+              {/* Analizator NetFlow */}
               <div>
-                <div className="soc-section-title">
-                  <Terminal size={16} /> 2. Telemetria & Analiza Ruchu Sieciowego NetFlow
-                </div>
                 <NetFlowInspector alert={currentAlert} />
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {/* Kolumna 3 (Prawa): Dedykowany Prawy Panel Decyzyjny Operatora (Identyczny jak w AI, bez chatu) */}
+        {currentAlert ? (
+          <div className="soc-card sticky-queue" style={{ border: '1px solid rgba(56, 189, 248, 0.35)' }}>
+            <div className="soc-card-header" style={{ background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 58, 138, 0.3))' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Shield size={18} color="#38bdf8" />
+                <span>Panel Decyzyjny Operatora</span>
+              </div>
+              <span className="soc-status-badge" style={{ background: 'rgba(56, 189, 248, 0.15)', borderColor: 'rgba(56, 189, 248, 0.4)', color: '#38bdf8' }}>
+                AKTYWNY
+              </span>
+            </div>
+
+            <div style={{ padding: '1.1rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              {/* Instrukcja Operacyjna */}
+              <div style={{
+                background: 'rgba(9, 15, 29, 0.8)',
+                border: '1px solid rgba(56, 189, 248, 0.2)',
+                borderRadius: '8px',
+                padding: '0.85rem',
+                fontSize: '0.785rem',
+                color: 'var(--text-muted)',
+                lineHeight: '1.5'
+              }}>
+                <div style={{ color: '#38bdf8', fontWeight: 700, marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  ℹ️ Instrukcja Wykonania Decyzji:
+                </div>
+                Przeanalizuj telemetrię po lewej stronie (wpisy SIEM oraz logi NetFlow), a następnie wybierz odpowiednią akcję naprawczą dla tego alertu.
+              </div>
+
+              {/* Panel Przycisków Decyzji */}
+              <div>
+                <div style={{ fontSize: '0.775rem', fontWeight: 700, color: '#ffffff', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  ⚡ Wybierz Działanie Reakcji:
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                  <button
+                    className="btn-action btn-danger"
+                    style={{ width: '100%', justifyContent: 'flex-start', padding: '0.75rem 1rem' }}
+                    onClick={() => handleAction('Isolate Host / Block')}
+                  >
+                    <Lock size={16} />
+                    <span>Izoluj Hosta / Zablokuj Ruch</span>
+                  </button>
+
+                  <button
+                    className="btn-action btn-warning"
+                    style={{ width: '100%', justifyContent: 'flex-start', padding: '0.75rem 1rem' }}
+                    onClick={() => handleAction('Investigate / Reset Password')}
+                  >
+                    <Server size={16} />
+                    <span>Badaj / Zresetuj Hasło Użytkownika</span>
+                  </button>
+
+                  <button
+                    className="btn-action"
+                    style={{ width: '100%', justifyContent: 'flex-start', padding: '0.75rem 1rem' }}
+                    onClick={() => handleAction('Escalate / Tier 2')}
+                  >
+                    <ArrowUpRight size={16} />
+                    <span>Eskaluj Incydent do Analityka L2</span>
+                  </button>
+
+                  <button
+                    className="btn-action"
+                    style={{ width: '100%', justifyContent: 'flex-start', padding: '0.75rem 1rem' }}
+                    onClick={() => handleAction('Dismiss / False Positive')}
+                  >
+                    <XCircle size={16} />
+                    <span>Zignoruj jako Fałszywy Alarm (False Positive)</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>

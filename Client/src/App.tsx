@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import './styles/soc-theme.css';
 import type { Alert, TestSession, UserSession } from './types/alert';
-import { fetchAlerts, fetchTestSet, updateAlertStatus, submitTestSession, logoutUser, verifyCurrentSession } from './services/api';
+import { fetchAlerts, fetchTestSet, updateAlertStatus, submitTestSession, logoutUser, verifyCurrentSession, cleanAlertStrings } from './services/api';
 import { Header } from './components/Header';
 import { HomePage } from './components/HomePage';
 import { NoAiTestView } from './components/NoAiTestView';
@@ -26,21 +26,107 @@ export const App: React.FC = () => {
     return null;
   });
 
-  const [activeTab, setActiveTab] = useState<'home' | 'no-ai' | 'with-ai' | 'test-results' | 'admin-users' | 'admin-questions'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'no-ai' | 'with-ai' | 'test-results' | 'admin-users' | 'admin-questions'>(() => {
+    const saved = sessionStorage.getItem('soc_active_tab');
+    if (saved && ['home', 'no-ai', 'with-ai', 'test-results', 'admin-users', 'admin-questions'].includes(saved)) {
+      return saved as any;
+    }
+    return 'home';
+  });
+
   const [pendingTab, setPendingTab] = useState<'no-ai' | 'with-ai' | null>(null);
   const [isRulesModalOpen, setIsRulesModalOpen] = useState<boolean>(false);
-  const [testStartTime, setTestStartTime] = useState<number | null>(null);
-  const [testSessionId, setTestSessionId] = useState<string | null>(null);
+
+  const [testStartTime, setTestStartTime] = useState<number | null>(() => {
+    const saved = sessionStorage.getItem('soc_test_start_time');
+    return saved ? Number(saved) : null;
+  });
+
+  const [testSessionId, setTestSessionId] = useState<string | null>(() => {
+    return sessionStorage.getItem('soc_test_session_id') || null;
+  });
 
   const [alerts, setAlerts] = useState<Alert[]>([]);
-  const [handledCount, setHandledCount] = useState<number>(0);
+
+  const [handledCount, setHandledCount] = useState<number>(() => {
+    const saved = sessionStorage.getItem('soc_test_handled_count');
+    return saved ? Number(saved) : 0;
+  });
+
   const [loading, setLoading] = useState<boolean>(true);
-  const [decisions, setDecisions] = useState<Array<{ alertId: string; actionTaken: string; decisionTimeSeconds: number; timestamp: string }>>([]);
+
+  const [decisions, setDecisions] = useState<Array<{ alertId: string; actionTaken: string; decisionTimeSeconds: number; timestamp: string }>>(() => {
+    const saved = sessionStorage.getItem('soc_test_decisions');
+    if (saved) {
+      try { return JSON.parse(saved); } catch { return []; }
+    }
+    return [];
+  });
+
+  // Utrwalanie stanu w sessionStorage przy F5 / odświeżaniu
+  useEffect(() => {
+    sessionStorage.setItem('soc_active_tab', activeTab);
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (testStartTime) {
+      sessionStorage.setItem('soc_test_start_time', String(testStartTime));
+    } else {
+      sessionStorage.removeItem('soc_test_start_time');
+    }
+  }, [testStartTime]);
+
+  useEffect(() => {
+    if (testSessionId) {
+      sessionStorage.setItem('soc_test_session_id', testSessionId);
+    } else {
+      sessionStorage.removeItem('soc_test_session_id');
+    }
+  }, [testSessionId]);
+
+  useEffect(() => {
+    sessionStorage.setItem('soc_test_decisions', JSON.stringify(decisions));
+  }, [decisions]);
+
+  useEffect(() => {
+    sessionStorage.setItem('soc_test_handled_count', String(handledCount));
+  }, [handledCount]);
+
+  // Ochrona przed przypadkowym wyjściem/odświeżeniem F5 podczas aktywnego testu
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (activeTab === 'no-ai' || activeTab === 'with-ai') {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [activeTab]);
 
   const loadData = async () => {
     setLoading(true);
-    const data = await fetchAlerts();
-    setAlerts(data);
+    const savedActiveTab = sessionStorage.getItem('soc_active_tab');
+    const savedTestAlerts = sessionStorage.getItem('soc_test_alerts');
+
+    if (savedActiveTab === 'no-ai' || savedActiveTab === 'with-ai') {
+      if (savedTestAlerts) {
+        try {
+          const parsed = JSON.parse(savedTestAlerts);
+          if (Array.isArray(parsed) && parsed.length >= 10) {
+            setAlerts(cleanAlertStrings(parsed));
+            setLoading(false);
+            return;
+          }
+        } catch {}
+      }
+      const testSet = await fetchTestSet();
+      setAlerts(testSet);
+      sessionStorage.setItem('soc_test_alerts', JSON.stringify(testSet));
+    } else {
+      const data = await fetchAlerts();
+      setAlerts(data);
+    }
     setLoading(false);
   };
 
@@ -71,7 +157,6 @@ export const App: React.FC = () => {
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
-    // Interwał 5 minut — JWT jest długożyjący, częstsze zapytania nie są potrzebne
     let intervalId: any = null;
     if (userSession) {
       intervalId = setInterval(async () => {
@@ -80,7 +165,7 @@ export const App: React.FC = () => {
           setUserSession(null);
           setActiveTab('home');
         }
-      }, 5 * 60 * 1000); // 5 minut
+      }, 5 * 60 * 1000);
     }
 
     return () => {
@@ -90,13 +175,13 @@ export const App: React.FC = () => {
     };
   }, [userSession]);
 
-  // Przechwytywanie przełączenia zakładki testowej -> pokazanie modala z zasadami
+  // Przechwytywanie przełączenia zakładki testowej -> pokazanie modala z zasadami tylko jeśli test nie trwał
   const handleTabChange = (tab: 'home' | 'no-ai' | 'with-ai' | 'test-results' | 'admin-users') => {
     if (tab === 'test-results' && userSession?.role !== 'Administrator') {
       setActiveTab('home');
       return;
     }
-    if (tab === 'no-ai' || tab === 'with-ai') {
+    if ((tab === 'no-ai' || tab === 'with-ai') && !testStartTime) {
       setPendingTab(tab);
       setIsRulesModalOpen(true);
     } else {
@@ -104,21 +189,33 @@ export const App: React.FC = () => {
     }
   };
 
-  // Rozpoczęcie testu z poziomu modala zasady
+  // Rozpoczęcie testu z poziomu modala zasad
   const handleStartTest = async () => {
     if (!pendingTab) return;
     setIsRulesModalOpen(false);
     setLoading(true);
 
-    // Pobranie ustandaryzowanego zestawu zdarzeń z serwera (test_pytania.json)
     const testSet = await fetchTestSet();
     setAlerts(testSet);
+    sessionStorage.setItem('soc_test_alerts', JSON.stringify(testSet));
+
     setHandledCount(0);
+    sessionStorage.setItem('soc_test_handled_count', '0');
+
     setDecisions([]);
-    setTestStartTime(Date.now());
+    sessionStorage.setItem('soc_test_decisions', JSON.stringify([]));
+
+    const startTime = Date.now();
+    setTestStartTime(startTime);
+    sessionStorage.setItem('soc_test_start_time', String(startTime));
+
     const newSessionId = crypto.randomUUID();
     setTestSessionId(newSessionId);
+    sessionStorage.setItem('soc_test_session_id', newSessionId);
+
     setActiveTab(pendingTab);
+    sessionStorage.setItem('soc_active_tab', pendingTab);
+
     setLoading(false);
   };
 
@@ -131,6 +228,15 @@ export const App: React.FC = () => {
     await logoutUser();
     setUserSession(null);
     sessionStorage.removeItem('soc_user_session');
+    sessionStorage.removeItem('soc_active_tab');
+    sessionStorage.removeItem('soc_test_start_time');
+    sessionStorage.removeItem('soc_test_session_id');
+    sessionStorage.removeItem('soc_test_decisions');
+    sessionStorage.removeItem('soc_test_handled_count');
+    setDecisions([]);
+    setHandledCount(0);
+    setTestStartTime(null);
+    setTestSessionId(null);
     setActiveTab('home');
   };
 
@@ -263,16 +369,14 @@ export const App: React.FC = () => {
             ) : activeTab === 'no-ai' ? (
               <NoAiTestView
                 alerts={alerts}
-                onActionTaken={handleActionTaken}
-                onAddSampleAlert={handleCreateSampleAlert}
-                onFinishTest={() => console.log('Test 1 Zakończony')}
+                handledIds={decisions.map(d => d.alertId)}
+                onAction={handleActionTaken}
               />
             ) : (
               <AiTestView
                 alerts={alerts}
-                onActionTaken={handleActionTaken}
-                onAddSampleAlert={handleCreateSampleAlert}
-                onFinishTest={() => console.log('Test 2 Zakończony')}
+                handledIds={decisions.map(d => d.alertId)}
+                onAction={handleActionTaken}
               />
             )}
           </>

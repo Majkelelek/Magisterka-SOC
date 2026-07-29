@@ -43,6 +43,18 @@ export async function verifyCurrentSession(): Promise<boolean> {
 
 // ─── Alerts API ───────────────────────────────────────────────
 
+export function cleanAlertStrings<T>(obj: T): T {
+  if (!obj) return obj;
+  try {
+    const json = JSON.stringify(obj);
+    if (json.includes('\uFFFD') || json.includes('')) {
+      const cleanedJson = json.replace(/[\uFFFD]\s*/g, '- ').replace(/-\s*-/g, '-');
+      return JSON.parse(cleanedJson);
+    }
+  } catch {}
+  return obj;
+}
+
 export async function fetchAlerts(): Promise<Alert[]> {
   try {
     const res = await fetch(`${API_BASE_URL}/alerts`, {
@@ -50,7 +62,8 @@ export async function fetchAlerts(): Promise<Alert[]> {
     });
     checkResponseStatus(res);
     if (!res.ok) throw new Error('Błąd połączenia z serwerem');
-    return await res.json();
+    const data = await res.json();
+    return cleanAlertStrings(data);
   } catch (error) {
     console.error('Nie można pobrać alertów z serwera:', error);
     return [];
@@ -64,7 +77,8 @@ export async function fetchTestSet(): Promise<Alert[]> {
     });
     checkResponseStatus(res);
     if (!res.ok) throw new Error('Błąd pobierania pytań testowych');
-    return await res.json();
+    const data = await res.json();
+    return cleanAlertStrings(data);
   } catch (error) {
     console.error('Nie można pobrać zestawu testowego:', error);
     return [];
@@ -207,6 +221,11 @@ export async function sendAiQuery(alertId: string, prompt: string): Promise<stri
   } catch {
     return 'Błąd połączenia z modułem AI backendu.';
   }
+}
+
+export async function askAiAssistant(alertId: string, prompt: string): Promise<{ answer: string }> {
+  const text = await sendAiQuery(alertId, prompt);
+  return { answer: text };
 }
 
 // ─── Authentication API ───────────────────────────────────────
