@@ -77,6 +77,10 @@ export const App: React.FC = () => {
 
   // Przechwytywanie przełączenia zakładki testowej -> pokazanie modala z zasadami
   const handleTabChange = (tab: 'home' | 'no-ai' | 'with-ai' | 'test-results' | 'admin-users') => {
+    if (tab === 'test-results' && userSession?.role !== 'Administrator') {
+      setActiveTab('home');
+      return;
+    }
     if (tab === 'no-ai' || tab === 'with-ai') {
       setPendingTab(tab);
       setIsRulesModalOpen(true);
@@ -186,7 +190,7 @@ export const App: React.FC = () => {
           <LoginPage onLoginSuccess={handleLoginSuccess} />
         ) : activeTab === 'admin-users' ? (
           <AdminUserPanel userSession={userSession} />
-        ) : activeTab === 'test-results' ? (
+        ) : (activeTab === 'test-results' && userSession.role === 'Administrator') ? (
           <TestResultsPage userSession={userSession} />
         ) : (
           <>

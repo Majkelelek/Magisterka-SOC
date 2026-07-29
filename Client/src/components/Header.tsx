@@ -97,13 +97,15 @@ export const Header: React.FC<HeaderProps> = ({
               <span>Test 2: Z AI</span>
             </button>
 
-            <button
-              className={`soc-tab ${activeTab === 'test-results' ? 'active-ai' : ''}`}
-              onClick={() => onTabChange('test-results')}
-            >
-              <BarChart2 size={16} color="#38bdf8" />
-              <span>Wyniki Testów</span>
-            </button>
+            {userSession.role === 'Administrator' && (
+              <button
+                className={`soc-tab ${activeTab === 'test-results' ? 'active-ai' : ''}`}
+                onClick={() => onTabChange('test-results')}
+              >
+                <BarChart2 size={16} color="#38bdf8" />
+                <span>Wyniki Testów</span>
+              </button>
+            )}
 
             {userSession.role === 'Administrator' && (
               <button

@@ -1,5 +1,5 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using MongoDB.Driver;
 using Server.Models;
 using Server.Services;
 
@@ -24,6 +24,7 @@ public class AuthController : ControllerBase
     /// Logowanie operatora — zwraca token sesji zapisany w MongoDB.
     /// </summary>
     [HttpPost("login")]
+    [AllowAnonymous]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
@@ -50,6 +51,7 @@ public class AuthController : ControllerBase
     /// Wylogowanie — unieważnia aktywną sesję w bazie MongoDB (IsRevoked = true).
     /// </summary>
     [HttpPost("logout")]
+    [AllowAnonymous]
     public async Task<IActionResult> Logout()
     {
         var authHeader = Request.Headers["Authorization"].FirstOrDefault();
@@ -64,6 +66,7 @@ public class AuthController : ControllerBase
     /// Rejestracja nowego konta — wymaga ważnego tokena z rolą Administrator.
     /// </summary>
     [HttpPost("register")]
+    [Authorize(Roles = "Administrator")]
     public async Task<IActionResult> Register([FromBody] RegisterRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
@@ -71,22 +74,11 @@ public class AuthController : ControllerBase
             return BadRequest(new { message = "Nazwa użytkownika i hasło są wymagane." });
         }
 
-        var authHeader = Request.Headers["Authorization"].FirstOrDefault();
-        var claims = await _tokenService.ValidateTokenAsync(authHeader);
-
-        if (claims == null)
-        {
-            return Unauthorized(new { message = "Dostęp zabroniony. Wymagane zalogowanie jako Administrator." });
-        }
-
-        if (claims.Role != "Administrator")
-        {
-            return StatusCode(403, new { message = "Dostęp zabroniony. Tylko zalogowany Administrator może dodawać nowych użytkowników." });
-        }
+        var adminName = User.Identity?.Name ?? "Administrator";
 
         try
         {
-            var user = await _authService.RegisterAsync(request.Username, request.Password, request.Role ?? "Użytkownik", claims.Username);
+            var user = await _authService.RegisterAsync(request.Username, request.Password, request.Role ?? "Użytkownik", adminName);
             if (user == null)
             {
                 return Conflict(new { message = $"Użytkownik o nazwie '{request.Username}' już istnieje." });
@@ -104,21 +96,9 @@ public class AuthController : ControllerBase
     /// Lista zarejestrowanych użytkowników — wymaga roli Administrator.
     /// </summary>
     [HttpGet("users")]
+    [Authorize(Roles = "Administrator")]
     public async Task<IActionResult> GetUsers()
     {
-        var authHeader = Request.Headers["Authorization"].FirstOrDefault();
-        var claims = await _tokenService.ValidateTokenAsync(authHeader);
-
-        if (claims == null)
-        {
-            return Unauthorized(new { message = "Brak autoryzacji." });
-        }
-
-        if (claims.Role != "Administrator")
-        {
-            return StatusCode(403, new { message = "Dostęp do listy użytkowników posiada tylko Administrator." });
-        }
-
         var users = await _authService.GetAllUsersAsync();
         var userDtos = users.Select(u => new UserDto(u.Id ?? "", u.Username, u.Email, u.Role)).ToList();
         return Ok(userDtos);
@@ -128,6 +108,7 @@ public class AuthController : ControllerBase
     /// Zmiana hasła wybranego użytkownika — wymaga roli Administrator.
     /// </summary>
     [HttpPut("users/{id}/password")]
+    [Authorize(Roles = "Administrator")]
     public async Task<IActionResult> ChangeUserPassword(string id, [FromBody] ChangePasswordRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.NewPassword))
@@ -135,22 +116,11 @@ public class AuthController : ControllerBase
             return BadRequest(new { message = "Nowe hasło nie może być puste." });
         }
 
-        var authHeader = Request.Headers["Authorization"].FirstOrDefault();
-        var claims = await _tokenService.ValidateTokenAsync(authHeader);
-
-        if (claims == null)
-        {
-            return Unauthorized(new { message = "Brak autoryzacji." });
-        }
-
-        if (claims.Role != "Administrator")
-        {
-            return StatusCode(403, new { message = "Tylko Administrator może zmieniać hasła użytkowników." });
-        }
+        var adminName = User.Identity?.Name ?? "Administrator";
 
         try
         {
-            var success = await _authService.ChangePasswordAsync(id, request.NewPassword, claims.Username);
+            var success = await _authService.ChangePasswordAsync(id, request.NewPassword, adminName);
             if (!success)
             {
                 return NotFound(new { message = "Użytkownik nie został odnaleziony w bazie danych." });
@@ -168,41 +138,30 @@ public class AuthController : ControllerBase
     /// Lista aktywnych sesji (BEZ tokenów) — wymaga roli Administrator.
     /// </summary>
     [HttpGet("sessions")]
+    [Authorize(Roles = "Administrator")]
     public async Task<IActionResult> GetActiveSessions()
     {
-        var authHeader = Request.Headers["Authorization"].FirstOrDefault();
-        var claims = await _tokenService.ValidateTokenAsync(authHeader);
-
-        if (claims == null || claims.Role != "Administrator")
-        {
-            return StatusCode(403, new { message = "Tylko Administrator może przeglądać aktywne sesje." });
-        }
-
         var sessions = await _tokenService.GetActiveSessionsSafeAsync();
         return Ok(sessions);
     }
 
     /// <summary>
-    /// Sprawdzenie aktywności sesji — zwraca 200 OK jeśli sesja jest ważna i nieunieważniona, 401 jeśli unieważniona.
+    /// Sprawdzenie aktywności sesji — zwraca 200 OK jeśli sesja jest ważna i nieunieważniona.
     /// </summary>
     [HttpGet("verify")]
-    public async Task<IActionResult> VerifySession()
+    [Authorize]
+    public IActionResult VerifySession()
     {
-        var authHeader = Request.Headers["Authorization"].FirstOrDefault();
-        var claims = await _tokenService.ValidateTokenAsync(authHeader);
-
-        if (claims == null)
-        {
-            return Unauthorized(new { message = "Sesja wygasła lub została unieważniona przez Administratora." });
-        }
-
-        return Ok(new { valid = true, username = claims.Username, role = claims.Role });
+        var username = User.Identity?.Name ?? "";
+        var role = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.Role)?.Value ?? "Użytkownik";
+        return Ok(new { valid = true, username, role });
     }
 
     /// <summary>
-    /// Status połączenia z bazą danych — minimalny zestaw informacji (bez wrażliwych danych).
+    /// Status połączenia z bazą danych.
     /// </summary>
     [HttpGet("status")]
+    [AllowAnonymous]
     public IActionResult GetStatus()
     {
         return Ok(new
