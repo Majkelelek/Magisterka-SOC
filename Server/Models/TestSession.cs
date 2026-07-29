@@ -21,4 +21,9 @@ public class AlertDecision
     public string ActionTaken { get; set; } = string.Empty; // "IsolateHost", "BlockIP", "Escalate", "Dismiss"
     public int DecisionTimeSeconds { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+
+    // Ground-truth z test_pytania.json — zapisywane przy każdej decyzji
+    public bool IsThreat { get; set; }
+    public string CorrectAction { get; set; } = string.Empty;
+    public string Category { get; set; } = string.Empty;
 }

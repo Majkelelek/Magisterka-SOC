@@ -130,11 +130,15 @@ export const App: React.FC = () => {
     const now = Date.now();
     const decisionTime = testStartTime ? Math.max(1, Math.round((now - testStartTime) / 1000)) : 10;
 
+    const currentAlert = alerts.find(a => a.id === alertId);
     const newDecision = {
       alertId,
       actionTaken: actionName,
       decisionTimeSeconds: decisionTime,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      isThreat: currentAlert?.isThreat ?? false,
+      correctAction: currentAlert?.correctAction || '',
+      category: currentAlert?.category || ''
     };
 
     const updatedDecisions = [...decisions, newDecision];

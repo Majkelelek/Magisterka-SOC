@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { fetchTestSessions, fetchRegisteredUsers, deleteTestSession, deleteAllTestSessions } from '../services/api';
+import { fetchTestSessions, fetchRegisteredUsers, deleteTestSession, deleteAllTestSessions, fetchTestSet } from '../services/api';
 import type { UserSession } from '../types/alert';
 import { 
   BarChart2, 
@@ -36,24 +36,64 @@ interface UserGroup {
   overallAccuracy: number;
 }
 
-// Pomocnicza dynamiczna weryfikacja trafności decyzji operatora dla zestawu 75 alertów badawczych
-const checkDecisionAccuracy = (alertId: string, actionTaken: string) => {
-  const normId = (alertId || '').toUpperCase().trim();
+// Pomocnicza dynamiczna weryfikacja trafności decyzji operatora względem wzorca zestawu testowego
+const checkDecisionAccuracy = (dOrAlertId: any, actionTakenArg?: string, alertsMap: Record<string, any> = {}) => {
+  let alertId = '';
+  let actionTaken = '';
+  let decisionObj: any = null;
+
+  if (typeof dOrAlertId === 'object' && dOrAlertId !== null) {
+    decisionObj = dOrAlertId;
+    alertId = dOrAlertId.alertId || dOrAlertId.AlertId || '';
+    actionTaken = dOrAlertId.actionTaken || dOrAlertId.ActionTaken || '';
+  } else {
+    alertId = String(dOrAlertId || '');
+    actionTaken = String(actionTakenArg || '');
+  }
+
+  const normId = alertId.toUpperCase().trim();
   const numMatch = normId.match(/\d+/);
   const num = numMatch ? parseInt(numMatch[0], 10) : 0;
 
-  // Próbki 1-15 to BENIGN (Ruch prawidłowy -> False Positive / Dismiss / Zignoruj)
-  // Próbki 16-75 to Ataki (DDoS, Bot, PortScan, Infiltration, Web Attacks, Patator, DoS, Heartbleed -> Izoluj / Zablokuj / Eskaluj)
-  const isThreat = num > 15 || num === 0;
-  const actionLower = (actionTaken || '').toLowerCase();
+  let matchedAlert = alertsMap[normId];
+  if (!matchedAlert && num > 0) {
+    matchedAlert = alertsMap[`ALT-${num.toString().padStart(3, '0')}`] || alertsMap[`ALT-${num}`] || alertsMap[`${num}`];
+  }
 
+  let isThreat = false;
+  let rawCorrectAction = '';
+
+  if (decisionObj && (decisionObj.isThreat !== undefined || decisionObj.IsThreat !== undefined)) {
+    isThreat = decisionObj.isThreat ?? decisionObj.IsThreat;
+    rawCorrectAction = decisionObj.correctAction || decisionObj.CorrectAction || '';
+  } else if (matchedAlert) {
+    isThreat = matchedAlert.isThreat ?? matchedAlert.IsThreat ?? false;
+    rawCorrectAction = matchedAlert.correctAction || matchedAlert.CorrectAction || '';
+  } else {
+    // If not found in map yet, check if num matches
+    isThreat = num > 0 ? (alertsMap[`ALT-${num}`]?.isThreat ?? false) : false;
+  }
+
+  let correctActionLabel = "Odrzucenie (Fałszywy Alarm)";
+  if (!isThreat) {
+    correctActionLabel = "Odrzucenie (Fałszywy Alarm)";
+  } else if (rawCorrectAction.includes('Escalate')) {
+    correctActionLabel = "Eskalacja (Tier 2)";
+  } else {
+    correctActionLabel = "Izolacja Hosta / Blokada";
+  }
+
+  const actionLower = (actionTaken || '').toLowerCase();
   let isCorrect = false;
-  const correctActionLabel = isThreat ? "Izolacja Hosta / Blokada / Eskalacja" : "Odrzucenie (Fałszywy Alarm)";
 
   if (!isThreat) {
     isCorrect = actionLower.includes('dismiss') || actionLower.includes('odrzuć') || actionLower.includes('zignoruj') || actionLower.includes('false');
   } else {
-    isCorrect = actionLower.includes('isolate') || actionLower.includes('izoluj') || actionLower.includes('block') || actionLower.includes('zablokuj') || actionLower.includes('escalat') || actionLower.includes('eskaluj');
+    if (correctActionLabel.includes('Eskalacja')) {
+      isCorrect = actionLower.includes('escalat') || actionLower.includes('eskaluj') || actionLower.includes('isolate') || actionLower.includes('izoluj') || actionLower.includes('block') || actionLower.includes('zablokuj');
+    } else {
+      isCorrect = actionLower.includes('isolate') || actionLower.includes('izoluj') || actionLower.includes('block') || actionLower.includes('zablokuj') || actionLower.includes('escalat') || actionLower.includes('eskaluj');
+    }
   }
 
   return {
@@ -66,6 +106,7 @@ const checkDecisionAccuracy = (alertId: string, actionTaken: string) => {
 export const TestResultsPage: React.FC<TestResultsPageProps> = ({ userSession }) => {
   const [rawTestSessions, setRawTestSessions] = useState<Array<any>>([]);
   const [registeredUsers, setRegisteredUsers] = useState<Array<any>>([]);
+  const [alertsMap, setAlertsMap] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState<boolean>(true);
 
   // States for expandable accordions (domyślnie WSZYSTKO zwinięte: {})
@@ -82,12 +123,31 @@ export const TestResultsPage: React.FC<TestResultsPageProps> = ({ userSession })
   const loadData = async () => {
     setLoading(true);
     try {
-      const [sessionsData, usersData] = await Promise.all([
+      const [sessionsData, usersData, testAlerts] = await Promise.all([
         fetchTestSessions(),
-        fetchRegisteredUsers()
+        fetchRegisteredUsers(),
+        fetchTestSet()
       ]);
       setRawTestSessions(sessionsData || []);
       setRegisteredUsers(usersData || []);
+
+      if (Array.isArray(testAlerts)) {
+        const aMap: Record<string, any> = {};
+        testAlerts.forEach((a: any) => {
+          if (a.id) {
+            const rawId = String(a.id).toUpperCase().trim();
+            aMap[rawId] = a;
+            const numMatch = rawId.match(/\d+/);
+            if (numMatch) {
+              const num = parseInt(numMatch[0], 10);
+              aMap[`ALT-${num}`] = a;
+              aMap[`ALT-${num.toString().padStart(3, '0')}`] = a;
+              aMap[`${num}`] = a;
+            }
+          }
+        });
+        setAlertsMap(aMap);
+      }
     } catch (err) {
       console.error('Błąd podczas ładowania wyników testów:', err);
     } finally {
@@ -216,7 +276,7 @@ export const TestResultsPage: React.FC<TestResultsPageProps> = ({ userSession })
       // Statystyki dokładności decyzji
       decisionsList.forEach((d: any) => {
         group.totalDecisionsCount += 1;
-        const acc = checkDecisionAccuracy(d.alertId || d.AlertId, d.actionTaken || d.ActionTaken);
+        const acc = checkDecisionAccuracy(d, undefined, alertsMap);
         if (acc.isCorrect) {
           group.totalCorrectDecisionsCount += 1;
         }
@@ -230,7 +290,7 @@ export const TestResultsPage: React.FC<TestResultsPageProps> = ({ userSession })
     return Array.from(groupMap.values())
       .filter(g => g.sessions.length > 0)
       .sort((a, b) => b.sessions.length - a.sessions.length);
-  }, [condensedAll, registeredUsers]);
+  }, [condensedAll, registeredUsers, alertsMap]);
 
   const toggleUserExpanded = (username: string) => {
     setExpandedUsers(prev => ({
@@ -586,7 +646,7 @@ export const TestResultsPage: React.FC<TestResultsPageProps> = ({ userSession })
                             // Obliczanie statystyk trafności dla sesji
                             let sessionCorrectCount = 0;
                             decisionsList.forEach((d: any) => {
-                              const acc = checkDecisionAccuracy(d.alertId || d.AlertId, d.actionTaken || d.ActionTaken);
+                              const acc = checkDecisionAccuracy(d.alertId || d.AlertId, d.actionTaken || d.ActionTaken, alertsMap);
                               if (acc.isCorrect) sessionCorrectCount += 1;
                             });
 
@@ -731,6 +791,7 @@ export const TestResultsPage: React.FC<TestResultsPageProps> = ({ userSession })
                                               <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', color: 'var(--text-muted)', textAlign: 'left' }}>
                                                 <th style={{ padding: '0.35rem 0.5rem' }}>#</th>
                                                 <th style={{ padding: '0.35rem 0.5rem' }}>ID Alertu</th>
+                                                <th style={{ padding: '0.35rem 0.5rem' }}>Typ Ataku / Zdarzenia</th>
                                                 <th style={{ padding: '0.35rem 0.5rem' }}>Podjęta Akcja Operatora</th>
                                                 <th style={{ padding: '0.35rem 0.5rem' }}>Prawidłowa Odpowiedź (Wzorzec)</th>
                                                 <th style={{ padding: '0.35rem 0.5rem' }}>Ocena Decyzji</th>
@@ -743,7 +804,9 @@ export const TestResultsPage: React.FC<TestResultsPageProps> = ({ userSession })
                                                 const alertId = d.alertId || d.AlertId;
                                                 const actionTaken = d.actionTaken || d.ActionTaken;
                                                 const badge = getActionBadge(actionTaken);
-                                                const evalAccuracy = checkDecisionAccuracy(alertId, actionTaken);
+                                                const evalAccuracy = checkDecisionAccuracy(d, undefined, alertsMap);
+                                                const categoryLabel = d.category || d.Category || alertsMap[String(alertId).toUpperCase().trim()]?.category || '–';
+                                                const isThreatRow = evalAccuracy.isThreat;
 
                                                 return (
                                                   <tr key={dIdx} style={{ 
@@ -752,6 +815,16 @@ export const TestResultsPage: React.FC<TestResultsPageProps> = ({ userSession })
                                                   }}>
                                                     <td style={{ padding: '0.35rem 0.5rem', color: 'var(--text-muted)' }}>{dIdx + 1}</td>
                                                     <td style={{ padding: '0.35rem 0.5rem', fontWeight: 600, color: '#e2e8f0' }}>{alertId}</td>
+                                                    <td style={{ padding: '0.35rem 0.5rem' }}>
+                                                      <span style={{ 
+                                                        padding: '0.08rem 0.45rem', borderRadius: '5px', fontSize: '0.65rem', fontWeight: 600,
+                                                        background: isThreatRow ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.12)',
+                                                        color: isThreatRow ? '#fca5a5' : '#6ee7b7',
+                                                        border: `1px solid ${isThreatRow ? 'rgba(239,68,68,0.3)' : 'rgba(16,185,129,0.3)'}`
+                                                      }}>
+                                                        {categoryLabel}
+                                                      </span>
+                                                    </td>
                                                     <td style={{ padding: '0.35rem 0.5rem' }}>
                                                       <span style={{ padding: '0.08rem 0.4rem', borderRadius: '5px', fontSize: '0.65rem', fontWeight: 600, background: badge.bg, color: badge.color }}>
                                                         {badge.label}

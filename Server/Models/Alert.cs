@@ -15,6 +15,10 @@ public class Alert
     public string Description { get; set; } = string.Empty;
     public List<string> RawLogs { get; set; } = new();
 
+    // Pola ewaluacji testu (ground-truth z test_pytania.json)
+    public bool IsThreat { get; set; }
+    public string CorrectAction { get; set; } = string.Empty;
+
     // AI Enrichment fields
     public string AiSummary { get; set; } = string.Empty;
     public int AiConfidenceScore { get; set; }

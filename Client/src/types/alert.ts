@@ -28,6 +28,9 @@ export interface OperatorDecision {
   actionTaken: string;
   decisionTimeSeconds: number;
   timestamp: string;
+  isThreat?: boolean;
+  correctAction?: string;
+  category?: string;
 }
 
 export interface TestSession {
