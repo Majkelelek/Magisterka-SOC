@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { fetchTestSessions, fetchRegisteredUsers } from '../services/api';
+import { fetchTestSessions, fetchRegisteredUsers, deleteTestSession, deleteAllTestSessions } from '../services/api';
 import type { UserSession } from '../types/alert';
 import { 
   BarChart2, 
@@ -15,7 +15,9 @@ import {
   Activity,
   CheckCircle,
   XCircle,
-  TrendingUp
+  TrendingUp,
+  Trash2,
+  AlertTriangle
 } from 'lucide-react';
 
 interface TestResultsPageProps {
@@ -34,76 +36,34 @@ interface UserGroup {
   overallAccuracy: number;
 }
 
-// Baza wiedzy - Wzorce poprawnych odpowiedzi dla 30 alertów badawczych z wls_test_pytania.json
-const GROUND_TRUTH: Record<string, { isThreat: boolean; correctActionLabel: string; allowedKeywords: string[] }> = {
-  "TEST-ALT-001": { isThreat: true, correctActionLabel: "Izolacja Hosta / Blokada", allowedKeywords: ["isolate", "izoluj", "block", "zablokuj"] },
-  "TEST-ALT-002": { isThreat: false, correctActionLabel: "Odrzucenie (Fałszywy Alarm)", allowedKeywords: ["dismiss", "odrzuć", "odrzucenie"] },
-  "TEST-ALT-003": { isThreat: false, correctActionLabel: "Odrzucenie (Fałszywy Alarm)", allowedKeywords: ["dismiss", "odrzuć", "odrzucenie"] },
-  "TEST-ALT-004": { isThreat: false, correctActionLabel: "Odrzucenie (Fałszywy Alarm)", allowedKeywords: ["dismiss", "odrzuć", "odrzucenie"] },
-  "TEST-ALT-005": { isThreat: true, correctActionLabel: "Eskalacja / Analiza", allowedKeywords: ["escalat", "eskaluj", "isolate", "izoluj"] },
-  "TEST-ALT-006": { isThreat: true, correctActionLabel: "Izolacja Hosta / Blokada", allowedKeywords: ["isolate", "izoluj", "block", "zablokuj"] },
-  "TEST-ALT-007": { isThreat: true, correctActionLabel: "Eskalacja / Analiza", allowedKeywords: ["escalat", "eskaluj", "block", "zablokuj"] },
-  "TEST-ALT-008": { isThreat: false, correctActionLabel: "Odrzucenie (Fałszywy Alarm)", allowedKeywords: ["dismiss", "odrzuć", "odrzucenie"] },
-  "TEST-ALT-009": { isThreat: true, correctActionLabel: "Izolacja Hosta / Blokada", allowedKeywords: ["isolate", "izoluj", "block", "zablokuj"] },
-  "TEST-ALT-010": { isThreat: false, correctActionLabel: "Odrzucenie (Fałszywy Alarm)", allowedKeywords: ["dismiss", "odrzuć", "odrzucenie"] },
-  "TEST-ALT-011": { isThreat: true, correctActionLabel: "Eskalacja / Blokada", allowedKeywords: ["escalat", "eskaluj", "block", "zablokuj"] },
-  "TEST-ALT-012": { isThreat: false, correctActionLabel: "Odrzucenie (Fałszywy Alarm)", allowedKeywords: ["dismiss", "odrzuć", "odrzucenie"] },
-  "TEST-ALT-013": { isThreat: true, correctActionLabel: "Izolacja Hosta / Blokada", allowedKeywords: ["isolate", "izoluj", "block", "zablokuj"] },
-  "TEST-ALT-014": { isThreat: false, correctActionLabel: "Odrzucenie (Fałszywy Alarm)", allowedKeywords: ["dismiss", "odrzuć", "odrzucenie"] },
-  "TEST-ALT-015": { isThreat: true, correctActionLabel: "Izolacja Hosta / Blokada", allowedKeywords: ["isolate", "izoluj", "block", "zablokuj"] },
-  "TEST-ALT-016": { isThreat: false, correctActionLabel: "Odrzucenie (Fałszywy Alarm)", allowedKeywords: ["dismiss", "odrzuć", "odrzucenie"] },
-  "TEST-ALT-017": { isThreat: true, correctActionLabel: "Izolacja Hosta / Blokada", allowedKeywords: ["isolate", "izoluj", "block", "zablokuj"] },
-  "TEST-ALT-018": { isThreat: false, correctActionLabel: "Odrzucenie (Fałszywy Alarm)", allowedKeywords: ["dismiss", "odrzuć", "odrzucenie"] },
-  "TEST-ALT-019": { isThreat: true, correctActionLabel: "Eskalacja / Izolacja", allowedKeywords: ["escalat", "eskaluj", "isolate", "izoluj"] },
-  "TEST-ALT-020": { isThreat: false, correctActionLabel: "Odrzucenie (Fałszywy Alarm)", allowedKeywords: ["dismiss", "odrzuć", "odrzucenie"] },
-  "TEST-ALT-021": { isThreat: true, correctActionLabel: "Izolacja Hosta / Blokada", allowedKeywords: ["isolate", "izoluj", "block", "zablokuj"] },
-  "TEST-ALT-022": { isThreat: false, correctActionLabel: "Odrzucenie (Fałszywy Alarm)", allowedKeywords: ["dismiss", "odrzuć", "odrzucenie"] },
-  "TEST-ALT-023": { isThreat: true, correctActionLabel: "Izolacja Hosta / Blokada", allowedKeywords: ["isolate", "izoluj", "block", "zablokuj"] },
-  "TEST-ALT-024": { isThreat: false, correctActionLabel: "Odrzucenie (Fałszywy Alarm)", allowedKeywords: ["dismiss", "odrzuć", "odrzucenie"] },
-  "TEST-ALT-025": { isThreat: true, correctActionLabel: "Izolacja Hosta / Blokada", allowedKeywords: ["isolate", "izoluj", "block", "zablokuj"] },
-  "TEST-ALT-026": { isThreat: false, correctActionLabel: "Odrzucenie (Fałszywy Alarm)", allowedKeywords: ["dismiss", "odrzuć", "odrzucenie"] },
-  "TEST-ALT-027": { isThreat: true, correctActionLabel: "Izolacja Hosta / Blokada", allowedKeywords: ["isolate", "izoluj", "block", "zablokuj"] },
-  "TEST-ALT-028": { isThreat: false, correctActionLabel: "Odrzucenie (Fałszywy Alarm)", allowedKeywords: ["dismiss", "odrzuć", "odrzucenie"] },
-  "TEST-ALT-029": { isThreat: true, correctActionLabel: "Izolacja Hosta / Blokada", allowedKeywords: ["isolate", "izoluj", "block", "zablokuj"] },
-  "TEST-ALT-030": { isThreat: false, correctActionLabel: "Odrzucenie (Fałszywy Alarm)", allowedKeywords: ["dismiss", "odrzuć", "odrzucenie"] }
-};
-
-// Pomocnicza weryfikacja trafności decyzji operatora względem wzorca
+// Pomocnicza dynamiczna weryfikacja trafności decyzji operatora dla zestawu 75 alertów badawczych
 const checkDecisionAccuracy = (alertId: string, actionTaken: string) => {
   const normId = (alertId || '').toUpperCase().trim();
-  let matchKey = normId;
+  const numMatch = normId.match(/\d+/);
+  const num = numMatch ? parseInt(numMatch[0], 10) : 0;
 
-  if (/^\d+$/.test(normId)) {
-    const num = parseInt(normId, 10);
-    matchKey = `TEST-ALT-${num.toString().padStart(3, '0')}`;
-  } else if (!normId.startsWith('TEST-ALT-')) {
-    const numMatch = normId.match(/\d+/);
-    if (numMatch) {
-      const num = parseInt(numMatch[0], 10);
-      matchKey = `TEST-ALT-${num.toString().padStart(3, '0')}`;
-    }
-  }
-
-  const truth = GROUND_TRUTH[matchKey];
-  if (!truth) {
-    return {
-      correctActionLabel: 'N/A',
-      isCorrect: true,
-      isThreat: false
-    };
-  }
-
+  // Próbki 1-15 to BENIGN (Ruch prawidłowy -> False Positive / Dismiss / Zignoruj)
+  // Próbki 16-75 to Ataki (DDoS, Bot, PortScan, Infiltration, Web Attacks, Patator, DoS, Heartbleed -> Izoluj / Zablokuj / Eskaluj)
+  const isThreat = num > 15 || num === 0;
   const actionLower = (actionTaken || '').toLowerCase();
-  const isCorrect = truth.allowedKeywords.some(kw => actionLower.includes(kw));
+
+  let isCorrect = false;
+  const correctActionLabel = isThreat ? "Izolacja Hosta / Blokada / Eskalacja" : "Odrzucenie (Fałszywy Alarm)";
+
+  if (!isThreat) {
+    isCorrect = actionLower.includes('dismiss') || actionLower.includes('odrzuć') || actionLower.includes('zignoruj') || actionLower.includes('false');
+  } else {
+    isCorrect = actionLower.includes('isolate') || actionLower.includes('izoluj') || actionLower.includes('block') || actionLower.includes('zablokuj') || actionLower.includes('escalat') || actionLower.includes('eskaluj');
+  }
 
   return {
-    correctActionLabel: truth.correctActionLabel,
+    correctActionLabel,
     isCorrect,
-    isThreat: truth.isThreat
+    isThreat
   };
 };
 
-export const TestResultsPage: React.FC<TestResultsPageProps> = () => {
+export const TestResultsPage: React.FC<TestResultsPageProps> = ({ userSession }) => {
   const [rawTestSessions, setRawTestSessions] = useState<Array<any>>([]);
   const [registeredUsers, setRegisteredUsers] = useState<Array<any>>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -111,6 +71,13 @@ export const TestResultsPage: React.FC<TestResultsPageProps> = () => {
   // States for expandable accordions (domyślnie WSZYSTKO zwinięte: {})
   const [expandedUsers, setExpandedUsers] = useState<Record<string, boolean>>({});
   const [expandedSessions, setExpandedSessions] = useState<Record<string, boolean>>({});
+
+  // Deletion state for Administrator
+  const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
+  const [showClearAllModal, setShowClearAllModal] = useState<boolean>(false);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
+
+  const isAdmin = userSession?.role === 'Administrator';
 
   const loadData = async () => {
     setLoading(true);
@@ -125,6 +92,41 @@ export const TestResultsPage: React.FC<TestResultsPageProps> = () => {
       console.error('Błąd podczas ładowania wyników testów:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteSingleSession = async (sessionId: string) => {
+    if (!sessionId) return;
+    setIsDeleting(true);
+    try {
+      const success = await deleteTestSession(sessionId);
+      if (success) {
+        await loadData();
+      } else {
+        alert('Błąd podczas usuwania sesji testowej.');
+      }
+    } catch (err) {
+      console.error('Błąd podczas usuwania sesji:', err);
+    } finally {
+      setIsDeleting(false);
+      setSessionToDelete(null);
+    }
+  };
+
+  const handleDeleteAllSessions = async () => {
+    setIsDeleting(true);
+    try {
+      const success = await deleteAllTestSessions();
+      if (success) {
+        await loadData();
+      } else {
+        alert('Błąd podczas czyszczenia bazy sesji.');
+      }
+    } catch (err) {
+      console.error('Błąd podczas czyszczenia sesji:', err);
+    } finally {
+      setIsDeleting(false);
+      setShowClearAllModal(false);
     }
   };
 
@@ -339,17 +341,39 @@ export const TestResultsPage: React.FC<TestResultsPageProps> = () => {
               Wyniki Testów Badawczych i Trafność Akcji Operatorów ({usersWithTestsCount} Operatorów, {totalSessionsCount} Sesji)
             </h2>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '0.2rem', margin: 0 }}>
-              Porównanie akcji operatorów z wzorcowymi odpowiedziami z pliku wls_test_pytania.json oraz ocena wpływu asystenta AI.
+              Porównanie akcji operatorów z wzorcowymi odpowiedziami z bazy zdarzeń oraz ocena wpływu asystenta AI.
             </p>
           </div>
 
-          <button
-            onClick={loadData}
-            className="btn-action"
-            style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.775rem', padding: '0.35rem 0.75rem' }}
-          >
-            <RefreshCw size={13} /> Odśwież Dane
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {isAdmin && totalSessionsCount > 0 && (
+              <button
+                onClick={() => setShowClearAllModal(true)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontSize: '0.775rem',
+                  padding: '0.35rem 0.75rem',
+                  background: 'rgba(239, 68, 68, 0.15)',
+                  color: '#f87171',
+                  border: '1px solid rgba(239, 68, 68, 0.35)',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontWeight: 600
+                }}
+              >
+                <Trash2 size={13} /> Wyczyść Wszystkie Wyniki Testów
+              </button>
+            )}
+            <button
+              onClick={loadData}
+              className="btn-action"
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.775rem', padding: '0.35rem 0.75rem' }}
+            >
+              <RefreshCw size={13} /> Odśwież Dane
+            </button>
+          </div>
         </div>
       </div>
 
@@ -598,10 +622,10 @@ export const TestResultsPage: React.FC<TestResultsPageProps> = () => {
                                   </td>
                                   <td style={{ padding: '0.55rem 0.65rem' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                      <span style={{ fontWeight: 700, fontSize: '0.825rem', color: handledCount >= 30 ? '#34d399' : '#60a5fa' }}>
-                                        {handledCount} / 30
+                                      <span style={{ fontWeight: 700, fontSize: '0.825rem', color: handledCount >= 75 ? '#34d399' : '#60a5fa' }}>
+                                        {handledCount} / 75
                                       </span>
-                                      {handledCount >= 30 ? (
+                                      {handledCount >= 75 ? (
                                         <span style={{ fontSize: '0.625rem', padding: '0.08rem 0.35rem', borderRadius: '4px', background: 'rgba(16, 185, 129, 0.2)', color: '#34d399', fontWeight: 600 }}>
                                           Ukończony
                                         </span>
@@ -642,21 +666,46 @@ export const TestResultsPage: React.FC<TestResultsPageProps> = () => {
                                     {startTime}
                                   </td>
                                   <td style={{ padding: '0.55rem 0.65rem', textAlign: 'right' }}>
-                                    <button
-                                      onClick={() => toggleSessionExpanded(sessionId)}
-                                      className="btn-action"
-                                      style={{
-                                        padding: '0.2rem 0.5rem',
-                                        fontSize: '0.7rem',
-                                        background: isSessionExpanded ? 'rgba(6, 182, 212, 0.2)' : 'rgba(30, 41, 59, 0.8)',
-                                        color: isSessionExpanded ? 'var(--ai-cyan)' : 'var(--text-muted)',
-                                        border: '1px solid var(--border-color)',
-                                        borderRadius: '5px'
-                                      }}
-                                    >
-                                      {isSessionExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                                      <span>{isSessionExpanded ? 'Ukryj' : `Decyzje (${decisionsList.length})`}</span>
-                                    </button>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
+                                      <button
+                                        onClick={() => toggleSessionExpanded(sessionId)}
+                                        className="btn-action"
+                                        style={{
+                                          padding: '0.2rem 0.5rem',
+                                          fontSize: '0.7rem',
+                                          background: isSessionExpanded ? 'rgba(6, 182, 212, 0.2)' : 'rgba(30, 41, 59, 0.8)',
+                                          color: isSessionExpanded ? 'var(--ai-cyan)' : 'var(--text-muted)',
+                                          border: '1px solid var(--border-color)',
+                                          borderRadius: '5px'
+                                        }}
+                                      >
+                                        {isSessionExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                                        <span>{isSessionExpanded ? 'Ukryj' : `Decyzje (${decisionsList.length})`}</span>
+                                      </button>
+
+                                      {isAdmin && (
+                                        <button
+                                          onClick={() => setSessionToDelete(sessionId)}
+                                          title="Usuń tę sesję z bazy danych"
+                                          style={{
+                                            padding: '0.2rem 0.55rem',
+                                            fontSize: '0.7rem',
+                                            background: 'rgba(239, 68, 68, 0.15)',
+                                            color: '#f87171',
+                                            border: '1px solid rgba(239, 68, 68, 0.35)',
+                                            borderRadius: '5px',
+                                            cursor: 'pointer',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '4px',
+                                            fontWeight: 600
+                                          }}
+                                        >
+                                          <Trash2 size={12} />
+                                          <span>Usuń</span>
+                                        </button>
+                                      )}
+                                    </div>
                                   </td>
                                 </tr>
 
@@ -751,6 +800,173 @@ export const TestResultsPage: React.FC<TestResultsPageProps> = () => {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Modal Potwierdzenia Usuwania Pojedynczej Sesji */}
+      {sessionToDelete && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(5, 10, 20, 0.85)',
+          backdropFilter: 'blur(6px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '1rem'
+        }}>
+          <div style={{
+            backgroundColor: '#0f172a',
+            border: '1px solid rgba(239, 68, 68, 0.4)',
+            borderRadius: '14px',
+            maxWidth: '500px',
+            width: '100%',
+            padding: '1.75rem',
+            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.8)',
+            color: '#f8fafc'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '1rem' }}>
+              <div style={{ background: 'rgba(239, 68, 68, 0.2)', padding: '10px', borderRadius: '10px', display: 'flex' }}>
+                <AlertTriangle size={24} color="#f87171" />
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700, color: '#ffffff' }}>
+                  Potwierdź Usunięcie Sesji Testowej
+                </h3>
+                <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Operacja wymaga uprawnień Administratora</span>
+              </div>
+            </div>
+
+            <p style={{ fontSize: '0.9rem', lineHeight: '1.5', color: '#cbd5e1', marginBottom: '1.5rem' }}>
+              Czy na pewno chcesz usunąć wybraną sesję testową z bazy danych? Ta czynność nieodwracalnie usunie podjęte decyzje oraz wynik czasowy tej próby.
+            </p>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button
+                onClick={() => setSessionToDelete(null)}
+                disabled={isDeleting}
+                style={{
+                  background: 'transparent',
+                  border: '1px solid #334155',
+                  color: '#94a3b8',
+                  padding: '0.6rem 1.25rem',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                  fontSize: '0.875rem'
+                }}
+              >
+                Anuluj
+              </button>
+              <button
+                onClick={() => handleDeleteSingleSession(sessionToDelete)}
+                disabled={isDeleting}
+                style={{
+                  background: '#dc2626',
+                  color: 'white',
+                  border: 'none',
+                  padding: '0.6rem 1.25rem',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontWeight: 700,
+                  fontSize: '0.875rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                <Trash2 size={16} /> {isDeleting ? 'Usuwanie...' : 'Usuń Sesję'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Potwierdzenia Czyszczenia Wszystkich Sesji */}
+      {showClearAllModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(5, 10, 20, 0.85)',
+          backdropFilter: 'blur(6px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '1rem'
+        }}>
+          <div style={{
+            backgroundColor: '#0f172a',
+            border: '1px solid rgba(239, 68, 68, 0.5)',
+            borderRadius: '14px',
+            maxWidth: '520px',
+            width: '100%',
+            padding: '1.75rem',
+            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.9)',
+            color: '#f8fafc'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '1rem' }}>
+              <div style={{ background: 'rgba(239, 68, 68, 0.25)', padding: '12px', borderRadius: '12px', display: 'flex' }}>
+                <AlertTriangle size={28} color="#ef4444" />
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: '#ffffff' }}>
+                  Wyczyścić WSZYSTKIE Wyniki Testów?
+                </h3>
+                <span style={{ fontSize: '0.8rem', color: '#f87171', fontWeight: 600 }}>OSTRZEŻENIE: Całkowite czyszczenie bazy wyników</span>
+              </div>
+            </div>
+
+            <p style={{ fontSize: '0.9rem', lineHeight: '1.5', color: '#cbd5e1', marginBottom: '1.5rem' }}>
+              Czy na pewno chcesz <strong>usunąć wszystkie wyniki testów ({totalSessionsCount} sesji)</strong> ze wszystkich kont użytkowników z bazy danych? Wszystkie zapamiętane podejścia, wskaźniki dokładności i statystyki czasowe zostaną bezpowrotnie skasowane.
+            </p>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button
+                onClick={() => setShowClearAllModal(false)}
+                disabled={isDeleting}
+                style={{
+                  background: 'transparent',
+                  border: '1px solid #334155',
+                  color: '#94a3b8',
+                  padding: '0.65rem 1.25rem',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                  fontSize: '0.875rem'
+                }}
+              >
+                Anuluj
+              </button>
+              <button
+                onClick={handleDeleteAllSessions}
+                disabled={isDeleting}
+                style={{
+                  background: '#dc2626',
+                  color: 'white',
+                  border: 'none',
+                  padding: '0.65rem 1.5rem',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontWeight: 700,
+                  fontSize: '0.875rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  boxShadow: '0 4px 14px rgba(220, 38, 38, 0.4)'
+                }}
+              >
+                <Trash2 size={16} /> {isDeleting ? 'Usuwanie...' : 'Tak, Wyczyść Wszystkie Wyniki'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

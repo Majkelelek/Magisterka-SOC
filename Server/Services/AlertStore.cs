@@ -116,4 +116,54 @@ public class AlertStore
 
         return condensedSessions;
     }
+
+    public bool DeleteTestSession(string sessionId)
+    {
+        bool removedInMemory = false;
+        lock (_sessions)
+        {
+            int removedCount = _sessions.RemoveAll(s => s.SessionId == sessionId || 
+                $"{s.OperatorName}_{s.Mode}_{s.StartTime:yyyyMMddHHmm}" == sessionId);
+            removedInMemory = removedCount > 0;
+        }
+
+        if (_mongoContext?.IsConnectedToMongo == true && _mongoContext.TestSessions != null)
+        {
+            try
+            {
+                var filter = Builders<TestSession>.Filter.Or(
+                    Builders<TestSession>.Filter.Eq(s => s.SessionId, sessionId),
+                    Builders<TestSession>.Filter.Regex(s => s.SessionId, new MongoDB.Bson.BsonRegularExpression(sessionId, "i"))
+                );
+                var deleteResult = _mongoContext.TestSessions.DeleteMany(filter);
+                return deleteResult.DeletedCount > 0 || removedInMemory;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[AlertStore] Błąd usuwania sesji z MongoDB: {ex.Message}");
+            }
+        }
+
+        return removedInMemory;
+    }
+
+    public void ClearAllTestSessions()
+    {
+        lock (_sessions)
+        {
+            _sessions.Clear();
+        }
+
+        if (_mongoContext?.IsConnectedToMongo == true && _mongoContext.TestSessions != null)
+        {
+            try
+            {
+                _mongoContext.TestSessions.DeleteMany(_ => true);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[AlertStore] Błąd czyszczenia wszystkich sesji w MongoDB: {ex.Message}");
+            }
+        }
+    }
 }

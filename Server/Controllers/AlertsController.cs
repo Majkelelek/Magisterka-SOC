@@ -55,10 +55,18 @@ public class AlertsController : ControllerBase
     {
         try
         {
-            string testSetPath = Path.Combine(Directory.GetCurrentDirectory(), "Data", "wls_test_pytania.json");
+            string testSetPath = Path.Combine(Directory.GetCurrentDirectory(), "Data", "test_pytania.json");
             if (!System.IO.File.Exists(testSetPath))
             {
-                testSetPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "wls_test_pytania.json");
+                testSetPath = Path.Combine(Directory.GetCurrentDirectory(), "Data", "netflow_test_pytania.json");
+            }
+            if (!System.IO.File.Exists(testSetPath))
+            {
+                testSetPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "test_pytania.json");
+            }
+            if (!System.IO.File.Exists(testSetPath))
+            {
+                testSetPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "netflow_test_pytania.json");
             }
 
             if (System.IO.File.Exists(testSetPath))
@@ -71,7 +79,7 @@ public class AlertsController : ControllerBase
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[AlertsController] Błąd wls_test_pytania.json: {ex.Message}");
+            Console.WriteLine($"[AlertsController] Błąd odczytu zestawu testowego: {ex.Message}");
         }
 
         return Ok(_alertStore.GetAllAlerts().Take(30).ToList());
@@ -97,6 +105,26 @@ public class AlertsController : ControllerBase
     public ActionResult<IEnumerable<TestSession>> GetSessions()
     {
         return Ok(_alertStore.GetTestSessions());
+    }
+
+    [HttpDelete("session/all")]
+    [Authorize(Roles = "Administrator")]
+    public ActionResult DeleteAllSessions()
+    {
+        _alertStore.ClearAllTestSessions();
+        return Ok(new { message = "Wszystkie wyniki testów zostały pomyślnie usunięte." });
+    }
+
+    [HttpDelete("session/{sessionId}")]
+    [Authorize(Roles = "Administrator")]
+    public ActionResult DeleteSession(string sessionId)
+    {
+        bool deleted = _alertStore.DeleteTestSession(sessionId);
+        if (!deleted)
+        {
+            return NotFound(new { message = $"Sesja testowa o ID '{sessionId}' nie została odnaleziona." });
+        }
+        return Ok(new { message = $"Sesja testowa '{sessionId}' została usunięta." });
     }
 }
 

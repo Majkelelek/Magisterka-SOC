@@ -467,10 +467,10 @@ export const AdminUserPanel: React.FC<AdminUserPanelProps> = ({ userSession }) =
                             </td>
                             <td style={{ padding: '0.75rem 0.85rem' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <span style={{ fontWeight: 700, color: handledCount >= 30 ? '#34d399' : '#60a5fa' }}>
-                                  {handledCount} / 30
+                                <span style={{ fontWeight: 700, color: handledCount >= 75 ? '#34d399' : '#60a5fa' }}>
+                                  {handledCount} / 75
                                 </span>
-                                {handledCount >= 30 ? (
+                                {handledCount >= 75 ? (
                                   <span style={{ fontSize: '0.675rem', padding: '0.1rem 0.4rem', borderRadius: '4px', background: 'rgba(16, 185, 129, 0.2)', color: '#34d399', fontWeight: 600 }}>
                                     Ukończony
                                   </span>

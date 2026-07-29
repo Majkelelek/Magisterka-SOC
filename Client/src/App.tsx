@@ -95,7 +95,7 @@ export const App: React.FC = () => {
     setIsRulesModalOpen(false);
     setLoading(true);
 
-    // Pobranie 30 ustandaryzowanych zdarzeń z pliku wls_test_pytania.json
+    // Pobranie ustandaryzowanego zestawu zdarzeń z serwera (test_pytania.json)
     const testSet = await fetchTestSet();
     setAlerts(testSet);
     setHandledCount(0);
@@ -233,7 +233,7 @@ export const App: React.FC = () => {
             {loading ? (
               <div style={{ padding: '4rem', textAlign: 'center', color: 'var(--text-muted)' }}>
                 <BarChart2 size={40} className="pulse-dot" style={{ margin: '0 auto 1rem auto' }} />
-                <p>Ładowanie zestawu pytań testowych z pliku wls_test_pytania.json...</p>
+                <p>Ładowanie zestawu 30 pytań testowych z pliku wynik.json...</p>
               </div>
             ) : activeTab === 'home' ? (
               <HomePage

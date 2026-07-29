@@ -124,6 +124,30 @@ export async function fetchTestSessions(): Promise<TestSession[]> {
   }
 }
 
+export async function deleteTestSession(sessionId: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/alerts/session/${encodeURIComponent(sessionId)}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function deleteAllTestSessions(): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/alerts/session/all`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 // ─── AI API ───────────────────────────────────────────────────
 
 export async function sendAiQuery(alertId: string, prompt: string): Promise<string> {

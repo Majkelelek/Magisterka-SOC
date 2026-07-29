@@ -12,6 +12,10 @@ export interface Alert {
   description: string;
   rawLogs: string[];
   
+  // Pola ewaluacji (testu)
+  isThreat?: boolean;
+  correctAction?: string;
+
   // Pola wzbogacone przez AI (dla widoku Z AI)
   aiSummary?: string;
   aiConfidenceScore?: number;

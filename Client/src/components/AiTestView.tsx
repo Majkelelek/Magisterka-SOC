@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import type { Alert } from '../types/alert';
 import { sendAiQuery } from '../services/api';
+import { NetFlowInspector } from './NetFlowInspector';
 import { Bot, Sparkles, AlertTriangle, Send, Brain, PlusCircle, Inbox, Award, Check, Lock, Server, ArrowUpRight, XCircle } from 'lucide-react';
 
 interface AiTestViewProps {
@@ -70,7 +71,7 @@ export const AiTestView: React.FC<AiTestViewProps> = ({ alerts, onActionTaken, o
         <Inbox size={48} color="var(--text-muted)" style={{ margin: '0 auto 1rem auto', opacity: 0.5 }} />
         <h3 style={{ fontSize: '1.25rem', marginBottom: '0.5rem', color: '#ffffff' }}>Brak alertów w zestawie testowym</h3>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1.5rem', maxWidth: '500px', margin: '0 auto 1.5rem auto' }}>
-          Zestaw testowy nie został jeszcze załadowany. Kliknij przycisk poniżej, aby załadować pytań z pliku <code>wls_test_pytania.json</code>.
+          Zestaw testowy nie został jeszcze załadowany. Kliknij przycisk poniżej, aby załadować pytania z pliku <code>wynik.json</code>.
         </p>
         {onAddSampleAlert && (
           <button className="btn-action btn-ai-primary" onClick={onAddSampleAlert}>
@@ -221,7 +222,7 @@ export const AiTestView: React.FC<AiTestViewProps> = ({ alerts, onActionTaken, o
                   <Sparkles size={16} /> Podsumowanie Generatywne AI:
                 </div>
                 <p style={{ fontSize: '0.9rem', lineHeight: '1.5', color: '#f1f5f9', margin: 0 }}>
-                  {currentAlert.aiSummary || 'AI dokonuje automatycznej syntezy surowych rejestrów z bazy LANL 2017...'}
+                  {currentAlert.aiSummary || 'AI dokonuje automatycznej syntezy surowych rejestrów z bazy wynik.json...'}
                 </p>
               </div>
 
@@ -248,15 +249,8 @@ export const AiTestView: React.FC<AiTestViewProps> = ({ alerts, onActionTaken, o
                 </div>
               </div>
 
-              {/* Szczegóły Surowych Logów */}
-              <div style={{ marginBottom: '1.25rem' }}>
-                <h4 style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>Surowe Logi Zdarzenia (LANL 2017):</h4>
-                <div style={{ background: '#070a12', padding: '0.75rem', borderRadius: '6px', border: '1px solid #1f293d', maxHeight: '130px', overflowY: 'auto' }}>
-                  {currentAlert.rawLogs?.map((l, i) => (
-                    <div key={i} className="mono" style={{ fontSize: '0.75rem', color: '#38bdf8' }}>{l}</div>
-                  ))}
-                </div>
-              </div>
+              {/* Komponent Analityczny NetFlow */}
+              <NetFlowInspector alert={currentAlert} />
 
               {/* Czaty / Pytań do Copilota */}
               <div style={{ marginBottom: '1.25rem', background: '#0f172a', borderRadius: '8px', padding: '0.85rem', border: '1px solid #1e293b' }}>

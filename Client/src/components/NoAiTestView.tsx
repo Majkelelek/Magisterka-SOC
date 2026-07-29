@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import type { Alert } from '../types/alert';
+import { NetFlowInspector } from './NetFlowInspector';
+import { getHostInfoByIp } from '../data/networkTopology';
 import { AlertTriangle, ShieldAlert, Terminal, Lock, Server, ArrowUpRight, XCircle, Search, Inbox, PlusCircle, Award, Check } from 'lucide-react';
 
 interface NoAiTestViewProps {
@@ -54,7 +56,7 @@ export const NoAiTestView: React.FC<NoAiTestViewProps> = ({ alerts, onActionTake
         <Inbox size={48} color="var(--text-muted)" style={{ margin: '0 auto 1rem auto', opacity: 0.5 }} />
         <h3 style={{ fontSize: '1.25rem', marginBottom: '0.5rem', color: '#ffffff' }}>Brak alertów w zestawie testowym</h3>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1.5rem', maxWidth: '500px', margin: '0 auto 1.5rem auto' }}>
-          Zestaw testowy nie został jeszcze załadowany. Kliknij przycisk poniżej, aby załadować pytań z pliku <code>wls_test_pytania.json</code>.
+          Zestaw testowy nie został jeszcze załadowany. Kliknij przycisk poniżej, aby załadować pytania z pliku <code>wynik.json</code>.
         </p>
         {onAddSampleAlert && (
           <button className="btn-action btn-ai-primary" onClick={onAddSampleAlert}>
@@ -238,7 +240,26 @@ export const NoAiTestView: React.FC<NoAiTestViewProps> = ({ alerts, onActionTake
               }}>
                 <div>
                   <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.75rem' }}>Źródłowy IP:</span>
-                  <span className="mono" style={{ fontWeight: 600, color: '#60a5fa' }}>{currentAlert.sourceIp}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                    <span className="mono" style={{ fontWeight: 600, color: '#60a5fa' }}>{currentAlert.sourceIp}</span>
+                    {(() => {
+                      const hostInfo = getHostInfoByIp(currentAlert.sourceIp);
+                      if (!hostInfo) return null;
+                      return (
+                        <span style={{
+                          fontSize: '0.675rem',
+                          padding: '0.1rem 0.4rem',
+                          borderRadius: '4px',
+                          background: 'rgba(56, 189, 248, 0.15)',
+                          color: '#38bdf8',
+                          border: '1px solid rgba(56, 189, 248, 0.3)',
+                          fontWeight: 600
+                        }}>
+                          {hostInfo.name} ({hostInfo.os})
+                        </span>
+                      );
+                    })()}
+                  </div>
                 </div>
                 <div>
                   <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.75rem' }}>Docelowy Host:</span>
@@ -261,23 +282,8 @@ export const NoAiTestView: React.FC<NoAiTestViewProps> = ({ alerts, onActionTake
                 </p>
               </div>
 
-              <div style={{ marginBottom: '1.5rem' }}>
-                <h4 style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>Surowe Logi Bezpieczeństwa (LANL 2017):</h4>
-                <div style={{
-                  background: '#070a12',
-                  border: '1px solid #1f293d',
-                  borderRadius: '8px',
-                  padding: '0.85rem',
-                  maxHeight: '180px',
-                  overflowY: 'auto'
-                }}>
-                  {currentAlert.rawLogs?.map((log, idx) => (
-                    <div key={idx} className="mono" style={{ fontSize: '0.775rem', color: '#38bdf8', marginBottom: '0.35rem', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
-                      {log}
-                    </div>
-                  ))}
-                </div>
-              </div>
+              {/* Komponent Analityczny NetFlow */}
+              <NetFlowInspector alert={currentAlert} />
 
               {/* Przyciski Decyzji Operatora */}
               <div>

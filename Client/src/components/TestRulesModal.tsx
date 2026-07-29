@@ -68,7 +68,7 @@ export const TestRulesModal: React.FC<TestRulesModalProps> = ({
           <div style={{ display: 'flex', gap: '12px' }}>
             <Clock size={20} color="#38bdf8" style={{ flexShrink: 0, marginTop: '2px' }} />
             <div>
-              <strong>Zestaw 30 zdarzeń:</strong> Przeanalizujesz 30 wyselekcjonowanych zdarzeń z autentycznej bazy <em>Los Alamos National Laboratory (LANL 2017)</em> – od groźnych incydentów po fałszywe alarmy (False Positive).
+              <strong>Zestaw zdarzeń:</strong> Przeanalizujesz 75 wyselekcjonowanych zdarzeń z autentycznego zestawu incydentów bezpieczeństwa – od groźnych ataków po rutynowy ruch (False Positive).
             </div>
           </div>
 
