@@ -1,10 +1,10 @@
 import React from 'react';
-import { Shield, Bot, Eye, UserCheck, Home, LogOut, Database, Users, BarChart2 } from 'lucide-react';
+import { Shield, Bot, Eye, UserCheck, Home, LogOut, Database, Users, BarChart2, HelpCircle } from 'lucide-react';
 import type { UserSession } from '../types/alert';
 
 interface HeaderProps {
-  activeTab: 'home' | 'no-ai' | 'with-ai' | 'test-results' | 'admin-users';
-  onTabChange: (tab: 'home' | 'no-ai' | 'with-ai' | 'test-results' | 'admin-users') => void;
+  activeTab: 'home' | 'no-ai' | 'with-ai' | 'test-results' | 'admin-users' | 'admin-questions';
+  onTabChange: (tab: 'home' | 'no-ai' | 'with-ai' | 'test-results' | 'admin-users' | 'admin-questions') => void;
   userSession: UserSession | null;
   onLogout: () => void;
 }
@@ -69,6 +69,16 @@ export const Header: React.FC<HeaderProps> = ({
               >
                 <BarChart2 size={16} color="#38bdf8" />
                 <span>Wyniki Testów</span>
+              </button>
+            )}
+
+            {userSession.role === 'Administrator' && (
+              <button
+                className={`soc-tab ${activeTab === 'admin-questions' ? 'active-ai' : ''}`}
+                onClick={() => onTabChange('admin-questions')}
+              >
+                <HelpCircle size={16} color="#38bdf8" />
+                <span style={{ color: '#38bdf8' }}>Zarządzanie Pytaniami</span>
               </button>
             )}
 

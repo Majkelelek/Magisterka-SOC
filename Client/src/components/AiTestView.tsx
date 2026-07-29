@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import type { Alert } from '../types/alert';
 import { sendAiQuery } from '../services/api';
 import { NetFlowInspector } from './NetFlowInspector';
-import { Bot, Sparkles, AlertTriangle, Send, Brain, PlusCircle, Inbox, Award, Check, Lock, Server, ArrowUpRight, XCircle } from 'lucide-react';
+import { getHostInfoByIp } from '../data/networkTopology';
+import { Bot, Sparkles, AlertTriangle, Send, Brain, PlusCircle, Inbox, Award, Check, Lock, Server, ArrowUpRight, XCircle, Search } from 'lucide-react';
 
 interface AiTestViewProps {
   alerts: Alert[];
@@ -14,6 +15,8 @@ interface AiTestViewProps {
 export const AiTestView: React.FC<AiTestViewProps> = ({ alerts, onActionTaken, onAddSampleAlert, onFinishTest }) => {
   const [handledIds, setHandledIds] = useState<string[]>([]);
   const [selectedAlertId, setSelectedAlertId] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [selectedSeverity, setSelectedSeverity] = useState<string>('All');
 
   // Chat Assistant State
   const [chatMessages, setChatMessages] = useState<Array<{ sender: 'user' | 'ai'; text: string; time: string }>>([]);
@@ -71,7 +74,7 @@ export const AiTestView: React.FC<AiTestViewProps> = ({ alerts, onActionTaken, o
         <Inbox size={48} color="var(--text-muted)" style={{ margin: '0 auto 1rem auto', opacity: 0.5 }} />
         <h3 style={{ fontSize: '1.25rem', marginBottom: '0.5rem', color: '#ffffff' }}>Brak alertów w zestawie testowym</h3>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1.5rem', maxWidth: '500px', margin: '0 auto 1.5rem auto' }}>
-          Zestaw testowy nie został jeszcze załadowany. Kliknij przycisk poniżej, aby załadować pytania z pliku <code>wynik.json</code>.
+          Zestaw testowy nie został jeszcze załadowany. Kliknij przycisk poniżej, aby załadować pytania z bazy danych MongoDB.
         </p>
         {onAddSampleAlert && (
           <button className="btn-action btn-ai-primary" onClick={onAddSampleAlert}>
@@ -82,7 +85,7 @@ export const AiTestView: React.FC<AiTestViewProps> = ({ alerts, onActionTaken, o
     );
   }
 
-  // Ekran podsumowania po obsłużeniu wszystkich 30 alertów
+  // Ekran podsumowania po obsłużeniu wszystkich alertów
   if (remainingAlerts.length === 0) {
     return (
       <div className="soc-card" style={{ padding: '4rem 2rem', textAlign: 'center', maxWidth: '700px', margin: '2rem auto' }}>
@@ -90,7 +93,7 @@ export const AiTestView: React.FC<AiTestViewProps> = ({ alerts, onActionTaken, o
           <Award size={64} color="#c084fc" />
         </div>
         <h2 style={{ fontSize: '1.75rem', fontWeight: 700, color: '#ffffff', marginBottom: '0.75rem' }}>
-          Test 2 (z AI Copilot) Zakończony!
+          Test 2 (Z AI) Zakończony!
         </h2>
         <p style={{ color: '#cbd5e1', fontSize: '1rem', lineHeight: '1.6', marginBottom: '1.5rem' }}>
           Przeanalizowałeś wszystkie <strong>{alerts.length}</strong> zdarzeń ze wsparciem sztucznej inteligencji.
@@ -112,6 +115,15 @@ export const AiTestView: React.FC<AiTestViewProps> = ({ alerts, onActionTaken, o
     );
   }
 
+  const filteredAlerts = remainingAlerts.filter(a => {
+    const matchesSearch = a.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          a.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          a.sourceIp.includes(searchQuery) ||
+                          a.destinationHost.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSeverity = selectedSeverity === 'All' || a.severity.toLowerCase() === selectedSeverity.toLowerCase();
+    return matchesSearch && matchesSeverity;
+  });
+
   return (
     <div>
       {/* Pasek postępu testu */}
@@ -128,7 +140,7 @@ export const AiTestView: React.FC<AiTestViewProps> = ({ alerts, onActionTaken, o
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <Sparkles size={20} color="#c084fc" />
           <span style={{ fontWeight: 600, fontSize: '0.95rem', color: '#f8fafc' }}>
-            Postęp Testu 2 (Wsparcie AI): <strong>{handledIds.length} / {alerts.length}</strong> przeanalizowanych zdarzeń
+            Postęp Testu 2: <strong>{handledIds.length} / {alerts.length}</strong> przeanalizowanych zdarzeń
           </span>
         </div>
         <div style={{ width: '200px', background: '#1e293b', borderRadius: '8px', height: '8px', overflow: 'hidden' }}>
@@ -147,12 +159,56 @@ export const AiTestView: React.FC<AiTestViewProps> = ({ alerts, onActionTaken, o
           <div className="soc-card-header">
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Bot size={18} color="var(--accent-purple)" />
-              <span>Kolejka Alertów z AI Copilot ({remainingAlerts.length})</span>
+              <span>Kolejka Alertów ({remainingAlerts.length} pozostało)</span>
             </div>
           </div>
 
-          <div style={{ maxHeight: '680px', overflowY: 'auto' }}>
-            {remainingAlerts.map((alert) => (
+          {/* Wyszukiwarka & Filtr */}
+          <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.2)' }}>
+            <div style={{ position: 'relative', marginBottom: '0.5rem' }}>
+              <Search size={15} style={{ position: 'absolute', left: '10px', top: '10px', color: 'var(--text-muted)' }} />
+              <input
+                type="text"
+                placeholder="Szukaj IP, hosta, nazwy..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={{
+                  width: '100%',
+                  background: '#1a2332',
+                  border: '1px solid var(--border-color)',
+                  color: 'white',
+                  padding: '0.45rem 0.5rem 0.45rem 2rem',
+                  borderRadius: '6px',
+                  fontSize: '0.8rem'
+                }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.35rem' }}>
+              {['All', 'Critical', 'High', 'Medium', 'Low'].map((sev) => (
+                <button
+                  key={sev}
+                  onClick={() => setSelectedSeverity(sev)}
+                  style={{
+                    background: selectedSeverity === sev ? 'var(--accent-purple)' : '#1f2937',
+                    color: selectedSeverity === sev ? 'white' : 'var(--text-muted)',
+                    border: 'none',
+                    padding: '0.25rem 0.6rem',
+                    borderRadius: '4px',
+                    fontSize: '0.725rem',
+                    cursor: 'pointer',
+                    fontWeight: 500
+                  }}
+                >
+                  {sev === 'All' ? 'Wszystkie' : sev}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Lista alertów */}
+          <div style={{ maxHeight: '640px', overflowY: 'auto' }}>
+            {filteredAlerts.map((alert) => (
               <div
                 key={alert.id}
                 className={`alert-item ${currentAlert?.id === alert.id ? 'selected' : ''}`}
@@ -180,7 +236,7 @@ export const AiTestView: React.FC<AiTestViewProps> = ({ alerts, onActionTaken, o
             <div className="soc-card-header" style={{ borderBottom: '1px solid #1e293b' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Brain size={18} color="var(--accent-purple)" />
-                <span>Asystent AI SOC Copilot [{currentAlert.id}]</span>
+                <span>Asystent AI [{currentAlert.id}]</span>
               </div>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                 {getSeverityBadge(currentAlert.severity)}
@@ -192,13 +248,70 @@ export const AiTestView: React.FC<AiTestViewProps> = ({ alerts, onActionTaken, o
                 {currentAlert.title}
               </h2>
 
+              {/* Tabela Kluczowych Metadanych Incydentu */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                gap: '0.75rem',
+                background: 'rgba(0,0,0,0.3)',
+                padding: '1rem',
+                borderRadius: '8px',
+                border: '1px solid var(--border-color)',
+                marginBottom: '1.25rem',
+                fontSize: '0.85rem'
+              }}>
+                <div>
+                  <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.75rem' }}>Źródłowy IP:</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                    <span className="mono" style={{ fontWeight: 600, color: '#c084fc' }}>{currentAlert.sourceIp}</span>
+                    {(() => {
+                      const hostInfo = getHostInfoByIp(currentAlert.sourceIp);
+                      if (!hostInfo) return null;
+                      return (
+                        <span style={{
+                          fontSize: '0.675rem',
+                          padding: '0.1rem 0.4rem',
+                          borderRadius: '4px',
+                          background: 'rgba(192, 132, 252, 0.15)',
+                          color: '#c084fc',
+                          border: '1px solid rgba(192, 132, 252, 0.3)',
+                          fontWeight: 600
+                        }}>
+                          {hostInfo.name} ({hostInfo.os})
+                        </span>
+                      );
+                    })()}
+                  </div>
+                </div>
+                <div>
+                  <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.75rem' }}>Docelowy Host:</span>
+                  <span className="mono" style={{ fontWeight: 600, color: '#f3f4f6' }}>{currentAlert.destinationHost}</span>
+                </div>
+                <div>
+                  <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.75rem' }}>Użytkownik:</span>
+                  <span className="mono" style={{ color: '#f3f4f6' }}>{currentAlert.userAccount}</span>
+                </div>
+                <div>
+                  <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.75rem' }}>Wywołana Taktyka:</span>
+                  <span style={{ color: '#f87171', fontWeight: 600 }}>{currentAlert.mitreTechnique}</span>
+                </div>
+              </div>
+
+              {/* Opis Zdarzenia */}
+              <div style={{ marginBottom: '1.25rem' }}>
+                <h4 style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>Opis Zdarzenia (SIEM/EDR):</h4>
+                <p style={{ fontSize: '0.9rem', lineHeight: '1.5', color: '#d1d5db', background: 'rgba(255,255,255,0.02)', padding: '0.85rem', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
+                  {currentAlert.description}
+                </p>
+              </div>
+
               {/* Komponent Analityczny NetFlow */}
               <NetFlowInspector alert={currentAlert} />
 
-              {/* Czaty / Pytań do Copilota */}
+              {/* Chat z AI */}
               <div style={{ marginBottom: '1.25rem', background: '#0f172a', borderRadius: '8px', padding: '0.85rem', border: '1px solid #1e293b' }}>
                 <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Bot size={14} color="#c084fc" /> Zapytaj AI Copilot o radę dotyczącą tego zdarzenia:
+                  <Bot size={14} color="#c084fc" /> Zadaj pytanie do modułu AI:
                 </div>
 
                 {chatMessages.map((msg, i) => (
@@ -222,7 +335,7 @@ export const AiTestView: React.FC<AiTestViewProps> = ({ alerts, onActionTaken, o
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <input
                     type="text"
-                    placeholder="Zapytaj np. czy proces rundll32 jest tu bezpieczny..."
+                    placeholder="Wpisz pytanie do modułu AI..."
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}

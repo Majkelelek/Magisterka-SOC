@@ -57,7 +57,7 @@ export const TestRulesModal: React.FC<TestRulesModalProps> = ({
             </h2>
             <span style={{ fontSize: '0.85rem', color: '#94a3b8' }}>
               Tryb: <strong style={{ color: testMode === 'WithAI' ? '#c084fc' : '#60a5fa' }}>
-                {testMode === 'WithAI' ? 'Test 2 (Wsparcie AI Copilot)' : 'Test 1 (Tradycyjny - Bez AI)'}
+                {testMode === 'WithAI' ? 'Test 2 (Z AI)' : 'Test 1 (Tradycyjny - Bez AI)'}
               </strong>
             </span>
           </div>

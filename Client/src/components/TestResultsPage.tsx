@@ -75,26 +75,36 @@ const checkDecisionAccuracy = (dOrAlertId: any, actionTakenArg?: string, alertsM
   }
 
   let correctActionLabel = "Odrzucenie (Fałszywy Alarm)";
-  if (!isThreat) {
+  let targetCategory = 'dismiss';
+
+  if (!isThreat || rawCorrectAction.includes('Dismiss') || rawCorrectAction.includes('False')) {
     correctActionLabel = "Odrzucenie (Fałszywy Alarm)";
-  } else if (rawCorrectAction.includes('Escalate')) {
+    targetCategory = 'dismiss';
+  } else if (rawCorrectAction.includes('Investigate') || rawCorrectAction.includes('Password') || rawCorrectAction.includes('Hasło')) {
+    correctActionLabel = "Badanie / Reset Hasła";
+    targetCategory = 'investigate';
+  } else if (rawCorrectAction.includes('Escalate') || rawCorrectAction.includes('Tier 2') || rawCorrectAction.includes('L2')) {
     correctActionLabel = "Eskalacja (Tier 2)";
+    targetCategory = 'escalate';
   } else {
     correctActionLabel = "Izolacja Hosta / Blokada";
+    targetCategory = 'isolate';
   }
 
-  const actionLower = (actionTaken || '').toLowerCase();
-  let isCorrect = false;
+  const actLower = (actionTaken || '').toLowerCase();
+  let userCategory = 'unknown';
 
-  if (!isThreat) {
-    isCorrect = actionLower.includes('dismiss') || actionLower.includes('odrzuć') || actionLower.includes('zignoruj') || actionLower.includes('false');
-  } else {
-    if (correctActionLabel.includes('Eskalacja')) {
-      isCorrect = actionLower.includes('escalat') || actionLower.includes('eskaluj') || actionLower.includes('isolate') || actionLower.includes('izoluj') || actionLower.includes('block') || actionLower.includes('zablokuj');
-    } else {
-      isCorrect = actionLower.includes('isolate') || actionLower.includes('izoluj') || actionLower.includes('block') || actionLower.includes('zablokuj') || actionLower.includes('escalat') || actionLower.includes('eskaluj');
-    }
+  if (actLower.includes('dismiss') || actLower.includes('odrzuć') || actLower.includes('zignoruj') || actLower.includes('false')) {
+    userCategory = 'dismiss';
+  } else if (actLower.includes('investigate') || actLower.includes('badaj') || actLower.includes('password') || actLower.includes('hasło') || actLower.includes('reset')) {
+    userCategory = 'investigate';
+  } else if (actLower.includes('escalate') || actLower.includes('eskaluj') || actLower.includes('tier 2') || actLower.includes('l2')) {
+    userCategory = 'escalate';
+  } else if (actLower.includes('isolate') || actLower.includes('izoluj') || actLower.includes('block') || actLower.includes('zablokuj')) {
+    userCategory = 'isolate';
   }
+
+  const isCorrect = (userCategory === targetCategory);
 
   return {
     correctActionLabel,
@@ -316,16 +326,16 @@ export const TestResultsPage: React.FC<TestResultsPageProps> = ({ userSession })
 
   const getActionBadge = (action: string) => {
     const act = (action || '').toLowerCase();
-    if (act.includes('isolate') || act.includes('izoluj')) {
-      return { label: 'Izolacja Hosta', bg: 'rgba(239, 68, 68, 0.2)', color: '#f87171' };
+    if (act.includes('investigate') || act.includes('badaj') || act.includes('reset') || act.includes('hasło')) {
+      return { label: 'Badanie / Reset Hasła', bg: 'rgba(234, 179, 8, 0.2)', color: '#facc15' };
     }
-    if (act.includes('block') || act.includes('zablokuj')) {
-      return { label: 'Blokada IP', bg: 'rgba(245, 158, 11, 0.2)', color: '#fbbf24' };
+    if (act.includes('isolate') || act.includes('izoluj') || act.includes('block') || act.includes('zablokuj')) {
+      return { label: 'Izolacja Hosta / Blokada', bg: 'rgba(239, 68, 68, 0.2)', color: '#f87171' };
     }
-    if (act.includes('escalat') || act.includes('eskaluj')) {
-      return { label: 'Eskalacja', bg: 'rgba(168, 85, 247, 0.2)', color: '#c084fc' };
+    if (act.includes('escalat') || act.includes('eskaluj') || act.includes('tier 2') || act.includes('l2')) {
+      return { label: 'Eskalacja (Tier 2)', bg: 'rgba(168, 85, 247, 0.2)', color: '#c084fc' };
     }
-    return { label: 'Odrzucenie (Dismiss)', bg: 'rgba(100, 116, 139, 0.2)', color: '#94a3b8' };
+    return { label: 'Odrzucenie (Fałszywy Alarm)', bg: 'rgba(100, 116, 139, 0.2)', color: '#94a3b8' };
   };
 
   // Statystyki porównawcze: Test 1 (Bez AI) vs Test 2 (Z AI)

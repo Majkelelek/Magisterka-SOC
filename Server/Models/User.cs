@@ -18,4 +18,10 @@ public class User
     public string Role { get; set; } = "Użytkownik"; // "Administrator" lub "Użytkownik"
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    public string? CurrentToken { get; set; }
+
+    public int FailedAttempts { get; set; } = 0;
+
+    public DateTime? LockoutEnd { get; set; }
 }

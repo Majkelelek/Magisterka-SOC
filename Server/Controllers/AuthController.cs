@@ -40,6 +40,15 @@ public class AuthController : ControllerBase
 
         var token = await _tokenService.CreateSessionAsync(user);
 
+        // Zapis tokena w ciasteczku HttpOnly (wersja Sunfire)
+        Response.Cookies.Append("soc_auth", token, new CookieOptions
+        {
+            HttpOnly = true,
+            SameSite = SameSiteMode.Lax,
+            Path = "/",
+            Expires = DateTime.UtcNow.AddHours(4)
+        });
+
         return Ok(new AuthResponse(
             Token: token,
             User: new UserDto(user.Id ?? "", user.Username, user.Email, user.Role),
@@ -48,18 +57,31 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
-    /// Wylogowanie — unieważnia aktywną sesję w bazie MongoDB (IsRevoked = true).
+    /// Wylogowanie — czyści token w bazie MongoDB oraz usuwa ciasteczko (wersja Sunfire).
     /// </summary>
     [HttpPost("logout")]
     [AllowAnonymous]
     public async Task<IActionResult> Logout()
     {
         var authHeader = Request.Headers["Authorization"].FirstOrDefault();
+        if (string.IsNullOrEmpty(authHeader))
+        {
+            authHeader = Request.Cookies["soc_auth"];
+        }
+
         if (!string.IsNullOrEmpty(authHeader))
         {
             await _tokenService.RevokeSessionByTokenAsync(authHeader);
         }
-        return Ok(new { message = "Pomyślnie wylogowano i unieważniono sesję." });
+
+        Response.Cookies.Delete("soc_auth", new CookieOptions
+        {
+            HttpOnly = true,
+            SameSite = SameSiteMode.Lax,
+            Path = "/"
+        });
+
+        return Ok(new { message = "Pomyślnie wylogowano i wyczyszczono token." });
     }
 
     /// <summary>

@@ -74,10 +74,34 @@ public class AuthService
         var user = await GetUserByUsernameAsync(username);
         if (user == null) return null;
 
+        // Sprawdź czy konto nie jest zablokowane (Sunfire lockout)
+        if (user.LockoutEnd.HasValue && user.LockoutEnd > DateTime.UtcNow)
+        {
+            return null;
+        }
+
         var inputHash = HashPassword(password);
         if (user.PasswordHash == inputHash || user.PasswordHash == password)
         {
+            user.FailedAttempts = 0;
+            user.LockoutEnd = null;
             return user;
+        }
+
+        // Błędne hasło — zwiększ próby i zablokuj na 15 minut po 5 nieudanych próbach
+        user.FailedAttempts += 1;
+        if (user.FailedAttempts >= 5)
+        {
+            user.LockoutEnd = DateTime.UtcNow.AddMinutes(15);
+        }
+
+        if (_mongoContext.Users != null && !string.IsNullOrEmpty(user.Id))
+        {
+            var filter = Builders<User>.Filter.Eq(u => u.Id, user.Id);
+            var update = Builders<User>.Update
+                .Set(u => u.FailedAttempts, user.FailedAttempts)
+                .Set(u => u.LockoutEnd, user.LockoutEnd);
+            await _mongoContext.Users.UpdateOneAsync(filter, update);
         }
 
         return null;

@@ -56,7 +56,7 @@ export const NoAiTestView: React.FC<NoAiTestViewProps> = ({ alerts, onActionTake
         <Inbox size={48} color="var(--text-muted)" style={{ margin: '0 auto 1rem auto', opacity: 0.5 }} />
         <h3 style={{ fontSize: '1.25rem', marginBottom: '0.5rem', color: '#ffffff' }}>Brak alertów w zestawie testowym</h3>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1.5rem', maxWidth: '500px', margin: '0 auto 1.5rem auto' }}>
-          Zestaw testowy nie został jeszcze załadowany. Kliknij przycisk poniżej, aby załadować pytania z pliku <code>wynik.json</code>.
+          Zestaw testowy nie został jeszcze załadowany. Kliknij przycisk poniżej, aby załadować pytania z bazy danych MongoDB.
         </p>
         {onAddSampleAlert && (
           <button className="btn-action btn-ai-primary" onClick={onAddSampleAlert}>

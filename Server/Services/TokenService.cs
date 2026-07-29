@@ -43,20 +43,12 @@ public class TokenService
 
     public async Task<string> CreateSessionAsync(User user)
     {
-        if (_mongoContext.Sessions == null)
+        if (_mongoContext.Users == null)
         {
-            throw new InvalidOperationException("Brak połączenia z kolekcją Sessions w bazie MongoDB Atlas.");
+            throw new InvalidOperationException("Brak połączenia z bazą danych MongoDB Atlas.");
         }
 
-        // Unieważnij poprzednie aktywne sesje użytkownika przy nowym zalogowaniu
-        var revokeFilter = Builders<UserSessionModel>.Filter.And(
-            Builders<UserSessionModel>.Filter.Eq(s => s.Username, user.Username),
-            Builders<UserSessionModel>.Filter.Eq(s => s.IsRevoked, false)
-        );
-        var revokeUpdate = Builders<UserSessionModel>.Update.Set(s => s.IsRevoked, true);
-        await _mongoContext.Sessions.UpdateManyAsync(revokeFilter, revokeUpdate);
-
-        var expiresAt = DateTime.UtcNow.AddHours(1);
+        var expiresAt = DateTime.UtcNow.AddHours(4);
         var payload = $"{user.Id}:{user.Username}:{user.Role}:{expiresAt.Ticks}";
         var signature = ComputeHmac(payload);
 
@@ -64,18 +56,19 @@ public class TokenService
         var payloadBase64 = Convert.ToBase64String(payloadBytes);
         var token = $"{payloadBase64}.{signature}";
 
-        var sessionModel = new UserSessionModel
-        {
-            Token = token,
-            UserId = user.Id ?? Guid.NewGuid().ToString(),
-            Username = user.Username,
-            Role = user.Role,
-            CreatedAt = DateTime.UtcNow,
-            ExpiresAt = expiresAt,
-            IsRevoked = false
-        };
+        // Zapis tokena bezpośrednio w obiekcie użytkownika (wersja Sunfire)
+        user.CurrentToken = token;
+        user.FailedAttempts = 0;
+        user.LockoutEnd = null;
 
-        await _mongoContext.Sessions.InsertOneAsync(sessionModel);
+        var filter = Builders<User>.Filter.Eq(u => u.Username, user.Username);
+        var update = Builders<User>.Update
+            .Set(u => u.CurrentToken, token)
+            .Set(u => u.FailedAttempts, 0)
+            .Set(u => u.LockoutEnd, null);
+
+        await _mongoContext.Users.UpdateOneAsync(filter, update);
+
         return token;
     }
 
@@ -115,21 +108,22 @@ public class TokenService
 
             if (DateTime.UtcNow.Ticks > expiresTicks) return null; // Token wygasł
 
-            if (_mongoContext.Sessions == null) return null;
+            if (_mongoContext.Users == null) return null;
 
-            var session = await _mongoContext.Sessions.Find(s => s.Token == token).FirstOrDefaultAsync();
+            // Weryfikacja bezpośrednio z polem CurrentToken użytkownika (wersja Sunfire)
+            var user = await _mongoContext.Users.Find(u => u.CurrentToken == token).FirstOrDefaultAsync();
 
-            if (session == null || session.IsRevoked)
+            if (user == null || string.IsNullOrEmpty(user.CurrentToken))
             {
-                return null; // Sesja unieważniona lub nieistniejąca w MongoDB
+                return null; // Sesja unieważniona (logout) lub token wygaszony
             }
 
             return new UserTokenClaims
             {
-                SessionId = session.Id ?? "",
-                UserId = userId,
-                Username = username,
-                Role = role
+                SessionId = user.Id ?? "",
+                UserId = user.Id ?? userId,
+                Username = user.Username,
+                Role = user.Role
             };
         }
         catch
@@ -140,36 +134,37 @@ public class TokenService
 
     public async Task<bool> RevokeSessionByTokenAsync(string token)
     {
-        if (_mongoContext.Sessions == null) return false;
+        if (_mongoContext.Users == null) return false;
 
         var cleanToken = ExtractBearerToken(token);
         if (string.IsNullOrEmpty(cleanToken)) return false;
 
-        var filter = Builders<UserSessionModel>.Filter.Eq(s => s.Token, cleanToken);
-        var update = Builders<UserSessionModel>.Update.Set(s => s.IsRevoked, true);
-        var result = await _mongoContext.Sessions.UpdateOneAsync(filter, update);
+        // Czyszczenie tokena bezpośrednio w obiekcie użytkownika przy wylogowaniu (wersja Sunfire)
+        var filter = Builders<User>.Filter.Eq(u => u.CurrentToken, cleanToken);
+        var update = Builders<User>.Update.Set(u => u.CurrentToken, (string?)null);
+        var result = await _mongoContext.Users.UpdateOneAsync(filter, update);
         return result.ModifiedCount > 0;
     }
 
     /// <summary>
-    /// Zwraca aktywne sesje BEZ pola Token — bezpieczne do odsyłania w API.
+    /// Zwraca aktywne sesje na podstawie ułożenia Sunfire (gdzie CurrentToken != null).
     /// </summary>
     public async Task<List<SessionInfoDto>> GetActiveSessionsSafeAsync()
     {
-        if (_mongoContext.Sessions == null) return new List<SessionInfoDto>();
+        if (_mongoContext.Users == null) return new List<SessionInfoDto>();
 
-        var sessions = await _mongoContext.Sessions
-            .Find(s => !s.IsRevoked && s.ExpiresAt > DateTime.UtcNow)
+        var activeUsers = await _mongoContext.Users
+            .Find(u => u.CurrentToken != null && u.CurrentToken != "")
             .ToListAsync();
 
-        return sessions.Select(s => new SessionInfoDto
+        return activeUsers.Select(u => new SessionInfoDto
         {
-            Id = s.Id ?? "",
-            UserId = s.UserId,
-            Username = s.Username,
-            Role = s.Role,
-            CreatedAt = s.CreatedAt,
-            ExpiresAt = s.ExpiresAt
+            Id = u.Id ?? "",
+            UserId = u.Id ?? "",
+            Username = u.Username,
+            Role = u.Role,
+            CreatedAt = u.CreatedAt,
+            ExpiresAt = DateTime.UtcNow.AddHours(4)
         }).ToList();
     }
 

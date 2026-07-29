@@ -340,7 +340,7 @@ export const NetFlowInspector: React.FC<NetFlowInspectorProps> = ({ alert }) => 
       {showRawJson && (
         <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
           <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <FileJson size={14} color="#38bdf8" /> Pełne Dane Przepływu (Sformatowany Plik Zdzarzenia z wynik.json):
+            <FileJson size={14} color="#38bdf8" /> Pełne Dane Przepływu (Pobrane z bazy danych MongoDB):
           </div>
           <pre style={{
             background: '#070a12',

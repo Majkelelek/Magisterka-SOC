@@ -9,6 +9,7 @@ import { AiTestView } from './components/AiTestView';
 import { LoginPage } from './components/LoginPage';
 import { AdminUserPanel } from './components/AdminUserPanel';
 import { TestResultsPage } from './components/TestResultsPage';
+import { AdminQuestionsPage } from './components/AdminQuestionsPage';
 import { TestRulesModal } from './components/TestRulesModal';
 import { ShieldAlert, AlertTriangle, CheckCircle, Activity, BarChart2 } from 'lucide-react';
 
@@ -25,7 +26,7 @@ export const App: React.FC = () => {
     return null;
   });
 
-  const [activeTab, setActiveTab] = useState<'home' | 'no-ai' | 'with-ai' | 'test-results' | 'admin-users'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'no-ai' | 'with-ai' | 'test-results' | 'admin-users' | 'admin-questions'>('home');
   const [pendingTab, setPendingTab] = useState<'no-ai' | 'with-ai' | null>(null);
   const [isRulesModalOpen, setIsRulesModalOpen] = useState<boolean>(false);
   const [testStartTime, setTestStartTime] = useState<number | null>(null);
@@ -207,6 +208,8 @@ export const App: React.FC = () => {
           <LoginPage onLoginSuccess={handleLoginSuccess} />
         ) : activeTab === 'admin-users' ? (
           <AdminUserPanel userSession={userSession} />
+        ) : (activeTab === 'admin-questions' && userSession.role === 'Administrator') ? (
+          <AdminQuestionsPage />
         ) : (activeTab === 'test-results' && userSession.role === 'Administrator') ? (
           <TestResultsPage userSession={userSession} />
         ) : (
@@ -250,7 +253,7 @@ export const App: React.FC = () => {
             {loading ? (
               <div style={{ padding: '4rem', textAlign: 'center', color: 'var(--text-muted)' }}>
                 <BarChart2 size={40} className="pulse-dot" style={{ margin: '0 auto 1rem auto' }} />
-                <p>Ładowanie zestawu 30 pytań testowych z pliku wynik.json...</p>
+                <p>Ładowanie zestawu pytań testowych z bazy danych MongoDB...</p>
               </div>
             ) : activeTab === 'home' ? (
               <HomePage

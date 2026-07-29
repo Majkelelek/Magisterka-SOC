@@ -24,6 +24,11 @@ public class MongoSessionAuthenticationHandler : AuthenticationHandler<Authentic
         var authHeader = Request.Headers["Authorization"].FirstOrDefault();
         if (string.IsNullOrEmpty(authHeader))
         {
+            authHeader = Request.Cookies["soc_auth"];
+        }
+
+        if (string.IsNullOrEmpty(authHeader))
+        {
             return AuthenticateResult.NoResult();
         }
 
