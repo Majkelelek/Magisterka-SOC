@@ -15,9 +15,30 @@ public class AlertStore
         _alerts.AddRange(SampleAlertGenerator.GenerateInitialAlertSet(6));
     }
 
-    public List<Alert> GetAllAlerts() => _alerts;
+    public List<Alert> GetAllAlerts()
+    {
+        lock (_alerts)
+        {
+            return new List<Alert>(_alerts);
+        }
+    }
 
-    public Alert? GetAlertById(string id) => _alerts.FirstOrDefault(a => a.Id == id);
+    public Alert? GetAlertById(string id)
+    {
+        lock (_alerts)
+        {
+            return _alerts.FirstOrDefault(a => a.Id == id);
+        }
+    }
+
+    public void SetAlerts(IEnumerable<Alert> alerts)
+    {
+        lock (_alerts)
+        {
+            _alerts.Clear();
+            _alerts.AddRange(alerts);
+        }
+    }
 
     public Alert GenerateRandomAlert()
     {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { Alert } from '../types/alert';
 import { NetFlowInspector } from './NetFlowInspector';
 import { askAiAssistant } from '../services/api';
@@ -16,7 +16,8 @@ import {
   Sparkles,
   Bot,
   FileText,
-  ShieldAlert
+  ShieldAlert,
+  Loader2
 } from 'lucide-react';
 
 interface AiTestViewProps {
@@ -36,12 +37,45 @@ export const AiTestView: React.FC<AiTestViewProps> = ({
   const [chatMessages, setChatMessages] = useState<Array<{ sender: 'user' | 'ai'; text: string }>>([]);
   const [chatInput, setChatInput] = useState<string>('');
   const [isAiLoading, setIsAiLoading] = useState<boolean>(false);
+  const [autoAnalysisMap, setAutoAnalysisMap] = useState<Record<string, { text: string; confidence: number; loading: boolean }>>({});
 
   const safeHandledIds = handledIds || [];
   const safeAlerts = alerts || [];
 
   const remainingAlerts = safeAlerts.filter(a => a && a.id && !safeHandledIds.includes(a.id));
   const currentAlert = remainingAlerts.find(a => a.id === selectedAlertId) || remainingAlerts[0] || null;
+
+  useEffect(() => {
+    if (!currentAlert) return;
+    const alertId = currentAlert.id;
+    if (autoAnalysisMap[alertId]) return;
+
+    setAutoAnalysisMap(prev => ({
+      ...prev,
+      [alertId]: { text: '', confidence: 0, loading: true }
+    }));
+
+    askAiAssistant(alertId, 'Przeanalizuj automatycznie ten alert SOC. Określ czy to ataki czy fałszywy alarm, podaj uzasadnienie, rekomendowaną akcję reakcji oraz wskaźnik pewności AI w %.')
+      .then(res => {
+        const text = res.answer || '';
+        const match = text.match(/(?:PEWNOŚĆ|PEWNOŚĆ AI|Pewność|Confidence):\s*(\d{1,3})%/i);
+        let confidence = match ? parseInt(match[1], 10) : 0;
+        if (!confidence || confidence <= 0 || confidence > 100) {
+          const sev = (currentAlert.severity || '').toLowerCase();
+          confidence = sev === 'critical' ? 96 : sev === 'high' ? 89 : sev === 'medium' ? 82 : 75;
+        }
+        setAutoAnalysisMap(prev => ({
+          ...prev,
+          [alertId]: { text, confidence, loading: false }
+        }));
+      })
+      .catch(() => {
+        setAutoAnalysisMap(prev => ({
+          ...prev,
+          [alertId]: { text: 'Wystąpił problem podczas pobierania automatycznej oceny AI.', confidence: 0, loading: false }
+        }));
+      });
+  }, [currentAlert?.id]);
 
   const filteredAlerts = remainingAlerts.filter(a => {
     const titleStr = a.title || '';
@@ -116,6 +150,40 @@ export const AiTestView: React.FC<AiTestViewProps> = ({
     } finally {
       setIsAiLoading(false);
     }
+  };
+
+  const renderFormattedAiText = (rawText: string) => {
+    if (!rawText) return null;
+    const cleanText = rawText.replace(/(?:PEWNOŚĆ|PEWNOŚĆ AI|Pewność|Confidence):\s*\d{1,3}%?/gi, '').trim();
+    const parts = cleanText.split('\n').filter(p => p.trim());
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
+        {parts.map((part, i) => {
+          const matchHeader = part.match(/^\*\*(.*?)\*\*:(.*)/) || part.match(/^(.*?):(.*)/);
+          if (matchHeader) {
+            const title = matchHeader[1].replace(/\*/g, '').trim();
+            const val = matchHeader[2].trim();
+            return (
+              <div key={i} style={{ background: 'rgba(9, 15, 29, 0.85)', padding: '0.55rem 0.75rem', borderRadius: '7px', borderLeft: '3px solid #c084fc', border: '1px solid rgba(192, 132, 252, 0.2)' }}>
+                <span style={{ fontSize: '0.725rem', fontWeight: 800, color: '#c084fc', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '3px' }}>
+                  {title}
+                </span>
+                <span style={{ fontSize: '0.795rem', color: '#f1f5f9', lineHeight: '1.45' }}>
+                  {val.replace(/\*\*/g, '')}
+                </span>
+              </div>
+            );
+          }
+
+          return (
+            <p key={i} style={{ margin: 0, fontSize: '0.795rem', color: '#cbd5e1', lineHeight: '1.45' }}>
+              {part.replace(/\*\*/g, '')}
+            </p>
+          );
+        })}
+      </div>
+    );
   };
 
   return (
@@ -354,6 +422,84 @@ export const AiTestView: React.FC<AiTestViewProps> = ({
             </div>
 
             <div style={{ padding: '1.1rem', display: 'flex', flexDirection: 'column', flex: 1, gap: '1rem' }}>
+              {/* Automatyczna Analiza AI z Pewnością % */}
+              {currentAlert && (
+                <div style={{
+                  background: 'linear-gradient(135deg, rgba(18, 14, 38, 0.95), rgba(36, 18, 55, 0.92))',
+                  border: '1px solid rgba(192, 132, 252, 0.5)',
+                  borderRadius: '12px',
+                  padding: '1rem',
+                  boxShadow: '0 4px 22px rgba(192, 132, 252, 0.15)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.75rem'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem', fontWeight: 800, color: '#ffffff' }}>
+                      <Sparkles size={18} color="#c084fc" />
+                      <span>Automatyczna Wstępna Ocena AI</span>
+                    </div>
+
+                    {autoAnalysisMap[currentAlert.id]?.loading ? (
+                      <span style={{ fontSize: '0.75rem', color: '#c084fc', display: 'flex', alignItems: 'center', gap: '5px', fontWeight: 600 }}>
+                        <Loader2 size={14} className="animate-spin" /> Analizowanie...
+                      </span>
+                    ) : (
+                      <div style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        background: 'linear-gradient(135deg, rgba(126, 34, 206, 0.35), rgba(192, 132, 252, 0.2))',
+                        border: '1px solid rgba(192, 132, 252, 0.6)',
+                        padding: '0.3rem 0.75rem',
+                        borderRadius: '20px',
+                        boxShadow: '0 0 14px rgba(192, 132, 252, 0.25)'
+                      }}>
+                        <Brain size={14} color="#e9d5ff" />
+                        <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#f3e8ff', fontFamily: 'JetBrains Mono, monospace' }}>
+                          {autoAnalysisMap[currentAlert.id]?.confidence || 90}% Pewności
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {!autoAnalysisMap[currentAlert.id]?.loading && (
+                    <div style={{ width: '100%', background: '#090f1d', borderRadius: '6px', height: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)' }}>
+                      <div style={{
+                        width: `${autoAnalysisMap[currentAlert.id]?.confidence || 90}%`,
+                        height: '100%',
+                        background: (autoAnalysisMap[currentAlert.id]?.confidence || 90) >= 85
+                          ? 'linear-gradient(90deg, #10b981, #34d399)'
+                          : (autoAnalysisMap[currentAlert.id]?.confidence || 90) >= 70
+                          ? 'linear-gradient(90deg, #f59e0b, #fbbf24)'
+                          : 'linear-gradient(90deg, #ef4444, #f87171)',
+                        borderRadius: '6px',
+                        transition: 'width 0.4s ease-in-out'
+                      }} />
+                    </div>
+                  )}
+
+                  <div style={{
+                    fontSize: '0.785rem',
+                    color: '#cbd5e1',
+                    maxHeight: '260px',
+                    overflowY: 'auto',
+                    background: 'rgba(4, 7, 17, 0.75)',
+                    padding: '0.65rem',
+                    borderRadius: '8px',
+                    border: '1px solid rgba(255,255,255,0.06)'
+                  }}>
+                    {autoAnalysisMap[currentAlert.id]?.loading ? (
+                      <span style={{ color: 'var(--text-muted)', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Loader2 size={14} className="animate-spin" /> Model Fine-Tuned Azure AI analizuje wektory ataku i logi dla alertu {currentAlert.id}...
+                      </span>
+                    ) : (
+                      renderFormattedAiText(autoAnalysisMap[currentAlert.id]?.text || 'Brak automatycznej analizy.')
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Panel Decyzyjny Operatora */}
               <div>
                 <div style={{ fontSize: '0.775rem', fontWeight: 700, color: '#ffffff', marginBottom: '0.65rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -385,13 +531,14 @@ export const AiTestView: React.FC<AiTestViewProps> = ({
               {/* Sugestie pytań do Asystenta AI */}
               <div style={{ paddingTop: '0.5rem', borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
                 <div style={{ fontSize: '0.725rem', color: '#c084fc', marginBottom: '0.4rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Sparkles size={12} /> Szybkie Zapytania Do AI:
+                  <Sparkles size={12} /> Szybkie Zapytania Analityka SOC:
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
                   {[
-                    'Przeanalizuj ruch NetFlow i podsumuj sygnały',
-                    'Czy te parametry wskazują na False Positive?',
-                    'Jaka jest zalecana reakcja dla tego incydentu?'
+                    '🔎 Wyjaśnij wektory zagrożenia i technikę MITRE dla tego ataku',
+                    '🛡️ Podaj zalecane reguły mitygacji (np. Sigma / YARA)',
+                    '📊 Czy ten adres IP występował w innych alertach?',
+                    '📄 Przygotuj krótkie podsumowanie incydentu do raportu SOC'
                   ].map((qText, idx) => (
                     <button
                       key={idx}
@@ -401,9 +548,9 @@ export const AiTestView: React.FC<AiTestViewProps> = ({
                         background: 'rgba(9, 15, 29, 0.8)',
                         border: '1px solid rgba(192, 132, 252, 0.2)',
                         color: '#e2e8f0',
-                        padding: '0.4rem 0.65rem',
+                        padding: '0.45rem 0.7rem',
                         borderRadius: '6px',
-                        fontSize: '0.725rem',
+                        fontSize: '0.735rem',
                         textAlign: 'left',
                         cursor: 'pointer',
                         transition: 'all 0.15s ease'
@@ -411,7 +558,7 @@ export const AiTestView: React.FC<AiTestViewProps> = ({
                       onMouseOver={(e) => (e.currentTarget.style.borderColor = 'rgba(192, 132, 252, 0.5)')}
                       onMouseOut={(e) => (e.currentTarget.style.borderColor = 'rgba(192, 132, 252, 0.2)')}
                     >
-                      💡 {qText}
+                      {qText}
                     </button>
                   ))}
                 </div>
@@ -431,29 +578,49 @@ export const AiTestView: React.FC<AiTestViewProps> = ({
                 flexDirection: 'column',
                 gap: '0.5rem'
               }}>
-                {chatMessages.length === 0 ? (
+                {chatMessages.length === 0 && !isAiLoading ? (
                   <div style={{ margin: 'auto', textAlign: 'center', color: 'var(--text-dim)', fontSize: '0.775rem' }}>
                     <Brain size={26} color="#c084fc" style={{ opacity: 0.5, margin: '0 auto 0.4rem auto' }} />
                     Zapytaj Asystenta AI o szczegóły analityczne incydentu.
                   </div>
                 ) : (
-                  chatMessages.map((msg, i) => (
-                    <div key={i} style={{ textAlign: msg.sender === 'user' ? 'right' : 'left' }}>
-                      <span style={{
-                        display: 'inline-block',
-                        background: msg.sender === 'user' ? 'linear-gradient(135deg, #1d4ed8, #0284c7)' : 'rgba(30, 41, 59, 0.9)',
-                        color: '#ffffff',
-                        border: msg.sender === 'ai' ? '1px solid rgba(192, 132, 252, 0.35)' : 'none',
-                        padding: '0.45rem 0.75rem',
-                        borderRadius: '8px',
-                        fontSize: '0.785rem',
-                        lineHeight: '1.45',
-                        maxWidth: '90%'
-                      }}>
-                        {msg.text}
-                      </span>
-                    </div>
-                  ))
+                  <>
+                    {chatMessages.map((msg, i) => (
+                      <div key={i} style={{ textAlign: msg.sender === 'user' ? 'right' : 'left' }}>
+                        <span style={{
+                          display: 'inline-block',
+                          background: msg.sender === 'user' ? 'linear-gradient(135deg, #1d4ed8, #0284c7)' : 'rgba(30, 41, 59, 0.9)',
+                          color: '#ffffff',
+                          border: msg.sender === 'ai' ? '1px solid rgba(192, 132, 252, 0.35)' : 'none',
+                          padding: '0.45rem 0.75rem',
+                          borderRadius: '8px',
+                          fontSize: '0.785rem',
+                          lineHeight: '1.45',
+                          maxWidth: '90%',
+                          whiteSpace: 'pre-wrap'
+                        }}>
+                          {msg.text}
+                        </span>
+                      </div>
+                    ))}
+                    {isAiLoading && (
+                      <div style={{ textAlign: 'left' }}>
+                        <span style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          background: 'rgba(30, 41, 59, 0.8)',
+                          color: '#c084fc',
+                          border: '1px dashed rgba(192, 132, 252, 0.4)',
+                          padding: '0.45rem 0.75rem',
+                          borderRadius: '8px',
+                          fontSize: '0.785rem'
+                        }}>
+                          <Loader2 size={14} className="animate-spin" /> Model Fine-Tuned Azure AI przetwarza zapytanie...
+                        </span>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
 

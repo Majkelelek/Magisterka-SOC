@@ -21,9 +21,14 @@ public class AlertsController : ControllerBase
     }
 
     [HttpGet]
-    public ActionResult<IEnumerable<Alert>> GetAlerts([FromQuery] string? severity, [FromQuery] string? status)
+    public async Task<ActionResult<IEnumerable<Alert>>> GetAlerts([FromQuery] string? severity, [FromQuery] string? status)
     {
         var alerts = _alertStore.GetAllAlerts();
+        if (alerts.Count < 10)
+        {
+            await EnsureFullDatasetLoadedAsync();
+            alerts = _alertStore.GetAllAlerts();
+        }
 
         if (!string.IsNullOrEmpty(severity))
         {
@@ -56,11 +61,16 @@ public class AlertsController : ControllerBase
     [HttpGet("test-set")]
     public async Task<ActionResult<IEnumerable<Alert>>> GetTestSet()
     {
+        var alerts = await EnsureFullDatasetLoadedAsync();
+        return Ok(alerts);
+    }
+
+    private async Task<List<Alert>> EnsureFullDatasetLoadedAsync()
+    {
+        List<Alert> fileAlerts = new();
         try
         {
             string testSetPath = GetTestSetFilePath();
-            List<Alert> fileAlerts = new();
-
             if (System.IO.File.Exists(testSetPath))
             {
                 var jsonText = await System.IO.File.ReadAllTextAsync(testSetPath);
@@ -68,25 +78,32 @@ public class AlertsController : ControllerBase
                 fileAlerts = System.Text.Json.JsonSerializer.Deserialize<List<Alert>>(jsonText, options) ?? new();
             }
 
-            // Sync with MongoDB Atlas if connected
-            if (_mongoContext?.IsConnectedToMongo == true && _mongoContext.Alerts != null && fileAlerts.Count > 0)
+            if (fileAlerts.Count == 0 && _mongoContext?.IsConnectedToMongo == true && _mongoContext.Alerts != null)
             {
-                try
-                {
-                    var bulkOps = fileAlerts.Select(a => new MongoDB.Driver.ReplaceOneModel<Alert>(
-                        MongoDB.Driver.Builders<Alert>.Filter.Eq(x => x.Id, a.Id), a) { IsUpsert = true }).ToList();
-                    await _mongoContext.Alerts.BulkWriteAsync(bulkOps);
-                    Console.WriteLine($"[MongoDB Atlas] Zsynchronizowano {fileAlerts.Count} zdarzeń testowych w bazie danych.");
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"[MongoDB Atlas] Błąd synchronizacji z bazą: {ex.Message}");
-                }
+                fileAlerts = await _mongoContext.Alerts.Find(_ => true).ToListAsync();
             }
 
             if (fileAlerts.Count > 0)
             {
-                return Ok(fileAlerts);
+                _alertStore.SetAlerts(fileAlerts);
+
+                // Sync with MongoDB Atlas if connected
+                if (_mongoContext?.IsConnectedToMongo == true && _mongoContext.Alerts != null)
+                {
+                    try
+                    {
+                        var bulkOps = fileAlerts.Select(a => new MongoDB.Driver.ReplaceOneModel<Alert>(
+                            MongoDB.Driver.Builders<Alert>.Filter.Eq(x => x.Id, a.Id), a) { IsUpsert = true }).ToList();
+                        await _mongoContext.Alerts.BulkWriteAsync(bulkOps);
+                        Console.WriteLine($"[MongoDB Atlas] Zsynchronizowano {fileAlerts.Count} zdarzeń testowych w bazie danych.");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[MongoDB Atlas] Błąd synchronizacji z bazą: {ex.Message}");
+                    }
+                }
+
+                return fileAlerts;
             }
         }
         catch (Exception ex)
@@ -94,7 +111,7 @@ public class AlertsController : ControllerBase
             Console.WriteLine($"[AlertsController] Błąd odczytu zestawu testowego: {ex.Message}");
         }
 
-        return Ok(_alertStore.GetAllAlerts().Take(30).ToList());
+        return _alertStore.GetAllAlerts();
     }
 
     [HttpPatch("{id}/status")]

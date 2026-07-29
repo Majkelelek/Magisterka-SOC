@@ -106,26 +106,24 @@ export const App: React.FC = () => {
 
   const loadData = async () => {
     setLoading(true);
-    const savedActiveTab = sessionStorage.getItem('soc_active_tab');
     const savedTestAlerts = sessionStorage.getItem('soc_test_alerts');
 
-    if (savedActiveTab === 'no-ai' || savedActiveTab === 'with-ai') {
-      if (savedTestAlerts) {
-        try {
-          const parsed = JSON.parse(savedTestAlerts);
-          if (Array.isArray(parsed) && parsed.length >= 10) {
-            setAlerts(cleanAlertStrings(parsed));
-            setLoading(false);
-            return;
-          }
-        } catch {}
-      }
-      const testSet = await fetchTestSet();
-      setAlerts(testSet);
-      sessionStorage.setItem('soc_test_alerts', JSON.stringify(testSet));
-    } else {
-      const data = await fetchAlerts();
-      setAlerts(data);
+    if (savedTestAlerts) {
+      try {
+        const parsed = JSON.parse(savedTestAlerts);
+        if (Array.isArray(parsed) && parsed.length >= 10) {
+          setAlerts(cleanAlertStrings(parsed));
+          setLoading(false);
+          return;
+        }
+      } catch {}
+    }
+
+    const testSet = await fetchTestSet();
+    const cleaned = cleanAlertStrings(testSet);
+    setAlerts(cleaned);
+    if (cleaned && cleaned.length > 0) {
+      sessionStorage.setItem('soc_test_alerts', JSON.stringify(cleaned));
     }
     setLoading(false);
   };
@@ -185,6 +183,15 @@ export const App: React.FC = () => {
       setPendingTab(tab);
       setIsRulesModalOpen(true);
     } else {
+      if ((tab === 'no-ai' || tab === 'with-ai') && alerts.length < 10) {
+        fetchTestSet().then(data => {
+          if (data && data.length > 0) {
+            const cleaned = cleanAlertStrings(data);
+            setAlerts(cleaned);
+            sessionStorage.setItem('soc_test_alerts', JSON.stringify(cleaned));
+          }
+        });
+      }
       setActiveTab(tab);
     }
   };
@@ -195,9 +202,11 @@ export const App: React.FC = () => {
     setIsRulesModalOpen(false);
     setLoading(true);
 
+    sessionStorage.removeItem('soc_test_alerts');
     const testSet = await fetchTestSet();
-    setAlerts(testSet);
-    sessionStorage.setItem('soc_test_alerts', JSON.stringify(testSet));
+    const cleaned = cleanAlertStrings(testSet);
+    setAlerts(cleaned);
+    sessionStorage.setItem('soc_test_alerts', JSON.stringify(cleaned));
 
     setHandledCount(0);
     sessionStorage.setItem('soc_test_handled_count', '0');

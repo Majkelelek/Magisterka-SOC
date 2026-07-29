@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Server.Services;
 
 namespace Server.Controllers;
 
@@ -8,14 +9,25 @@ namespace Server.Controllers;
 [Authorize]
 public class AiController : ControllerBase
 {
+    private readonly AiService _aiService;
+
+    public AiController(AiService aiService)
+    {
+        _aiService = aiService;
+    }
+
     [HttpPost("query")]
     public async Task<IActionResult> ProcessAiQuery([FromBody] AiQueryRequest request)
     {
-        var username = User.Identity?.Name ?? "Operator";
-        await Task.Delay(100);
+        if (request == null || string.IsNullOrWhiteSpace(request.Prompt))
+        {
+            return BadRequest(new { message = "Treść zapytania (prompt) nie może być pusta." });
+        }
+
+        var responseText = await _aiService.ProcessQueryAsync(request.AlertId ?? string.Empty, request.Prompt);
 
         return Ok(new AiQueryResponse(
-            ResponseText: $"[API AI Backend] Zapytanie od operatora '{username}' do alertu '{request.AlertId}' odebrane pomyślnie. Podłącz klucz/endpoint prawdziwego modelu LLM w AiController.cs, aby uzyskać autentyczną analizę.",
+            ResponseText: responseText,
             Timestamp: DateTime.UtcNow
         ));
     }

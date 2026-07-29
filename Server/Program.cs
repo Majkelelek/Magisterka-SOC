@@ -3,6 +3,8 @@ using MongoDB.Driver;
 using Server.Models;
 using Server.Services;
 
+EnvLoader.Load();
+
 var builder = WebApplication.CreateBuilder(args);
 builder.WebHost.UseUrls("http://localhost:5000");
 
@@ -14,6 +16,7 @@ builder.Services.AddSingleton<MongoDbContext>();
 builder.Services.AddSingleton<AlertStore>();
 builder.Services.AddSingleton<AuthService>();
 builder.Services.AddSingleton<TokenService>();
+builder.Services.AddSingleton<AiService>();
 
 // Obsługa atrybutu [Authorize] i [Authorize(Roles = "...")] w ASP.NET Core
 builder.Services.AddAuthentication("MongoSession")
