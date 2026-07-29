@@ -1,11 +1,10 @@
-import React, { useEffect, useState } from 'react';
-import { Shield, Bot, Eye, Clock, UserCheck, RotateCcw, Home, LogOut, Database, Users, BarChart2 } from 'lucide-react';
+import React from 'react';
+import { Shield, Bot, Eye, UserCheck, Home, LogOut, Database, Users, BarChart2 } from 'lucide-react';
 import type { UserSession } from '../types/alert';
 
 interface HeaderProps {
   activeTab: 'home' | 'no-ai' | 'with-ai' | 'test-results' | 'admin-users';
   onTabChange: (tab: 'home' | 'no-ai' | 'with-ai' | 'test-results' | 'admin-users') => void;
-  handledCount: number;
   userSession: UserSession | null;
   onLogout: () => void;
 }
@@ -13,36 +12,9 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({
   activeTab,
   onTabChange,
-  handledCount,
   userSession,
   onLogout
 }) => {
-  const [timerSeconds, setTimerSeconds] = useState<number>(0);
-  const [isTimerRunning, setIsTimerRunning] = useState<boolean>(true);
-
-  useEffect(() => {
-    let interval: any = null;
-    if (isTimerRunning && (activeTab === 'no-ai' || activeTab === 'with-ai')) {
-      interval = setInterval(() => {
-        setTimerSeconds(prev => prev + 1);
-      }, 1000);
-    } else {
-      clearInterval(interval);
-    }
-    return () => clearInterval(interval);
-  }, [isTimerRunning, activeTab]);
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const handleResetTimer = () => {
-    setTimerSeconds(0);
-    setIsTimerRunning(true);
-  };
-
   return (
     <header className="soc-header">
       <div className="soc-header-inner">
@@ -53,13 +25,12 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontWeight: 700, letterSpacing: '0.5px', fontSize: '0.95rem' }}>SOC SENTINEL DASHBOARD</span>
+              <span style={{ fontWeight: 700, letterSpacing: '0.5px', fontSize: '0.95rem' }}>Magisterka SOC</span>
               <span className="soc-status-badge">
-                <span className="pulse-dot"></span> SYSTEM ONLINE
+                <span className="pulse-dot"></span> ONLINE
               </span>
             </div>
             <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)', fontWeight: 400, marginTop: '1px' }}>
-              Środowisko Badawcze Operatora SOC (Laboratorium MGR)
             </div>
           </div>
         </div>
@@ -77,21 +48,15 @@ export const Header: React.FC<HeaderProps> = ({
 
             <button
               className={`soc-tab ${activeTab === 'no-ai' ? 'active-no-ai' : ''}`}
-              onClick={() => {
-                onTabChange('no-ai');
-                handleResetTimer();
-              }}
+              onClick={() => onTabChange('no-ai')}
             >
               <Eye size={16} />
               <span>Test 1: Bez AI</span>
             </button>
-            
+
             <button
               className={`soc-tab ${activeTab === 'with-ai' ? 'active-ai' : ''}`}
-              onClick={() => {
-                onTabChange('with-ai');
-                handleResetTimer();
-              }}
+              onClick={() => onTabChange('with-ai')}
             >
               <Bot size={16} />
               <span>Test 2: Z AI</span>
@@ -120,56 +85,8 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         )}
 
-        {/* Right: Timer & Session Meta */}
+        {/* Right: Session Meta */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          {userSession && (activeTab === 'no-ai' || activeTab === 'with-ai') && (
-            <div style={{
-              background: 'rgba(0,0,0,0.4)',
-              border: '1px solid var(--border-color)',
-              borderRadius: '8px',
-              padding: '0.35rem 0.75rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              fontSize: '0.825rem'
-            }}>
-              <Clock size={15} color="var(--ai-cyan)" />
-              <span style={{ color: 'var(--text-muted)' }}>Stoper:</span>
-              <span className="mono" style={{ fontWeight: 700, color: '#38bdf8', fontSize: '0.95rem' }}>
-                {formatTime(timerSeconds)}
-              </span>
-              <button
-                onClick={handleResetTimer}
-                title="Resetuj stoper"
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: 'var(--text-muted)',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  padding: '2px'
-                }}
-              >
-                <RotateCcw size={13} />
-              </button>
-            </div>
-          )}
-
-          {userSession && (
-            <div style={{
-              background: 'rgba(16, 185, 129, 0.1)',
-              border: '1px solid rgba(16, 185, 129, 0.25)',
-              borderRadius: '8px',
-              padding: '0.35rem 0.75rem',
-              fontSize: '0.8rem',
-              color: '#10b981',
-              fontWeight: 600
-            }}>
-              Obsłużono: {handledCount}
-            </div>
-          )}
-
           {userSession ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <div style={{ display: 'flex', flexShrink: 0, alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>

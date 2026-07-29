@@ -1,15 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { fetchTestSessions, fetchRegisteredUsers, deleteTestSession, deleteAllTestSessions, fetchTestSet } from '../services/api';
 import type { UserSession } from '../types/alert';
-import { 
-  BarChart2, 
-  User, 
-  ChevronDown, 
-  ChevronUp, 
-  Clock, 
-  RefreshCw, 
-  Bot, 
-  Eye, 
+import {
+  BarChart2,
+  User,
+  ChevronDown,
+  ChevronUp,
+  Clock,
+  RefreshCw,
+  Bot,
+  Eye,
   Award,
   Users,
   Activity,
@@ -205,7 +205,7 @@ export const TestResultsPage: React.FC<TestResultsPageProps> = ({ userSession })
       const mode = s.mode || s.Mode || 'NoAI';
       const startTime = s.startTime || s.StartTime || '';
       const sessionId = s.sessionId || s.SessionId;
-      
+
       let key = sessionId;
       if (!key) {
         const dateKey = startTime ? new Date(startTime).toISOString().substring(0, 16) : 'unknown';
@@ -265,7 +265,7 @@ export const TestResultsPage: React.FC<TestResultsPageProps> = ({ userSession })
       const group = groupMap.get(normKey)!;
       group.sessions.push(s);
       group.totalSessionsCount += 1;
-      
+
       const decisionsList = s.decisions || s.Decisions || [];
       const handled = s.alertsHandledCount || s.AlertsHandledCount || decisionsList.length;
       if (handled >= 30) {
@@ -282,8 +282,8 @@ export const TestResultsPage: React.FC<TestResultsPageProps> = ({ userSession })
         }
       });
 
-      group.overallAccuracy = group.totalDecisionsCount > 0 
-        ? Math.round((group.totalCorrectDecisionsCount / group.totalDecisionsCount) * 100) 
+      group.overallAccuracy = group.totalDecisionsCount > 0
+        ? Math.round((group.totalCorrectDecisionsCount / group.totalDecisionsCount) * 100)
         : 0;
     });
 
@@ -438,11 +438,11 @@ export const TestResultsPage: React.FC<TestResultsPageProps> = ({ userSession })
       </div>
 
       {/* DEDYKOWANA SEKCJA PORÓWNAWCZA: Test 1 (Bez AI) vs Test 2 (Z AI) */}
-      <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', 
-        gap: '1rem', 
-        marginBottom: '1.25rem' 
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+        gap: '1rem',
+        marginBottom: '1.25rem'
       }}>
         {/* Test 1 (Bez AI) Card */}
         <div className="soc-card" style={{ padding: '1rem 1.25rem', border: '1px solid rgba(59, 130, 246, 0.3)', background: 'rgba(15, 23, 42, 0.6)' }}>
@@ -491,20 +491,20 @@ export const TestResultsPage: React.FC<TestResultsPageProps> = ({ userSession })
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             <div>
-              <div style={{ 
-                fontSize: '1.2rem', 
-                fontWeight: 800, 
-                color: statsComparison.accuracyDiff >= 0 ? '#34d399' : '#f87171' 
+              <div style={{
+                fontSize: '1.2rem',
+                fontWeight: 800,
+                color: statsComparison.accuracyDiff >= 0 ? '#34d399' : '#f87171'
               }}>
                 {statsComparison.accuracyDiff >= 0 ? `+${statsComparison.accuracyDiff}%` : `${statsComparison.accuracyDiff}%`}
               </div>
               <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>Wzrost Trafności</div>
             </div>
             <div style={{ borderLeft: '1px solid var(--border-color)', paddingLeft: '16px' }}>
-              <div style={{ 
-                fontSize: '1.2rem', 
-                fontWeight: 800, 
-                color: statsComparison.speedDiff >= 0 ? '#38bdf8' : '#f87171' 
+              <div style={{
+                fontSize: '1.2rem',
+                fontWeight: 800,
+                color: statsComparison.speedDiff >= 0 ? '#38bdf8' : '#f87171'
               }}>
                 {statsComparison.speedDiff >= 0 ? `-${statsComparison.speedDiff.toFixed(1)}s` : `+${Math.abs(statsComparison.speedDiff).toFixed(1)}s`}
               </div>
@@ -532,35 +532,35 @@ export const TestResultsPage: React.FC<TestResultsPageProps> = ({ userSession })
             const isUserExpanded = !!expandedUsers[group.username];
 
             return (
-              <div 
-                key={group.username} 
-                className="soc-card" 
-                style={{ 
+              <div
+                key={group.username}
+                className="soc-card"
+                style={{
                   padding: '0.85rem 1.25rem',
                   border: isUserExpanded ? '1px solid rgba(56, 189, 248, 0.4)' : '1px solid var(--border-color)',
                   transition: 'all 0.15s ease'
                 }}
               >
                 {/* Kompaktowy Pasek Nagłówkowy Użytkownika */}
-                <div 
+                <div
                   onClick={() => toggleUserExpanded(group.username)}
-                  style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'space-between', 
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
                     cursor: 'pointer',
                     userSelect: 'none'
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <div style={{ 
-                      width: '36px', 
-                      height: '36px', 
-                      borderRadius: '8px', 
-                      background: 'rgba(56, 189, 248, 0.15)', 
+                    <div style={{
+                      width: '36px',
+                      height: '36px',
+                      borderRadius: '8px',
+                      background: 'rgba(56, 189, 248, 0.15)',
                       border: '1px solid rgba(56, 189, 248, 0.3)',
-                      display: 'flex', 
-                      alignItems: 'center', 
+                      display: 'flex',
+                      alignItems: 'center',
                       justifyContent: 'center',
                       color: 'var(--ai-cyan)'
                     }}>
@@ -656,8 +656,8 @@ export const TestResultsPage: React.FC<TestResultsPageProps> = ({ userSession })
 
                             return (
                               <React.Fragment key={sessionId}>
-                                <tr style={{ 
-                                  borderBottom: '1px solid var(--border-color)', 
+                                <tr style={{
+                                  borderBottom: '1px solid var(--border-color)',
                                   background: isSessionExpanded ? 'rgba(30, 41, 59, 0.5)' : 'transparent'
                                 }}>
                                   <td style={{ padding: '0.55rem 0.65rem', color: 'var(--text-muted)', fontWeight: 600 }}>
@@ -809,14 +809,14 @@ export const TestResultsPage: React.FC<TestResultsPageProps> = ({ userSession })
                                                 const isThreatRow = evalAccuracy.isThreat;
 
                                                 return (
-                                                  <tr key={dIdx} style={{ 
+                                                  <tr key={dIdx} style={{
                                                     borderBottom: '1px solid rgba(255,255,255,0.04)',
                                                     background: evalAccuracy.isCorrect ? 'transparent' : 'rgba(239, 68, 68, 0.04)'
                                                   }}>
                                                     <td style={{ padding: '0.35rem 0.5rem', color: 'var(--text-muted)' }}>{dIdx + 1}</td>
                                                     <td style={{ padding: '0.35rem 0.5rem', fontWeight: 600, color: '#e2e8f0' }}>{alertId}</td>
                                                     <td style={{ padding: '0.35rem 0.5rem' }}>
-                                                      <span style={{ 
+                                                      <span style={{
                                                         padding: '0.08rem 0.45rem', borderRadius: '5px', fontSize: '0.65rem', fontWeight: 600,
                                                         background: isThreatRow ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.12)',
                                                         color: isThreatRow ? '#fca5a5' : '#6ee7b7',

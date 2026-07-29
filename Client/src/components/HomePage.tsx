@@ -55,25 +55,6 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, alertCount }) =>
               Aplikacja stworzona na potrzeby pracy magisterskiej. Służy do przeprowadzenia obiektywnych pomiarów porównawczych czasu reakcji, trafności decyzji i efektywności pracy analityka SOC w trybie tradycyjnym oraz ze wsparciem Asystenta AI.
             </p>
           </div>
-
-          <div style={{
-            background: 'rgba(7, 10, 18, 0.7)',
-            border: '1px solid var(--border-color)',
-            padding: '1.5rem',
-            borderRadius: '12px',
-            textAlign: 'center',
-            minWidth: '220px'
-          }}>
-            <div style={{ fontSize: '0.775rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              Incydenty w Bazie
-            </div>
-            <div className="mono" style={{ fontSize: '2.75rem', fontWeight: 800, color: '#38bdf8', margin: '0.2rem 0' }}>
-              {alertCount}
-            </div>
-            <div style={{ fontSize: '0.75rem', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
-              <Server size={12} /> Backend ASP.NET Core Active
-            </div>
-          </div>
         </div>
       </div>
 

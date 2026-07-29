@@ -168,18 +168,13 @@ export const AiTestView: React.FC<AiTestViewProps> = ({ alerts, onActionTaken, o
                 <div className="alert-item-title">{alert.title}</div>
                 <div className="alert-item-meta">
                   <span>Host: {alert.destinationHost}</span>
-                  {alert.aiConfidenceScore && (
-                    <span style={{ color: '#c084fc', fontWeight: 600 }}>
-                      AI: {alert.aiConfidenceScore}%
-                    </span>
-                  )}
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Prawa kolumna: Analiza AI & Akcje */}
+        {/* Prawa kolumna: Analiza & Akcje */}
         {currentAlert ? (
           <div className="soc-card" style={{ minHeight: '600px', display: 'flex', flexDirection: 'column' }}>
             <div className="soc-card-header" style={{ borderBottom: '1px solid #1e293b' }}>
@@ -189,19 +184,6 @@ export const AiTestView: React.FC<AiTestViewProps> = ({ alerts, onActionTaken, o
               </div>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                 {getSeverityBadge(currentAlert.severity)}
-                {currentAlert.aiConfidenceScore && (
-                  <span style={{
-                    background: 'rgba(168, 85, 247, 0.2)',
-                    border: '1px solid rgba(168, 85, 247, 0.4)',
-                    color: '#c084fc',
-                    padding: '0.2rem 0.6rem',
-                    borderRadius: '12px',
-                    fontSize: '0.75rem',
-                    fontWeight: 700
-                  }}>
-                    Pewność AI: {currentAlert.aiConfidenceScore}%
-                  </span>
-                )}
               </div>
             </div>
 
@@ -209,45 +191,6 @@ export const AiTestView: React.FC<AiTestViewProps> = ({ alerts, onActionTaken, o
               <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '0.75rem', color: '#ffffff' }}>
                 {currentAlert.title}
               </h2>
-
-              {/* Sekcja Podsumowanie AI */}
-              <div style={{
-                background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.1), rgba(59, 130, 246, 0.05))',
-                border: '1px solid rgba(168, 85, 247, 0.3)',
-                borderRadius: '10px',
-                padding: '1rem',
-                marginBottom: '1.25rem'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.5rem', color: '#c084fc', fontWeight: 600, fontSize: '0.875rem' }}>
-                  <Sparkles size={16} /> Podsumowanie Generatywne AI:
-                </div>
-                <p style={{ fontSize: '0.9rem', lineHeight: '1.5', color: '#f1f5f9', margin: 0 }}>
-                  {currentAlert.aiSummary || 'AI dokonuje automatycznej syntezy surowych rejestrów z bazy wynik.json...'}
-                </p>
-              </div>
-
-              {/* Analiza Ryzyka & Rekomendowane Akcje */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.25rem' }}>
-                <div style={{ background: 'rgba(0,0,0,0.3)', padding: '0.85rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.35rem', textTransform: 'uppercase' }}>
-                    Ocena Ryzyka AI:
-                  </div>
-                  <div style={{ fontSize: '0.85rem', color: '#e2e8f0', fontWeight: 500 }}>
-                    {currentAlert.aiRiskAnalysis || 'Wysokie prawdopodobieństwo anomalnej aktywności.'}
-                  </div>
-                </div>
-
-                <div style={{ background: 'rgba(0,0,0,0.3)', padding: '0.85rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.35rem', textTransform: 'uppercase' }}>
-                    Rekomendowane Akcje AI:
-                  </div>
-                  <ul style={{ margin: 0, paddingLeft: '1.2rem', fontSize: '0.825rem', color: '#cbd5e1' }}>
-                    {currentAlert.aiRecommendedActions?.map((act, i) => (
-                      <li key={i}>{act}</li>
-                    )) || <li>Zweryfikować wywołany proces.</li>}
-                  </ul>
-                </div>
-              </div>
 
               {/* Komponent Analityczny NetFlow */}
               <NetFlowInspector alert={currentAlert} />

@@ -49,7 +49,7 @@ export const App: React.FC = () => {
     }
   }, [userSession]);
 
-  // Real-time Session Monitoring
+  // Real-time Session Monitoring — sprawdzamy ważność sesji co 5 minut
   useEffect(() => {
     const handleUnauthorized = () => {
       setUserSession(null);
@@ -58,6 +58,19 @@ export const App: React.FC = () => {
 
     window.addEventListener('soc_unauthorized_logout', handleUnauthorized);
 
+    // Weryfikacja przy powrocie do zakładki (widoczność okna)
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'visible' && userSession) {
+        const isValid = await verifyCurrentSession();
+        if (!isValid) {
+          setUserSession(null);
+          setActiveTab('home');
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Interwał 5 minut — JWT jest długożyjący, częstsze zapytania nie są potrzebne
     let intervalId: any = null;
     if (userSession) {
       intervalId = setInterval(async () => {
@@ -66,11 +79,12 @@ export const App: React.FC = () => {
           setUserSession(null);
           setActiveTab('home');
         }
-      }, 3000);
+      }, 5 * 60 * 1000); // 5 minut
     }
 
     return () => {
       window.removeEventListener('soc_unauthorized_logout', handleUnauthorized);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (intervalId) clearInterval(intervalId);
     };
   }, [userSession]);
@@ -176,7 +190,6 @@ export const App: React.FC = () => {
       <Header
         activeTab={activeTab}
         onTabChange={handleTabChange}
-        handledCount={handledCount}
         userSession={userSession}
         onLogout={handleLogout}
       />
