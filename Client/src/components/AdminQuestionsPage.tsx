@@ -444,7 +444,7 @@ export const AdminQuestionsPage: React.FC = () => {
                   <label style={{ display: 'block', fontSize: '0.775rem', color: 'var(--text-muted)', marginBottom: '0.3rem' }}>Poziom Zagrożenia (Severity)</label>
                   <select
                     value={formData.severity || 'High'}
-                    onChange={e => setFormData({ ...formData, severity: e.target.value })}
+                    onChange={e => setFormData({ ...formData, severity: e.target.value as Alert['severity'] })}
                     style={{ width: '100%', background: 'rgba(15, 23, 42, 0.8)', border: '1px solid var(--border-color)', color: '#ffffff', padding: '0.45rem', borderRadius: '6px', fontSize: '0.825rem' }}
                   >
                     <option value="Critical">Critical</option>
