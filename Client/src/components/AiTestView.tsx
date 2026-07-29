@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import type { Alert } from '../types/alert';
 import { sendAiQuery } from '../services/api';
 import { NetFlowInspector } from './NetFlowInspector';
-import { Bot, Sparkles, AlertTriangle, Send, Brain, PlusCircle, Inbox, Award, Check, Search } from 'lucide-react';
+import { getHostInfoByIp } from '../data/networkTopology';
+import { Bot, Sparkles, AlertTriangle, Send, Brain, PlusCircle, Inbox, Award, Check, Search, Lock, Server, ArrowUpRight, XCircle } from 'lucide-react';
 
 interface AiTestViewProps {
   alerts: Alert[];
@@ -152,18 +153,18 @@ export const AiTestView: React.FC<AiTestViewProps> = ({ alerts, onActionTaken, o
         </div>
       </div>
 
-      <div className="dashboard-grid">
-        {/* Lewa kolumna: Kolejka alertów */}
-        <div className="soc-card">
+      <div className="dashboard-grid-with-ai">
+        {/* Kolumna 1: Kolejka alertów (Sticky Sidebar) */}
+        <div className="soc-card sticky-queue">
           <div className="soc-card-header">
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Bot size={18} color="var(--accent-purple)" />
+              <Bot size={18} color="var(--ai-purple)" />
               <span>Kolejka Alertów ({remainingAlerts.length} pozostało)</span>
             </div>
           </div>
 
           {/* Wyszukiwarka & Filtr */}
-          <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.2)' }}>
+          <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--border-color)', background: 'rgba(15, 23, 42, 0.6)' }}>
             <div style={{ position: 'relative', marginBottom: '0.5rem' }}>
               <Search size={15} style={{ position: 'absolute', left: '10px', top: '10px', color: 'var(--text-muted)' }} />
               <input
@@ -173,7 +174,7 @@ export const AiTestView: React.FC<AiTestViewProps> = ({ alerts, onActionTaken, o
                 onChange={(e) => setSearchQuery(e.target.value)}
                 style={{
                   width: '100%',
-                  background: '#1a2332',
+                  background: '#0f172a',
                   border: '1px solid var(--border-color)',
                   color: 'white',
                   padding: '0.45rem 0.5rem 0.45rem 2rem',
@@ -189,14 +190,14 @@ export const AiTestView: React.FC<AiTestViewProps> = ({ alerts, onActionTaken, o
                   key={sev}
                   onClick={() => setSelectedSeverity(sev)}
                   style={{
-                    background: selectedSeverity === sev ? 'var(--accent-purple)' : '#1f2937',
+                    background: selectedSeverity === sev ? 'var(--accent-purple)' : '#1e293b',
                     color: selectedSeverity === sev ? 'white' : 'var(--text-muted)',
-                    border: 'none',
+                    border: selectedSeverity === sev ? '1px solid #c084fc' : '1px solid transparent',
                     padding: '0.25rem 0.6rem',
                     borderRadius: '4px',
                     fontSize: '0.725rem',
                     cursor: 'pointer',
-                    fontWeight: 500
+                    fontWeight: 600
                   }}
                 >
                   {sev === 'All' ? 'Wszystkie' : sev}
@@ -206,16 +207,15 @@ export const AiTestView: React.FC<AiTestViewProps> = ({ alerts, onActionTaken, o
           </div>
 
           {/* Lista alertów */}
-          <div style={{ maxHeight: '640px', overflowY: 'auto' }}>
+          <div className="sticky-queue-list">
             {filteredAlerts.map((alert) => (
               <div
                 key={alert.id}
-                className={`alert-item ${currentAlert?.id === alert.id ? 'selected' : ''}`}
+                className={`alert-item ${currentAlert?.id === alert.id ? 'selected-ai' : ''}`}
                 onClick={() => setSelectedAlertId(alert.id)}
-                style={{ borderLeftColor: currentAlert?.id === alert.id ? 'var(--accent-purple)' : 'transparent' }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
-                  <span className="mono" style={{ fontSize: '0.75rem', color: 'var(--accent-purple)', fontWeight: 600 }}>
+                  <span className="mono" style={{ fontSize: '0.75rem', color: '#c084fc', fontWeight: 700 }}>
                     {alert.id}
                   </span>
                   {getSeverityBadge(alert.severity)}
@@ -229,143 +229,249 @@ export const AiTestView: React.FC<AiTestViewProps> = ({ alerts, onActionTaken, o
           </div>
         </div>
 
-        {/* Prawa kolumna: Analiza & Akcje */}
+        {/* Kolumna 2: Widok Telemetrii Incydentu */}
         {currentAlert ? (
-          <div className="soc-card" style={{ minHeight: '600px', display: 'flex', flexDirection: 'column' }}>
-            <div className="soc-card-header" style={{ borderBottom: '1px solid #1e293b' }}>
+          <div className="soc-card">
+            <div className="soc-card-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Brain size={18} color="var(--accent-purple)" />
-                <span>Asystent AI [{currentAlert.id}]</span>
+                <Terminal size={18} color="#c084fc" />
+                <span>Analiza Incydentu [{currentAlert.id}]</span>
               </div>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                {getSeverityBadge(currentAlert.severity)}
-              </div>
+              <div>{getSeverityBadge(currentAlert.severity)}</div>
             </div>
 
-            <div style={{ padding: '1.25rem', flex: 1, overflowY: 'auto' }}>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '0.75rem', color: '#ffffff' }}>
+            <div style={{ padding: '1.35rem' }}>
+              <h2 style={{ fontSize: '1.3rem', fontWeight: 800, marginBottom: '1.25rem', color: '#ffffff', lineHeight: 1.3 }}>
                 {currentAlert.title}
               </h2>
 
-              {/* Tabela Kluczowych Metadanych Incydentu */}
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-                gap: '0.75rem',
-                background: 'rgba(0,0,0,0.3)',
-                padding: '1rem',
-                borderRadius: '8px',
-                border: '1px solid var(--border-color)',
-                marginBottom: '1.25rem',
-                fontSize: '0.85rem'
-              }}>
-                <div>
-                  <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.75rem' }}>Źródłowy IP:</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                    <span className="mono" style={{ fontWeight: 600, color: '#c084fc' }}>{currentAlert.sourceIp}</span>
-                    {(() => {
-                      const hostInfo = getHostInfoByIp(currentAlert.sourceIp);
-                      if (!hostInfo) return null;
-                      return (
-                        <span style={{
-                          fontSize: '0.675rem',
-                          padding: '0.1rem 0.4rem',
-                          borderRadius: '4px',
-                          background: 'rgba(192, 132, 252, 0.15)',
-                          color: '#c084fc',
-                          border: '1px solid rgba(192, 132, 252, 0.3)',
-                          fontWeight: 600
-                        }}>
-                          {hostInfo.name} ({hostInfo.os})
-                        </span>
-                      );
-                    })()}
+              {/* Sekcja 1: Kontekst Incydentu (SIEM / EDR) */}
+              <div style={{ marginBottom: '1.5rem' }}>
+                <div className="soc-section-title">
+                  <ShieldAlert size={16} /> 1. Kontekst Incydentu (SIEM / EDR)
+                </div>
+
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
+                  gap: '0.75rem',
+                  background: 'rgba(15, 23, 42, 0.6)',
+                  padding: '1rem',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border-color)',
+                  marginBottom: '1rem',
+                  fontSize: '0.85rem'
+                }}>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.75rem', fontWeight: 500 }}>Źródłowy IP:</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginTop: '2px' }}>
+                      <span className="mono" style={{ fontWeight: 600, color: '#c084fc' }}>{currentAlert.sourceIp}</span>
+                      {(() => {
+                        const hostInfo = getHostInfoByIp(currentAlert.sourceIp);
+                        if (!hostInfo) return null;
+                        return (
+                          <span style={{
+                            fontSize: '0.675rem',
+                            padding: '0.1rem 0.4rem',
+                            borderRadius: '4px',
+                            background: 'rgba(192, 132, 252, 0.15)',
+                            color: '#c084fc',
+                            border: '1px solid rgba(192, 132, 252, 0.3)',
+                            fontWeight: 600
+                          }}>
+                            {hostInfo.name} ({hostInfo.os})
+                          </span>
+                        );
+                      })()}
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.75rem' }}>Docelowy Host:</span>
-                  <span className="mono" style={{ fontWeight: 600, color: '#f3f4f6' }}>{currentAlert.destinationHost}</span>
-                </div>
-                <div>
-                  <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.75rem' }}>Użytkownik:</span>
-                  <span className="mono" style={{ color: '#f3f4f6' }}>{currentAlert.userAccount}</span>
-                </div>
-                <div>
-                  <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.75rem' }}>Wywołana Taktyka:</span>
-                  <span style={{ color: '#f87171', fontWeight: 600 }}>{currentAlert.mitreTechnique}</span>
-                </div>
-              </div>
-
-              {/* Opis Zdarzenia */}
-              <div style={{ marginBottom: '1.25rem' }}>
-                <h4 style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>Opis Zdarzenia (SIEM/EDR):</h4>
-                <p style={{ fontSize: '0.9rem', lineHeight: '1.5', color: '#d1d5db', background: 'rgba(255,255,255,0.02)', padding: '0.85rem', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
-                  {currentAlert.description}
-                </p>
-              </div>
-
-              {/* Komponent Analityczny NetFlow */}
-              <NetFlowInspector alert={currentAlert} />
-
-              {/* Chat z AI */}
-              <div style={{ marginBottom: '1.25rem', background: '#0f172a', borderRadius: '8px', padding: '0.85rem', border: '1px solid #1e293b' }}>
-                <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Bot size={14} color="#c084fc" /> Zadaj pytanie do modułu AI:
-                </div>
-
-                {chatMessages.map((msg, i) => (
-                  <div key={i} style={{
-                    marginBottom: '0.5rem',
-                    textAlign: msg.sender === 'user' ? 'right' : 'left'
-                  }}>
-                    <span style={{
-                      display: 'inline-block',
-                      background: msg.sender === 'user' ? '#2563eb' : '#1e293b',
-                      color: 'white',
-                      padding: '0.4rem 0.75rem',
-                      borderRadius: '8px',
-                      fontSize: '0.825rem'
-                    }}>
-                      {msg.text}
+                  <div>
+                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.75rem', fontWeight: 500 }}>Docelowy Host:</span>
+                    <span className="mono" style={{ fontWeight: 600, color: '#f8fafc', display: 'block', marginTop: '2px' }}>{currentAlert.destinationHost}</span>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.75rem', fontWeight: 500 }}>Użytkownik:</span>
+                    <span className="mono" style={{ color: '#cbd5e1', display: 'block', marginTop: '2px' }}>
+                      {(!currentAlert.userAccount || currentAlert.userAccount.includes('EXTERNAL_ATTACKER') || currentAlert.userAccount.includes('node_'))
+                        ? 'Zewnętrzny / Nieokreślono'
+                        : currentAlert.userAccount}
                     </span>
                   </div>
-                ))}
+                  <div>
+                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.75rem', fontWeight: 500 }}>Kategoria Incydentu:</span>
+                    <span style={{ color: '#c084fc', fontWeight: 600, display: 'block', marginTop: '2px' }}>
+                      {currentAlert.category || 'Anomalia Sieciowa (SIEM)'}
+                    </span>
+                  </div>
+                </div>
 
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <input
-                    type="text"
-                    placeholder="Wpisz pytanie do modułu AI..."
-                    value={chatInput}
-                    onChange={(e) => setChatInput(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                    style={{ flex: 1, background: '#1a2332', border: '1px solid #334155', color: 'white', padding: '0.4rem 0.75rem', borderRadius: '6px', fontSize: '0.8rem' }}
-                  />
-                  <button onClick={() => handleSendMessage()} disabled={isAiLoading} style={{ background: '#8b5cf6', color: 'white', border: 'none', padding: '0.4rem 0.85rem', borderRadius: '6px', cursor: 'pointer' }}>
-                    <Send size={14} />
+                <div>
+                  <h4 style={{ fontSize: '0.825rem', color: 'var(--text-muted)', marginBottom: '0.4rem', fontWeight: 600 }}>Opis Zdarzenia (SIEM/EDR):</h4>
+                  <p style={{ fontSize: '0.9rem', lineHeight: '1.6', color: '#e2e8f0', background: 'rgba(15, 23, 42, 0.5)', padding: '0.9rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                    {currentAlert.description}
+                  </p>
+                </div>
+              </div>
+
+              {/* Sekcja 2: NetFlow Inspector */}
+              <div>
+                <div className="soc-section-title">
+                  <Terminal size={16} /> 2. Telemetria & Analiza Ruchu Sieciowego NetFlow
+                </div>
+                <NetFlowInspector alert={currentAlert} />
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {/* Kolumna 3: Dedykowany Panel Asystenta AI & Decyzji */}
+        {currentAlert ? (
+          <div className="soc-card sticky-queue" style={{ border: '1px solid rgba(192, 132, 252, 0.3)' }}>
+            <div className="soc-card-header" style={{ background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(192, 132, 252, 0.1))' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Brain size={18} color="#c084fc" />
+                <span style={{ color: '#ffffff' }}>Asystent AI Copilot</span>
+              </div>
+              <span className="soc-status-badge" style={{ background: 'rgba(192, 132, 252, 0.15)', borderColor: 'rgba(192, 132, 252, 0.35)', color: '#c084fc' }}>
+                ONLINE
+              </span>
+            </div>
+
+            <div style={{ padding: '1.15rem', display: 'flex', flexDirection: 'column', flex: 1, gap: '1rem' }}>
+              {/* Panel Decyzyjny Operatora */}
+              <div className="decision-panel" style={{ border: '1px solid rgba(192, 132, 252, 0.3)', marginBottom: 0 }}>
+                <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#f8fafc', marginBottom: '0.65rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Sparkles size={14} color="#c084fc" /> Decyzja Operatora SOC:
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                  <button className="btn-action btn-danger" style={{ fontSize: '0.775rem', padding: '0.45rem' }} onClick={() => handleAction('Isolate Host / Block')}>
+                    <Lock size={13} /> Zablokuj
+                  </button>
+
+                  <button className="btn-action btn-warning" style={{ fontSize: '0.775rem', padding: '0.45rem' }} onClick={() => handleAction('Investigate / Reset Password')}>
+                    <Server size={13} /> Badaj / Reset
+                  </button>
+
+                  <button className="btn-action" style={{ fontSize: '0.775rem', padding: '0.45rem' }} onClick={() => handleAction('Escalate / Tier 2')}>
+                    <ArrowUpRight size={13} /> Eskaluj L2
+                  </button>
+
+                  <button className="btn-action" style={{ fontSize: '0.775rem', padding: '0.45rem' }} onClick={() => handleAction('Dismiss / False Positive')}>
+                    <XCircle size={13} /> False Pos.
                   </button>
                 </div>
               </div>
 
-              {/* Przyciski Decyzji Operatora */}
+              {/* Szybkie Pytania Sugerowane */}
               <div>
-                <h4 style={{ fontSize: '0.875rem', color: '#ffffff', marginBottom: '0.65rem' }}>Zatwierdź Decyzję Operatora (Alert zniknie):</h4>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
-                  <button className="btn-action btn-danger" onClick={() => handleAction('Isolate Host / Block')}>
-                    <Lock size={15} /> Izoluj Hosta / Zablokuj
-                  </button>
-
-                  <button className="btn-action btn-warning" onClick={() => handleAction('Investigate / Reset Password')}>
-                    <Server size={15} /> Badaj / Zresetuj Hasło
-                  </button>
-
-                  <button className="btn-action" onClick={() => handleAction('Escalate / Tier 2')}>
-                    <ArrowUpRight size={15} /> Eskaluj do L2
-                  </button>
-
-                  <button className="btn-action" onClick={() => handleAction('Dismiss / False Positive')}>
-                    <XCircle size={15} /> Zignoruj (False Positive)
-                  </button>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.4rem', fontWeight: 600 }}>Szybkie Sugestie Pytań:</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                  {[
+                    'Przeanalizuj ruch NetFlow i podsumuj sygnały',
+                    'Czy te parametry sieciowe wskazują na False Positive?',
+                    'Jaka jest zalecana reakcja dla tego typu incydentu?'
+                  ].map((qText, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => handleSendMessage(qText)}
+                      disabled={isAiLoading}
+                      style={{
+                        background: 'rgba(30, 41, 59, 0.6)',
+                        border: '1px solid rgba(192, 132, 252, 0.2)',
+                        color: '#cbd5e1',
+                        padding: '0.35rem 0.6rem',
+                        borderRadius: '6px',
+                        fontSize: '0.725rem',
+                        textAlign: 'left',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease'
+                      }}
+                      onMouseOver={(e) => (e.currentTarget.style.borderColor = 'rgba(192, 132, 252, 0.5)')}
+                      onMouseOut={(e) => (e.currentTarget.style.borderColor = 'rgba(192, 132, 252, 0.2)')}
+                    >
+                      💡 {qText}
+                    </button>
+                  ))}
                 </div>
+              </div>
+
+              {/* Chat z AI Log Window */}
+              <div style={{
+                flex: 1,
+                minHeight: '220px',
+                maxHeight: '340px',
+                background: '#070a12',
+                borderRadius: '8px',
+                padding: '0.75rem',
+                border: '1px solid #1e293b',
+                overflowY: 'auto',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.5rem'
+              }}>
+                {chatMessages.length === 0 ? (
+                  <div style={{ margin: 'auto', textAlign: 'center', color: 'var(--text-dim)', fontSize: '0.775rem' }}>
+                    <Brain size={28} color="#c084fc" style={{ opacity: 0.4, margin: '0 auto 0.4rem auto' }} />
+                    Zapytaj AI o rekomendację lub szczegóły ruchu sieciowego.
+                  </div>
+                ) : (
+                  chatMessages.map((msg, i) => (
+                    <div key={i} style={{
+                      textAlign: msg.sender === 'user' ? 'right' : 'left'
+                    }}>
+                      <span style={{
+                        display: 'inline-block',
+                        background: msg.sender === 'user' ? '#2563eb' : '#1e293b',
+                        color: '#ffffff',
+                        border: msg.sender === 'ai' ? '1px solid rgba(192, 132, 252, 0.3)' : 'none',
+                        padding: '0.45rem 0.75rem',
+                        borderRadius: '8px',
+                        fontSize: '0.8rem',
+                        lineHeight: '1.4',
+                        maxWidth: '90%'
+                      }}>
+                        {msg.text}
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Input Bar */}
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <input
+                  type="text"
+                  placeholder="Wpisz pytanie do AI..."
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                  style={{
+                    flex: 1,
+                    background: '#0f172a',
+                    border: '1px solid rgba(192, 132, 252, 0.3)',
+                    color: 'white',
+                    padding: '0.45rem 0.75rem',
+                    borderRadius: '6px',
+                    fontSize: '0.8rem'
+                  }}
+                />
+                <button
+                  onClick={() => handleSendMessage()}
+                  disabled={isAiLoading}
+                  style={{
+                    background: 'linear-gradient(135deg, #a855f7, #7c3aed)',
+                    color: 'white',
+                    border: 'none',
+                    padding: '0.45rem 0.85rem',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  <Send size={14} />
+                </button>
               </div>
             </div>
           </div>

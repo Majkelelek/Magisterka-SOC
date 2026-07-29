@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import type { Alert } from '../types/alert';
 import { NetFlowInspector } from './NetFlowInspector';
-import { AlertTriangle, Search, Inbox, PlusCircle, Award, Check } from 'lucide-react';
+import { getHostInfoByIp } from '../data/networkTopology';
+import { AlertTriangle, ShieldAlert, Terminal, Search, Inbox, PlusCircle, Award, Check, Lock, Server, ArrowUpRight, XCircle } from 'lucide-react';
 
 interface NoAiTestViewProps {
   alerts: Alert[];
@@ -135,8 +136,8 @@ export const NoAiTestView: React.FC<NoAiTestViewProps> = ({ alerts, onActionTake
       </div>
 
       <div className="dashboard-grid">
-        {/* Lewa kolumna: Kolejka alertów */}
-        <div className="soc-card">
+        {/* Lewa kolumna: Kolejka alertów (Sticky) */}
+        <div className="soc-card sticky-queue">
           <div className="soc-card-header">
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <ShieldAlert size={18} color="var(--accent-blue)" />
@@ -145,7 +146,7 @@ export const NoAiTestView: React.FC<NoAiTestViewProps> = ({ alerts, onActionTake
           </div>
 
           {/* Wyszukiwarka & Filtr */}
-          <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.2)' }}>
+          <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--border-color)', background: 'rgba(15, 23, 42, 0.6)' }}>
             <div style={{ position: 'relative', marginBottom: '0.5rem' }}>
               <Search size={15} style={{ position: 'absolute', left: '10px', top: '10px', color: 'var(--text-muted)' }} />
               <input
@@ -155,7 +156,7 @@ export const NoAiTestView: React.FC<NoAiTestViewProps> = ({ alerts, onActionTake
                 onChange={(e) => setSearchQuery(e.target.value)}
                 style={{
                   width: '100%',
-                  background: '#1a2332',
+                  background: '#0f172a',
                   border: '1px solid var(--border-color)',
                   color: 'white',
                   padding: '0.45rem 0.5rem 0.45rem 2rem',
@@ -171,14 +172,14 @@ export const NoAiTestView: React.FC<NoAiTestViewProps> = ({ alerts, onActionTake
                   key={sev}
                   onClick={() => setSelectedSeverity(sev)}
                   style={{
-                    background: selectedSeverity === sev ? 'var(--accent-blue)' : '#1f2937',
+                    background: selectedSeverity === sev ? 'var(--accent-blue)' : '#1e293b',
                     color: selectedSeverity === sev ? 'white' : 'var(--text-muted)',
-                    border: 'none',
+                    border: selectedSeverity === sev ? '1px solid #3b82f6' : '1px solid transparent',
                     padding: '0.25rem 0.6rem',
                     borderRadius: '4px',
                     fontSize: '0.725rem',
                     cursor: 'pointer',
-                    fontWeight: 500
+                    fontWeight: 600
                   }}
                 >
                   {sev === 'All' ? 'Wszystkie' : sev}
@@ -188,7 +189,7 @@ export const NoAiTestView: React.FC<NoAiTestViewProps> = ({ alerts, onActionTake
           </div>
 
           {/* Lista alertów */}
-          <div style={{ maxHeight: '640px', overflowY: 'auto' }}>
+          <div className="sticky-queue-list">
             {filteredAlerts.map((alert) => (
               <div
                 key={alert.id}
@@ -196,7 +197,7 @@ export const NoAiTestView: React.FC<NoAiTestViewProps> = ({ alerts, onActionTake
                 onClick={() => setSelectedAlertId(alert.id)}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
-                  <span className="mono" style={{ fontSize: '0.75rem', color: 'var(--accent-blue)', fontWeight: 600 }}>
+                  <span className="mono" style={{ fontSize: '0.75rem', color: '#60a5fa', fontWeight: 700 }}>
                     {alert.id}
                   </span>
                   {getSeverityBadge(alert.severity)}
@@ -221,73 +222,23 @@ export const NoAiTestView: React.FC<NoAiTestViewProps> = ({ alerts, onActionTake
               <div>{getSeverityBadge(currentAlert.severity)}</div>
             </div>
 
-            <div style={{ padding: '1.25rem' }}>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '0.75rem', color: '#ffffff' }}>
+            <div style={{ padding: '1.35rem' }}>
+              {/* Tytuł Incydentu */}
+              <h2 style={{ fontSize: '1.3rem', fontWeight: 800, marginBottom: '1.25rem', color: '#ffffff', lineHeight: 1.3 }}>
                 {currentAlert.title}
               </h2>
 
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-                gap: '0.75rem',
-                background: 'rgba(0,0,0,0.3)',
-                padding: '1rem',
-                borderRadius: '8px',
-                border: '1px solid var(--border-color)',
-                marginBottom: '1.25rem',
-                fontSize: '0.85rem'
-              }}>
-                <div>
-                  <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.75rem' }}>Źródłowy IP:</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                    <span className="mono" style={{ fontWeight: 600, color: '#60a5fa' }}>{currentAlert.sourceIp}</span>
-                    {(() => {
-                      const hostInfo = getHostInfoByIp(currentAlert.sourceIp);
-                      if (!hostInfo) return null;
-                      return (
-                        <span style={{
-                          fontSize: '0.675rem',
-                          padding: '0.1rem 0.4rem',
-                          borderRadius: '4px',
-                          background: 'rgba(56, 189, 248, 0.15)',
-                          color: '#38bdf8',
-                          border: '1px solid rgba(56, 189, 248, 0.3)',
-                          fontWeight: 600
-                        }}>
-                          {hostInfo.name} ({hostInfo.os})
-                        </span>
-                      );
-                    })()}
-                  </div>
+              {/* Panel Decyzyjny Operatora — Umieszczony na samej górze widoku analitycznego */}
+              <div className="decision-panel">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+                  <span style={{ fontSize: '0.825rem', fontWeight: 700, color: '#f8fafc', textTransform: uppercase => uppercase, letterSpacing: '0.5px' }}>
+                    ⚡ Panel Decyzyjny Operatora SOC
+                  </span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    Wybór decyzji automatycznie zamyka alert i przechodzi do kolejnego
+                  </span>
                 </div>
-                <div>
-                  <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.75rem' }}>Docelowy Host:</span>
-                  <span className="mono" style={{ fontWeight: 600, color: '#f3f4f6' }}>{currentAlert.destinationHost}</span>
-                </div>
-                <div>
-                  <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.75rem' }}>Użytkownik:</span>
-                  <span className="mono" style={{ color: '#f3f4f6' }}>{currentAlert.userAccount}</span>
-                </div>
-                <div>
-                  <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.75rem' }}>Wywołana Taktyka:</span>
-                  <span style={{ color: '#f87171', fontWeight: 600 }}>{currentAlert.mitreTechnique}</span>
-                </div>
-              </div>
-
-              <div style={{ marginBottom: '1.25rem' }}>
-                <h4 style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>Opis Zdarzenia (SIEM/EDR):</h4>
-                <p style={{ fontSize: '0.9rem', lineHeight: '1.5', color: '#d1d5db', background: 'rgba(255,255,255,0.02)', padding: '0.85rem', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
-                  {currentAlert.description}
-                </p>
-              </div>
-
-              {/* Komponent Analityczny NetFlow */}
-              <NetFlowInspector alert={currentAlert} />
-
-              {/* Przyciski Decyzji Operatora */}
-              <div>
-                <h4 style={{ fontSize: '0.875rem', color: '#ffffff', marginBottom: '0.65rem' }}>Podejmij Decyzję Operatora (Alert zniknie i przejdzie do następnego):</h4>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
+                <div className="decision-grid">
                   <button className="btn-action btn-danger" onClick={() => handleAction('Isolate Host / Block')}>
                     <Lock size={15} /> Izoluj Hosta / Zablokuj
                   </button>
@@ -304,6 +255,82 @@ export const NoAiTestView: React.FC<NoAiTestViewProps> = ({ alerts, onActionTake
                     <XCircle size={15} /> Zignoruj (False Positive)
                   </button>
                 </div>
+              </div>
+
+              {/* Sekcja 1: Kontekst Incydentu (SIEM / EDR) */}
+              <div style={{ marginBottom: '1.5rem' }}>
+                <div className="soc-section-title">
+                  <ShieldAlert size={16} /> 1. Kontekst Incydentu (SIEM / EDR)
+                </div>
+
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                  gap: '0.75rem',
+                  background: 'rgba(15, 23, 42, 0.6)',
+                  padding: '1rem',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border-color)',
+                  marginBottom: '1rem',
+                  fontSize: '0.85rem'
+                }}>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.75rem', fontWeight: 500 }}>Źródłowy IP:</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginTop: '2px' }}>
+                      <span className="mono" style={{ fontWeight: 600, color: '#38bdf8' }}>{currentAlert.sourceIp}</span>
+                      {(() => {
+                        const hostInfo = getHostInfoByIp(currentAlert.sourceIp);
+                        if (!hostInfo) return null;
+                        return (
+                          <span style={{
+                            fontSize: '0.675rem',
+                            padding: '0.1rem 0.4rem',
+                            borderRadius: '4px',
+                            background: 'rgba(56, 189, 248, 0.15)',
+                            color: '#38bdf8',
+                            border: '1px solid rgba(56, 189, 248, 0.3)',
+                            fontWeight: 600
+                          }}>
+                            {hostInfo.name} ({hostInfo.os})
+                          </span>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.75rem', fontWeight: 500 }}>Docelowy Host:</span>
+                    <span className="mono" style={{ fontWeight: 600, color: '#f8fafc', display: 'block', marginTop: '2px' }}>{currentAlert.destinationHost}</span>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.75rem', fontWeight: 500 }}>Użytkownik:</span>
+                    <span className="mono" style={{ color: '#cbd5e1', display: 'block', marginTop: '2px' }}>
+                      {(!currentAlert.userAccount || currentAlert.userAccount.includes('EXTERNAL_ATTACKER') || currentAlert.userAccount.includes('node_'))
+                        ? 'Zewnętrzny / Nieokreślono'
+                        : currentAlert.userAccount}
+                    </span>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.75rem', fontWeight: 500 }}>Kategoria Incydentu:</span>
+                    <span style={{ color: '#60a5fa', fontWeight: 600, display: 'block', marginTop: '2px' }}>
+                      {currentAlert.category || 'Anomalia Sieciowa (SIEM)'}
+                    </span>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 style={{ fontSize: '0.825rem', color: 'var(--text-muted)', marginBottom: '0.4rem', fontWeight: 600 }}>Opis Zdarzenia (SIEM/EDR):</h4>
+                  <p style={{ fontSize: '0.9rem', lineHeight: '1.6', color: '#e2e8f0', background: 'rgba(15, 23, 42, 0.5)', padding: '0.9rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                    {currentAlert.description}
+                  </p>
+                </div>
+              </div>
+
+              {/* Sekcja 2: Komponent Analityczny NetFlow */}
+              <div>
+                <div className="soc-section-title">
+                  <Terminal size={16} /> 2. Telemetria & Analiza Ruchu Sieciowego NetFlow
+                </div>
+                <NetFlowInspector alert={currentAlert} />
               </div>
             </div>
           </div>

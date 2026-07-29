@@ -1,20 +1,18 @@
 import React, { useState } from 'react';
-import { 
-  Clock, 
-  Zap, 
-  ArrowUpRight, 
-  ArrowDownLeft, 
-  FileJson, 
-  ChevronDown, 
-  ChevronUp, 
-  ShieldAlert, 
+import {
+  Clock,
+  Zap,
+  ArrowUpRight,
+  ArrowDownLeft,
+  FileJson,
+  ChevronDown,
+  ChevronUp,
+  ShieldAlert,
   CheckCircle2,
   HardDrive,
-  Network,
-  Info
+  Network
 } from 'lucide-react';
 import type { Alert } from '../types/alert';
-import { getHostInfoByIp } from '../data/networkTopology';
 import { NetworkTopologyModal } from './NetworkTopologyModal';
 
 interface NetFlowInspectorProps {
@@ -24,9 +22,6 @@ interface NetFlowInspectorProps {
 export const NetFlowInspector: React.FC<NetFlowInspectorProps> = ({ alert }) => {
   const [showRawJson, setShowRawJson] = useState<boolean>(false);
   const [showTopologyModal, setShowTopologyModal] = useState<boolean>(false);
-
-  // Host lookup
-  const srcHostInfo = getHostInfoByIp(alert.sourceIp);
 
   // Try parsing raw log JSON object if available
   let netflowObj: Record<string, any> = {};
@@ -91,34 +86,30 @@ export const NetFlowInspector: React.FC<NetFlowInspectorProps> = ({ alert }) => 
       marginBottom: '1.25rem'
     }}>
       {/* Inspector Title */}
-      <div style={{ 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'space-between', 
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
         marginBottom: '1rem',
         borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
         paddingBottom: '0.75rem'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div style={{
-            background: isThreat ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)',
-            border: isThreat ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid rgba(16, 185, 129, 0.4)',
+            background: 'rgba(56, 189, 248, 0.15)',
+            border: '1px solid rgba(56, 189, 248, 0.35)',
             padding: '8px',
             borderRadius: '8px',
             display: 'flex'
           }}>
-            {isThreat ? (
-              <ShieldAlert size={20} color="#f87171" />
-            ) : (
-              <CheckCircle2 size={20} color="#34d399" />
-            )}
+            <Network size={20} color="#38bdf8" />
           </div>
           <div>
             <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: '#ffffff' }}>
               Analizator Przepływu i Ruchu Sieciowego
             </h4>
             <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
-              Klasyfikacja zdarzenia: <strong style={{ color: isThreat ? '#f87171' : '#34d399' }}>{label}</strong> • Port docelowy: <strong style={{ color: '#38bdf8' }}>{destPort}</strong>
+              Telemetria & Analiza Przepływu NetFlow • Port docelowy: <strong style={{ color: '#38bdf8' }}>{destPort}</strong>
             </span>
           </div>
         </div>
@@ -249,9 +240,9 @@ export const NetFlowInspector: React.FC<NetFlowInspectorProps> = ({ alert }) => 
       </div>
 
       {/* Traffic Asymmetry & TCP Flags Bar */}
-      <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: '1fr 1fr', 
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
         gap: '1rem',
         alignItems: 'center'
       }}>
