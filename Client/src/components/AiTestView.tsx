@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import type { Alert } from '../types/alert';
 import { sendAiQuery } from '../services/api';
 import { NetFlowInspector } from './NetFlowInspector';
-import { getHostInfoByIp } from '../data/networkTopology';
-import { Bot, Sparkles, AlertTriangle, Send, Brain, PlusCircle, Inbox, Award, Check, Lock, Server, ArrowUpRight, XCircle, Search } from 'lucide-react';
+import { Bot, Sparkles, AlertTriangle, Send, Brain, PlusCircle, Inbox, Award, Check, Search } from 'lucide-react';
 
 interface AiTestViewProps {
   alerts: Alert[];

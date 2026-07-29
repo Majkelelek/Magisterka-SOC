@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Search, Filter, HelpCircle, CheckCircle, AlertTriangle, Shield, RefreshCw } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, Filter, HelpCircle, CheckCircle, AlertTriangle } from 'lucide-react';
 import type { Alert } from '../types/alert';
 import { fetchTestSet, addTestAlertItem, updateTestAlertItem, deleteTestAlertItem } from '../services/api';
 

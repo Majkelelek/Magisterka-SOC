@@ -66,6 +66,5 @@ public class MongoDbContext
 
     public IMongoCollection<User>? Users => _database?.GetCollection<User>("Users");
     public IMongoCollection<Alert>? Alerts => _database?.GetCollection<Alert>("Alerts");
-    public IMongoCollection<UserSessionModel>? Sessions => _database?.GetCollection<UserSessionModel>("Sessions");
     public IMongoCollection<TestSession>? TestSessions => _database?.GetCollection<TestSession>("TestSessions");
 }

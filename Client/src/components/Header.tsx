@@ -1,5 +1,5 @@
 import React from 'react';
-import { Shield, Bot, Eye, UserCheck, Home, LogOut, Database, Users, BarChart2, HelpCircle } from 'lucide-react';
+import { Shield, Bot, Eye, Home, LogOut, Database, Users, BarChart2, HelpCircle } from 'lucide-react';
 import type { UserSession } from '../types/alert';
 
 interface HeaderProps {

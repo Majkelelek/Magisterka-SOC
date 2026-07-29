@@ -63,12 +63,11 @@ try
         }
     }
 
-    if (mongoCtx.IsConnectedToMongo && mongoCtx.Sessions != null)
+    if (mongoCtx.IsConnectedToMongo && mongoCtx.Users != null)
     {
         try
         {
-            mongoCtx.Sessions.Database.DropCollection("Sessions");
-            Console.WriteLine("[MongoDB Atlas] Usunięto przestarzałą kolekcję 'Sessions'. System korzysta teraz z architektury Sunfire (CurrentToken bezpośrednio na użytkowniku).");
+            mongoCtx.Users.Database.DropCollection("Sessions");
         }
         catch { }
     }

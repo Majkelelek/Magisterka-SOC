@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import type { Alert } from '../types/alert';
 import { NetFlowInspector } from './NetFlowInspector';
-import { getHostInfoByIp } from '../data/networkTopology';
-import { AlertTriangle, ShieldAlert, Terminal, Lock, Server, ArrowUpRight, XCircle, Search, Inbox, PlusCircle, Award, Check } from 'lucide-react';
+import { AlertTriangle, Search, Inbox, PlusCircle, Award, Check } from 'lucide-react';
 
 interface NoAiTestViewProps {
   alerts: Alert[];

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { registerUserByAdmin, fetchRegisteredUsers, fetchActiveSessions, changeUserPasswordByAdmin } from '../services/api';
 import type { UserSession } from '../types/alert';
-import { UserPlus, ShieldAlert, Users, Lock, User, CheckCircle2, AlertCircle, RefreshCw, ShieldCheck, UserCheck, KeyRound, Key, ChevronDown, ChevronUp, Clock, BarChart2 } from 'lucide-react';
+import { UserPlus, Users, Lock, User, CheckCircle2, AlertCircle, RefreshCw, ShieldCheck, KeyRound, ChevronDown, ChevronUp, Clock, BarChart2 } from 'lucide-react';
 
 interface AdminUserPanelProps {
   userSession: UserSession;
