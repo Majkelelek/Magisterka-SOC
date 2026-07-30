@@ -24,4 +24,5 @@ public class Alert
     public int AiConfidenceScore { get; set; }
     public string AiRiskAnalysis { get; set; } = string.Empty;
     public List<string> AiRecommendedActions { get; set; } = new();
+    public string AiAnalysis { get; set; } = string.Empty;
 }

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Search, Filter, HelpCircle, CheckCircle, AlertTriangle, RefreshCw, Shield, Upload } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, Filter, HelpCircle, CheckCircle, AlertTriangle, RefreshCw, Shield, Upload, Sparkles, Loader2 } from 'lucide-react';
 import type { Alert } from '../types/alert';
-import { fetchTestSet, addTestAlertItem, updateTestAlertItem, deleteTestAlertItem, deleteAllTestAlerts, importAttackSamples } from '../services/api';
+import { fetchTestSet, addTestAlertItem, updateTestAlertItem, deleteTestAlertItem, deleteAllTestAlerts, importAttackSamples, generateSingleAiAnalysis, generateAllAiAnalyses } from '../services/api';
 
 export const AdminQuestionsPage: React.FC = () => {
   const [alerts, setAlerts] = useState<Alert[]>([]);
@@ -11,6 +11,8 @@ export const AdminQuestionsPage: React.FC = () => {
   const [filterThreat, setFilterThreat] = useState('ALL');
   const [deletingAll, setDeletingAll] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [generatingAiId, setGeneratingAiId] = useState<string | null>(null);
+  const [generatingAllAi, setGeneratingAllAi] = useState(false);
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -107,6 +109,37 @@ export const AdminQuestionsPage: React.FC = () => {
     setStatusMsg(null);
     const res = await importAttackSamples();
     setImporting(false);
+
+    if (res.success) {
+      setStatusMsg({ text: res.message, type: 'success' });
+      loadQuestions();
+    } else {
+      setStatusMsg({ text: res.message, type: 'error' });
+    }
+  };
+
+  const handleGenerateSingleAi = async (id: string) => {
+    setGeneratingAiId(id);
+    setStatusMsg(null);
+    const res = await generateSingleAiAnalysis(id);
+    setGeneratingAiId(null);
+
+    if (res.success) {
+      setStatusMsg({ text: res.message, type: 'success' });
+      loadQuestions();
+    } else {
+      setStatusMsg({ text: res.message, type: 'error' });
+    }
+  };
+
+  const handleGenerateAllAi = async () => {
+    if (!window.confirm(`Czy chcesz wygenerować i zapisać wstępne analizy AI dla WSZYSTKICH ${alerts.length} pytań w bazie? Ta operacja zajmie chwilę.`)) {
+      return;
+    }
+    setGeneratingAllAi(true);
+    setStatusMsg(null);
+    const res = await generateAllAiAnalyses();
+    setGeneratingAllAi(false);
 
     if (res.success) {
       setStatusMsg({ text: res.message, type: 'success' });
@@ -214,6 +247,34 @@ export const AdminQuestionsPage: React.FC = () => {
               }}
             >
               <Upload size={14} /> {importing ? 'Importowanie...' : 'Importuj Próbki Ataków'}
+            </button>
+
+            <button
+              onClick={handleGenerateAllAi}
+              disabled={generatingAllAi || loading || alerts.length === 0}
+              className="btn-action"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '0.8rem',
+                padding: '0.4rem 0.85rem',
+                background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.25), rgba(99, 102, 241, 0.25))',
+                color: '#c084fc',
+                border: '1px solid rgba(139, 92, 246, 0.45)',
+                fontWeight: 600
+              }}
+              title="Wstępnie wygeneruj i zapisz analizy AI w bazie dla wszystkich pytań testowych"
+            >
+              {generatingAllAi ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" /> Generowanie AI...
+                </>
+              ) : (
+                <>
+                  <Sparkles size={14} /> Wygeneruj AI Dla Wszystkich Pytań
+                </>
+              )}
             </button>
 
             <button
@@ -356,6 +417,7 @@ export const AdminQuestionsPage: React.FC = () => {
                   <th style={{ padding: '0.75rem 1rem' }}>SEVERITY</th>
                   <th style={{ padding: '0.75rem 1rem' }}>TYP (IS THREAT)</th>
                   <th style={{ padding: '0.75rem 1rem' }}>WZORCOWA ODPOWIEDŹ (CORRECT ACTION)</th>
+                  <th style={{ padding: '0.75rem 1rem' }}>ANALIZA AI</th>
                   <th style={{ padding: '0.75rem 1rem' }}>ŹRÓDŁO IP</th>
                   <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>AKCJE</th>
                 </tr>
@@ -375,6 +437,8 @@ export const AdminQuestionsPage: React.FC = () => {
                     correctLabelColor = '#c084fc';
                     correctLabelBg = 'rgba(168, 85, 247, 0.15)';
                   }
+
+                  const hasPreGeneratedAi = Boolean(alert.aiAnalysis && !alert.aiAnalysis.includes('[Błąd'));
 
                   return (
                     <tr key={alert.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)', transition: 'background 0.15s' }}>
@@ -423,9 +487,66 @@ export const AdminQuestionsPage: React.FC = () => {
                           {alert.correctAction || (alert.isThreat ? 'Isolate Host / Block' : 'Dismiss / False Positive')}
                         </span>
                       </td>
+                      <td style={{ padding: '0.75rem 1rem' }}>
+                        {hasPreGeneratedAi ? (
+                          <span style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            padding: '0.2rem 0.55rem',
+                            borderRadius: '6px',
+                            fontSize: '0.725rem',
+                            fontWeight: 700,
+                            background: 'rgba(139, 92, 246, 0.15)',
+                            border: '1px solid rgba(139, 92, 246, 0.35)',
+                            color: '#c084fc'
+                          }}>
+                            <Sparkles size={11} /> AI Gotowe
+                          </span>
+                        ) : (
+                          <span style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            padding: '0.2rem 0.55rem',
+                            borderRadius: '6px',
+                            fontSize: '0.725rem',
+                            fontWeight: 600,
+                            background: 'rgba(100, 116, 139, 0.15)',
+                            color: '#94a3b8'
+                          }}>
+                            ⚪ Brak (Na żywo)
+                          </span>
+                        )}
+                      </td>
                       <td style={{ padding: '0.75rem 1rem', fontFamily: 'monospace', color: 'var(--text-muted)' }}>{alert.sourceIp}</td>
                       <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
+                          <button
+                            onClick={() => handleGenerateSingleAi(alert.id)}
+                            disabled={generatingAiId === alert.id || generatingAllAi}
+                            style={{
+                              background: hasPreGeneratedAi ? 'rgba(139, 92, 246, 0.15)' : 'rgba(99, 102, 241, 0.25)',
+                              border: hasPreGeneratedAi ? '1px solid rgba(139, 92, 246, 0.35)' : '1px solid rgba(99, 102, 241, 0.5)',
+                              color: hasPreGeneratedAi ? '#c084fc' : '#818cf8',
+                              padding: '0.3rem 0.5rem',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              fontSize: '0.725rem',
+                              fontWeight: 600
+                            }}
+                            title={hasPreGeneratedAi ? "Wygeneruj ponownie wstępną analizę AI dla tego pytania" : "Wygeneruj i zapisz wstępną analizę AI w bazie"}
+                          >
+                            {generatingAiId === alert.id ? (
+                              <Loader2 size={12} className="animate-spin" />
+                            ) : (
+                              <Sparkles size={12} />
+                            )}
+                            {hasPreGeneratedAi ? 'Odśwież AI' : 'Generuj AI'}
+                          </button>
                           <button
                             onClick={() => handleOpenEditModal(alert)}
                             style={{

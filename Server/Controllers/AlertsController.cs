@@ -13,10 +13,12 @@ public class AlertsController : ControllerBase
 {
     private readonly AlertStore _alertStore;
     private readonly MongoDbContext? _mongoContext;
+    private readonly AiService _aiService;
 
-    public AlertsController(AlertStore alertStore, MongoDbContext? mongoContext = null)
+    public AlertsController(AlertStore alertStore, AiService aiService, MongoDbContext? mongoContext = null)
     {
         _alertStore = alertStore;
+        _aiService = aiService;
         _mongoContext = mongoContext;
     }
 
@@ -364,6 +366,94 @@ public class AlertsController : ControllerBase
         {
             return StatusCode(500, new { message = $"Błąd podczas importu próbek ataków: {ex.Message}" });
         }
+    }
+
+    [HttpPost("{id}/generate-ai")]
+    [Authorize(Roles = "Administrator")]
+    public async Task<ActionResult> GenerateAiForAlert(string id)
+    {
+        var alert = _alertStore.GetAlertById(id);
+        if (alert == null) return NotFound(new { message = $"Alert o ID '{id}' nie został odnaleziony." });
+
+        try
+        {
+            var prompt = "Przeanalizuj automatycznie ten alert SOC. Określ czy to ataki czy fałszywy alarm, podaj uzasadnienie, rekomendowaną akcję reakcji oraz wskaźnik pewności AI w % (np. PEWNOŚĆ AI: 95%).";
+            var result = await _aiService.ProcessQueryAsync(id, prompt);
+
+            if (string.IsNullOrWhiteSpace(result.ExtractedText) || result.ExtractedText.Contains("[Błąd"))
+            {
+                return StatusCode(500, new { message = result.ExtractedText });
+            }
+
+            alert.AiAnalysis = result.ExtractedText;
+
+            var currentAlerts = _alertStore.GetAllAlerts();
+            int idx = currentAlerts.FindIndex(a => a.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
+            if (idx >= 0) currentAlerts[idx] = alert;
+
+            _alertStore.SetAlerts(currentAlerts);
+            SaveTestSetToAllFiles(currentAlerts);
+
+            if (_mongoContext?.IsConnectedToMongo == true && _mongoContext.Alerts != null)
+            {
+                var filter = Builders<Alert>.Filter.Eq(a => a.Id, alert.Id);
+                await _mongoContext.Alerts.ReplaceOneAsync(filter, alert, new ReplaceOptions { IsUpsert = true });
+            }
+
+            return Ok(new { message = $"Analiza AI dla alertu {id} została wygenerowana i zapisana.", alert });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = $"Wystąpił błąd podczas generowania analizy AI: {ex.Message}" });
+        }
+    }
+
+    [HttpPost("generate-ai-all")]
+    [Authorize(Roles = "Administrator")]
+    public async Task<ActionResult> GenerateAiForAllAlerts()
+    {
+        var currentAlerts = _alertStore.GetAllAlerts();
+        if (currentAlerts.Count == 0) return BadRequest(new { message = "Brak pytań w bazie testowej." });
+
+        int updatedCount = 0;
+        var prompt = "Przeanalizuj automatycznie ten alert SOC. Określ czy to ataki czy fałszywy alarm, podaj uzasadnienie, rekomendowaną akcję reakcji oraz wskaźnik pewności AI w % (np. PEWNOŚĆ AI: 95%).";
+
+        foreach (var alert in currentAlerts)
+        {
+            try
+            {
+                var result = await _aiService.ProcessQueryAsync(alert.Id, prompt);
+                if (!string.IsNullOrWhiteSpace(result.ExtractedText) && !result.ExtractedText.Contains("[Błąd"))
+                {
+                    alert.AiAnalysis = result.ExtractedText;
+                    updatedCount++;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[AlertsController] Błąd generowania AI dla {alert.Id}: {ex.Message}");
+            }
+        }
+
+        _alertStore.SetAlerts(currentAlerts);
+        SaveTestSetToAllFiles(currentAlerts);
+
+        if (_mongoContext?.IsConnectedToMongo == true && _mongoContext.Alerts != null)
+        {
+            try
+            {
+                var bulkOps = currentAlerts.Select(a =>
+                    new ReplaceOneModel<Alert>(Builders<Alert>.Filter.Eq(x => x.Id, a.Id), a) { IsUpsert = true }
+                ).ToList();
+                await _mongoContext.Alerts.BulkWriteAsync(bulkOps);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[AlertsController] Błąd zapisu bulk w MongoDB: {ex.Message}");
+            }
+        }
+
+        return Ok(new { message = $"Wygenerowano i zapisano wstępną analizę AI dla {updatedCount} pytań.", alerts = currentAlerts });
     }
 }
 

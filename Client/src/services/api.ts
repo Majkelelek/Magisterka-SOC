@@ -369,3 +369,33 @@ export async function importAttackSamples(): Promise<{ success: boolean; message
   }
 }
 
+export async function generateSingleAiAnalysis(id: string): Promise<{ success: boolean; message: string; alert?: Alert }> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/alerts/${id}/generate-ai`, {
+      method: 'POST',
+      headers: getAuthHeaders()
+    });
+    checkResponseStatus(res);
+    const data = await res.json();
+    if (!res.ok) return { success: false, message: data.message || 'Błąd generowania analizy AI.' };
+    return { success: true, message: data.message, alert: data.alert };
+  } catch (err: any) {
+    return { success: false, message: err.message || 'Nie udało się połączyć z serwerem.' };
+  }
+}
+
+export async function generateAllAiAnalyses(): Promise<{ success: boolean; message: string; alerts?: Alert[] }> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/alerts/generate-ai-all`, {
+      method: 'POST',
+      headers: getAuthHeaders()
+    });
+    checkResponseStatus(res);
+    const data = await res.json();
+    if (!res.ok) return { success: false, message: data.message || 'Błąd masowej generacji analiz AI.' };
+    return { success: true, message: data.message, alerts: data.alerts };
+  } catch (err: any) {
+    return { success: false, message: err.message || 'Nie udało się połączyć z serwerem.' };
+  }
+}
+

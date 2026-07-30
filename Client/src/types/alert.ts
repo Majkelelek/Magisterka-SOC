@@ -21,6 +21,7 @@ export interface Alert {
   aiConfidenceScore?: number;
   aiRiskAnalysis?: string;
   aiRecommendedActions?: string[];
+  aiAnalysis?: string;
 }
 
 export interface OperatorDecision {

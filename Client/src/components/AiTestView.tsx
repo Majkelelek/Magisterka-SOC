@@ -97,7 +97,30 @@ export const AiTestView: React.FC<AiTestViewProps> = ({
     if (!currentAlert) return;
     const alertId = currentAlert.id;
 
-    // Skip API request ONLY if analysis is cached, complete AND NOT an error message!
+    // 1. Jeśli alert ma wstępnie wygenerowaną analizę AI z bazy, użyj jej natychmiast bez zapytania API!
+    if (currentAlert.aiAnalysis && !currentAlert.aiAnalysis.includes('[Błąd')) {
+      const text = currentAlert.aiAnalysis;
+      const lowerText = text.toLowerCase();
+      const isFalseAlarm = lowerText.includes('fałszywy alarm') || lowerText.includes('falszywy alarm') || lowerText.includes('false positive') || lowerText.includes('brak ataku') || lowerText.includes('czysty ruch') || lowerText.includes('normalny ruch');
+      const isAttack = !isFalseAlarm;
+      const verdictText = isAttack ? 'ATAK WYKRYTY' : 'FAŁSZYWY ALARM';
+
+      const match = text.match(/(?:\*{0,2}(?:PEWNOŚĆ|PEWNOŚĆ AI|Pewność|Confidence)\*{0,2})[:\s]*(\d{1,3})\s*%/i)
+        || text.match(/(\d{1,3})\s*%/);
+      let confidence = match ? parseInt(match[1], 10) : 0;
+      if (!confidence || confidence <= 0 || confidence > 100) {
+        const sev = (currentAlert.severity || '').toLowerCase();
+        confidence = sev === 'critical' ? 95 : sev === 'high' ? 88 : sev === 'medium' ? 80 : 75;
+      }
+
+      setAutoAnalysisMap(prev => ({
+        ...prev,
+        [alertId]: { text, confidence, isAttack, verdictText, loading: false }
+      }));
+      return;
+    }
+
+    // 2. Pomijaj zapytanie API tylko jeśli analiza jest w podręcznej pamięci (i nie jest błędem)
     const cached = autoAnalysisMap[alertId];
     if (cached && cached.text && !cached.loading && !cached.text.includes('[Błąd')) {
       return;
@@ -106,6 +129,7 @@ export const AiTestView: React.FC<AiTestViewProps> = ({
       return;
     }
 
+    // 3. W przeciwnym wypadku – wyślij zapytanie NA ŻYWO do Azure OpenAI
     setAutoAnalysisMap(prev => ({
       ...prev,
       [alertId]: { text: '', confidence: 0, isAttack: true, verdictText: 'ANALIZA...', loading: true }
@@ -138,7 +162,7 @@ export const AiTestView: React.FC<AiTestViewProps> = ({
           [alertId]: { text: 'Wystąpił problem podczas pobierania automatycznej oceny AI.', confidence: 0, isAttack: true, verdictText: 'BŁĄD', loading: false }
         }));
       });
-  }, [currentAlert?.id]);
+  }, [currentAlert?.id, currentAlert?.aiAnalysis]);
 
   const filteredAlerts = remainingAlerts.filter(a => {
     const titleStr = a.title || '';
