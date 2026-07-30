@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { registerUserByAdmin, fetchRegisteredUsers, fetchActiveSessions, changeUserPasswordByAdmin } from '../services/api';
+import { registerUserByAdmin, fetchRegisteredUsers, fetchActiveSessions, changeUserPasswordByAdmin, deleteAllTestAlerts, importAttackSamples } from '../services/api';
 import type { UserSession } from '../types/alert';
-import { UserPlus, ShieldAlert, Users, Lock, User, CheckCircle2, AlertCircle, RefreshCw, ShieldCheck, UserCheck, KeyRound, Key, ChevronDown, ChevronUp, Clock, BarChart2 } from 'lucide-react';
+import { UserPlus, ShieldAlert, Users, Lock, User, CheckCircle2, AlertCircle, RefreshCw, ShieldCheck, UserCheck, KeyRound, Key, ChevronDown, ChevronUp, Clock, BarChart2, Trash2, Database, Upload } from 'lucide-react';
 
 interface AdminUserPanelProps {
   userSession: UserSession;
@@ -14,6 +14,11 @@ export const AdminUserPanel: React.FC<AdminUserPanelProps> = ({ userSession }) =
   const [expandedSessionId, setExpandedSessionId] = useState<string | null>(null);
   const [loadingUsers, setLoadingUsers] = useState<boolean>(true);
   const [loadingSessions, setLoadingSessions] = useState<boolean>(true);
+
+  // Dataset management state
+  const [deletingAllQuestions, setDeletingAllQuestions] = useState<boolean>(false);
+  const [importingSamples, setImportingSamples] = useState<boolean>(false);
+  const [datasetMsg, setDatasetMsg] = useState<{ isError: boolean; text: string } | null>(null);
 
   // Form state
   const [newUsername, setNewUsername] = useState<string>('');
@@ -174,6 +179,38 @@ export const AdminUserPanel: React.FC<AdminUserPanelProps> = ({ userSession }) =
     }
   };
 
+  const handleDeleteAllQuestions = async () => {
+    if (!window.confirm("CZY NA PEWNO chcesz usunąć WSZYSTKIE pytania testowe z bazy danych MongoDB Atlas oraz pliku lokalnego?\n\nTa operacja usunie wszystkie rekordy pytań i jest NIEODWRACALNA!")) {
+      return;
+    }
+    setDeletingAllQuestions(true);
+    setDatasetMsg(null);
+    const res = await deleteAllTestAlerts();
+    setDeletingAllQuestions(false);
+
+    if (res.success) {
+      setDatasetMsg({ isError: false, text: res.message });
+      // Odśwież widok pytań
+      setTimeout(() => window.location.reload(), 1500);
+    } else {
+      setDatasetMsg({ isError: true, text: res.message });
+    }
+  };
+
+  const handleImportSamples = async () => {
+    setImportingSamples(true);
+    setDatasetMsg(null);
+    const res = await importAttackSamples();
+    setImportingSamples(false);
+
+    if (res.success) {
+      setDatasetMsg({ isError: false, text: res.message });
+      setTimeout(() => window.location.reload(), 1500);
+    } else {
+      setDatasetMsg({ isError: true, text: res.message });
+    }
+  };
+
   if (userSession.role !== 'Administrator') {
     return (
       <div style={{ padding: '3rem', textAlign: 'center', color: '#f87171' }}>
@@ -204,18 +241,71 @@ export const AdminUserPanel: React.FC<AdminUserPanelProps> = ({ userSession }) =
               Zarządzanie Kontami i Aktywnymi Sesjami
             </h1>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginTop: '0.25rem' }}>
-              Rejestruj nowych operatorów w MongoDB oraz zarządzaj aktywnymi tokenami sesji (Revocation / Logout).
+              Rejestruj nowych operatorów w MongoDB oraz zarządzaj aktywnymi tokenami sesji i zbiorami danych.
             </p>
           </div>
 
-          <button
-            onClick={() => { loadUsers(); loadSessions(); }}
-            className="btn-action"
-            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-          >
-            <RefreshCw size={14} /> Odśwież Dane Bazy
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <button
+              onClick={() => { loadUsers(); loadSessions(); }}
+              className="btn-action"
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              <RefreshCw size={14} /> Odśwież Baze
+            </button>
+
+            <button
+              onClick={handleImportSamples}
+              disabled={importingSamples}
+              className="btn-action"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                background: 'rgba(6, 182, 212, 0.15)',
+                color: 'var(--ai-cyan)',
+                border: '1px solid rgba(6, 182, 212, 0.35)'
+              }}
+            >
+              <Upload size={14} /> {importingSamples ? 'Importowanie...' : 'Importuj Próbki Ataków'}
+            </button>
+
+            <button
+              onClick={handleDeleteAllQuestions}
+              disabled={deletingAllQuestions}
+              className="btn-action"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                background: 'rgba(239, 68, 68, 0.18)',
+                color: '#f87171',
+                border: '1px solid rgba(239, 68, 68, 0.4)',
+                fontWeight: 600
+              }}
+            >
+              <Trash2 size={14} /> {deletingAllQuestions ? 'Usuwanie...' : 'Usuń Wszystkie Pytania z Bazy'}
+            </button>
+          </div>
         </div>
+
+        {datasetMsg && (
+          <div style={{
+            marginTop: '1.25rem',
+            padding: '0.75rem 1rem',
+            borderRadius: '8px',
+            fontSize: '0.85rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            background: datasetMsg.isError ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+            border: `1px solid ${datasetMsg.isError ? 'rgba(239, 68, 68, 0.3)' : 'rgba(16, 185, 129, 0.3)'}`,
+            color: datasetMsg.isError ? '#f87171' : '#34d399'
+          }}>
+            {datasetMsg.isError ? <AlertCircle size={16} /> : <CheckCircle2 size={16} />}
+            <span>{datasetMsg.text}</span>
+          </div>
+        )}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '400px 1fr', gap: '1.75rem' }}>

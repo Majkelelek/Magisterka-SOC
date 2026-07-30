@@ -116,7 +116,7 @@ export const App: React.FC = () => {
           setLoading(false);
           return;
         }
-      } catch {}
+      } catch { }
     }
 
     const testSet = await fetchTestSet();
@@ -203,6 +203,8 @@ export const App: React.FC = () => {
     setLoading(true);
 
     sessionStorage.removeItem('soc_test_alerts');
+    sessionStorage.removeItem('soc_ai_auto_analysis_map');
+    sessionStorage.removeItem('soc_ai_chat_messages_map');
     const testSet = await fetchTestSet();
     const cleaned = cleanAlertStrings(testSet);
     setAlerts(cleaned);
@@ -242,6 +244,8 @@ export const App: React.FC = () => {
     sessionStorage.removeItem('soc_test_session_id');
     sessionStorage.removeItem('soc_test_decisions');
     sessionStorage.removeItem('soc_test_handled_count');
+    sessionStorage.removeItem('soc_ai_auto_analysis_map');
+    sessionStorage.removeItem('soc_ai_chat_messages_map');
     setDecisions([]);
     setHandledCount(0);
     setTestStartTime(null);
@@ -314,6 +318,7 @@ export const App: React.FC = () => {
       <TestRulesModal
         isOpen={isRulesModalOpen}
         testMode={pendingTab === 'with-ai' ? 'WithAI' : 'NoAI'}
+        alertCount={totalAlerts}
         onStartTest={handleStartTest}
         onClose={() => setIsRulesModalOpen(false)}
       />
@@ -329,7 +334,7 @@ export const App: React.FC = () => {
           <TestResultsPage userSession={userSession} />
         ) : (
           <>
-            {activeTab !== 'home' && (
+            {activeTab !== 'home' && activeTab !== 'no-ai' && activeTab !== 'with-ai' && (
               <div className="stats-grid">
                 <div className="stat-card">
                   <div>
@@ -380,12 +385,16 @@ export const App: React.FC = () => {
                 alerts={alerts}
                 handledIds={decisions.map(d => d.alertId)}
                 onAction={handleActionTaken}
+                onNavigate={handleTabChange}
+                userSession={userSession}
               />
             ) : (
               <AiTestView
                 alerts={alerts}
                 handledIds={decisions.map(d => d.alertId)}
                 onAction={handleActionTaken}
+                onNavigate={handleTabChange}
+                userSession={userSession}
               />
             )}
           </>
@@ -401,7 +410,7 @@ export const App: React.FC = () => {
         color: 'var(--text-dim)',
         marginTop: '2rem'
       }}>
-        SOC Operator Evaluation System &copy; 2026 | ASP.NET Core + MongoDB Atlas + React | Laboratorium Badawcze MGR
+        Magisterka SOC
       </footer>
     </div>
   );

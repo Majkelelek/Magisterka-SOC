@@ -185,35 +185,35 @@ body {
 /* Stats Cards Top Grid */
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 1rem;
-  margin-bottom: 1.25rem;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
 }
 
 .stat-card {
   background: linear-gradient(180deg, rgba(13, 20, 36, 0.85), rgba(9, 15, 29, 0.95));
   border: 1px solid rgba(56, 189, 248, 0.16);
-  border-radius: 12px;
-  padding: 1rem 1.25rem;
+  border-radius: 10px;
+  padding: 0.6rem 1rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(10px);
 }
 
 .stat-lbl {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   color: var(--text-muted);
-  font-weight: 500;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 .stat-val {
-  font-size: 1.75rem;
+  font-size: 1.45rem;
   font-weight: 800;
-  margin-top: 0.15rem;
+  margin-top: 0.1rem;
   font-family: 'JetBrains Mono', monospace;
 }
 
@@ -324,16 +324,16 @@ body {
 
 .metric-lbl {
   font-size: 0.725rem;
-  color: var(--text-muted);
-  font-weight: 500;
+  color: #94a3b8; /* text-slate-400 */
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.5px;
 }
 
 .metric-val {
-  font-size: 0.9rem;
+  font-size: 0.925rem;
   font-weight: 700;
-  color: #ffffff;
+  color: #ffffff; /* pure white */
   margin-top: 0.2rem;
   display: flex;
   align-items: center;
@@ -377,7 +377,8 @@ body {
   align-items: center;
   justify-content: space-between;
   font-size: 0.75rem;
-  color: var(--text-muted);
+  color: #94a3b8; /* text-slate-400 */
+  font-weight: 500;
 }
 
 /* Badges */
@@ -426,7 +427,7 @@ body {
   gap: 0.5rem;
   background: rgba(30, 41, 59, 0.85);
   color: #f1f5f9;
-  border: 1px solid rgba(56, 189, 248, 0.25);
+  border: 1px solid rgba(148, 163, 184, 0.3);
   padding: 0.55rem 1rem;
   border-radius: 8px;
   font-size: 0.8rem;
@@ -445,9 +446,26 @@ body {
 }
 
 .btn-danger {
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.25), rgba(153, 27, 27, 0.35));
-  color: #fca5a5;
-  border: 1px solid rgba(239, 68, 68, 0.5);
+  background: linear-gradient(135deg, #dc2626, #ef4444) !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  border: 1px solid #f87171 !important;
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.4);
+}
+
+.btn-danger:hover {
+  background: linear-gradient(135deg, #b91c1c, #dc2626) !important;
+  color: #ffffff !important;
+  border-color: #fca5a5 !important;
+  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.6);
+  transform: translateY(-1px);
+}
+
+.btn-warning {
+  background: linear-gradient(135deg, rgba(217, 119, 6, 0.35), rgba(180, 83, 9, 0.45));
+  color: #fef08a;
+  border: 1px solid rgba(245, 158, 11, 0.6);
+  font-weight: 700;
 }
 
 .btn-danger:hover {

@@ -21,14 +21,9 @@ public class AlertsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<Alert>>> GetAlerts([FromQuery] string? severity, [FromQuery] string? status)
+    public ActionResult<IEnumerable<Alert>> GetAlerts([FromQuery] string? severity, [FromQuery] string? status)
     {
         var alerts = _alertStore.GetAllAlerts();
-        if (alerts.Count < 10)
-        {
-            await EnsureFullDatasetLoadedAsync();
-            alerts = _alertStore.GetAllAlerts();
-        }
 
         if (!string.IsNullOrEmpty(severity))
         {
@@ -59,59 +54,10 @@ public class AlertsController : ControllerBase
     }
 
     [HttpGet("test-set")]
-    public async Task<ActionResult<IEnumerable<Alert>>> GetTestSet()
+    public ActionResult<IEnumerable<Alert>> GetTestSet()
     {
-        var alerts = await EnsureFullDatasetLoadedAsync();
+        var alerts = _alertStore.GetAllAlerts();
         return Ok(alerts);
-    }
-
-    private async Task<List<Alert>> EnsureFullDatasetLoadedAsync()
-    {
-        List<Alert> fileAlerts = new();
-        try
-        {
-            string testSetPath = GetTestSetFilePath();
-            if (System.IO.File.Exists(testSetPath))
-            {
-                var jsonText = await System.IO.File.ReadAllTextAsync(testSetPath);
-                var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                fileAlerts = System.Text.Json.JsonSerializer.Deserialize<List<Alert>>(jsonText, options) ?? new();
-            }
-
-            if (fileAlerts.Count == 0 && _mongoContext?.IsConnectedToMongo == true && _mongoContext.Alerts != null)
-            {
-                fileAlerts = await _mongoContext.Alerts.Find(_ => true).ToListAsync();
-            }
-
-            if (fileAlerts.Count > 0)
-            {
-                _alertStore.SetAlerts(fileAlerts);
-
-                // Sync with MongoDB Atlas if connected
-                if (_mongoContext?.IsConnectedToMongo == true && _mongoContext.Alerts != null)
-                {
-                    try
-                    {
-                        var bulkOps = fileAlerts.Select(a => new MongoDB.Driver.ReplaceOneModel<Alert>(
-                            MongoDB.Driver.Builders<Alert>.Filter.Eq(x => x.Id, a.Id), a) { IsUpsert = true }).ToList();
-                        await _mongoContext.Alerts.BulkWriteAsync(bulkOps);
-                        Console.WriteLine($"[MongoDB Atlas] Zsynchronizowano {fileAlerts.Count} zdarzeń testowych w bazie danych.");
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"[MongoDB Atlas] Błąd synchronizacji z bazą: {ex.Message}");
-                    }
-                }
-
-                return fileAlerts;
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[AlertsController] Błąd odczytu zestawu testowego: {ex.Message}");
-        }
-
-        return _alertStore.GetAllAlerts();
     }
 
     [HttpPatch("{id}/status")]
@@ -167,16 +113,40 @@ public class AlertsController : ControllerBase
         return path;
     }
 
-    [HttpPost("test-set/save-all")]
-    [Authorize(Roles = "Administrator")]
-    public async Task<ActionResult> SaveAllTestAlerts([FromBody] List<Alert> alerts)
+    private void SaveTestSetToAllFiles(List<Alert> alerts)
     {
         try
         {
-            string path = GetTestSetFilePath();
-            var options = new System.Text.Json.JsonSerializerOptions { WriteIndented = true, PropertyNameCaseInsensitive = true };
+            var options = new System.Text.Json.JsonSerializerOptions { WriteIndented = true };
             var jsonText = System.Text.Json.JsonSerializer.Serialize(alerts, options);
-            await System.IO.File.WriteAllTextAsync(path, jsonText);
+
+            string path1 = Path.Combine(Directory.GetCurrentDirectory(), "Data", "test_pytania.json");
+            string dir1 = Path.GetDirectoryName(path1)!;
+            if (!Directory.Exists(dir1)) Directory.CreateDirectory(dir1);
+            System.IO.File.WriteAllText(path1, jsonText);
+
+            string path2 = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "test_pytania.json");
+            if (!string.Equals(path1, path2, StringComparison.OrdinalIgnoreCase))
+            {
+                string dir2 = Path.GetDirectoryName(path2)!;
+                if (!Directory.Exists(dir2)) Directory.CreateDirectory(dir2);
+                try { System.IO.File.WriteAllText(path2, jsonText); } catch {}
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[AlertsController] Błąd zapisu plików json: {ex.Message}");
+        }
+    }
+
+    [HttpPost("test-set/save-all")]
+    [Authorize(Roles = "Administrator")]
+    public ActionResult SaveAllTestAlerts([FromBody] List<Alert> alerts)
+    {
+        try
+        {
+            _alertStore.SetAlerts(alerts);
+            SaveTestSetToAllFiles(alerts);
             return Ok(new { message = $"Pomyślnie zapisano {alerts.Count} pytań w pliku testowym.", alerts });
         }
         catch (Exception ex)
@@ -191,23 +161,15 @@ public class AlertsController : ControllerBase
     {
         try
         {
-            string path = GetTestSetFilePath();
-            List<Alert> currentAlerts = new();
-            if (System.IO.File.Exists(path))
-            {
-                var jsonText = await System.IO.File.ReadAllTextAsync(path);
-                var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                currentAlerts = System.Text.Json.JsonSerializer.Deserialize<List<Alert>>(jsonText, options) ?? new();
-            }
-
+            var currentAlerts = _alertStore.GetAllAlerts();
             if (string.IsNullOrWhiteSpace(newAlert.Id))
             {
                 newAlert.Id = $"ALT-{(currentAlerts.Count + 1):D3}";
             }
 
-            currentAlerts.Add(newAlert);
-            var saveOptions = new System.Text.Json.JsonSerializerOptions { WriteIndented = true };
-            await System.IO.File.WriteAllTextAsync(path, System.Text.Json.JsonSerializer.Serialize(currentAlerts, saveOptions));
+            _alertStore.AddAlert(newAlert);
+            currentAlerts = _alertStore.GetAllAlerts();
+            SaveTestSetToAllFiles(currentAlerts);
 
             if (_mongoContext?.IsConnectedToMongo == true && _mongoContext.Alerts != null)
             {
@@ -236,21 +198,15 @@ public class AlertsController : ControllerBase
     {
         try
         {
-            string path = GetTestSetFilePath();
-            if (!System.IO.File.Exists(path)) return NotFound(new { message = "Plik ze zbiorem pytań testowych nie istnieje." });
-
-            var jsonText = await System.IO.File.ReadAllTextAsync(path);
-            var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            var currentAlerts = System.Text.Json.JsonSerializer.Deserialize<List<Alert>>(jsonText, options) ?? new();
-
+            var currentAlerts = _alertStore.GetAllAlerts();
             int idx = currentAlerts.FindIndex(a => a.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
             if (idx == -1) return NotFound(new { message = $"Pytanie o ID '{id}' nie zostało odnalezione w bazie." });
 
             updatedAlert.Id = id;
             currentAlerts[idx] = updatedAlert;
+            _alertStore.SetAlerts(currentAlerts);
 
-            var saveOptions = new System.Text.Json.JsonSerializerOptions { WriteIndented = true };
-            await System.IO.File.WriteAllTextAsync(path, System.Text.Json.JsonSerializer.Serialize(currentAlerts, saveOptions));
+            SaveTestSetToAllFiles(currentAlerts);
 
             if (_mongoContext?.IsConnectedToMongo == true && _mongoContext.Alerts != null)
             {
@@ -279,18 +235,12 @@ public class AlertsController : ControllerBase
     {
         try
         {
-            string path = GetTestSetFilePath();
-            if (!System.IO.File.Exists(path)) return NotFound(new { message = "Plik ze zbiorem pytań testowych nie istnieje." });
-
-            var jsonText = await System.IO.File.ReadAllTextAsync(path);
-            var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            var currentAlerts = System.Text.Json.JsonSerializer.Deserialize<List<Alert>>(jsonText, options) ?? new();
-
+            var currentAlerts = _alertStore.GetAllAlerts();
             int removed = currentAlerts.RemoveAll(a => a.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
             if (removed == 0) return NotFound(new { message = $"Pytanie o ID '{id}' nie zostało odnalezione." });
 
-            var saveOptions = new System.Text.Json.JsonSerializerOptions { WriteIndented = true };
-            await System.IO.File.WriteAllTextAsync(path, System.Text.Json.JsonSerializer.Serialize(currentAlerts, saveOptions));
+            _alertStore.SetAlerts(currentAlerts);
+            SaveTestSetToAllFiles(currentAlerts);
 
             if (_mongoContext?.IsConnectedToMongo == true && _mongoContext.Alerts != null)
             {
@@ -310,6 +260,109 @@ public class AlertsController : ControllerBase
         catch (Exception ex)
         {
             return StatusCode(500, new { message = $"Błąd usuwania pytania: {ex.Message}" });
+        }
+    }
+
+    [HttpDelete("test-set/all")]
+    [Authorize(Roles = "Administrator")]
+    public async Task<ActionResult> DeleteAllTestAlerts()
+    {
+        try
+        {
+            _alertStore.SetAlerts(new List<Alert>());
+            SaveTestSetToAllFiles(new List<Alert>());
+
+            if (_mongoContext?.IsConnectedToMongo == true && _mongoContext.Alerts != null)
+            {
+                try
+                {
+                    await _mongoContext.Alerts.DeleteManyAsync(MongoDB.Driver.Builders<Alert>.Filter.Empty);
+                    Console.WriteLine("[MongoDB Atlas] Usunięto WSZYSTKIE pytania testowe z bazy danych.");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[MongoDB Atlas] Błąd czyszczenia bazy: {ex.Message}");
+                }
+            }
+
+            return Ok(new { message = "Wszystkie pytania testowe zostały pomyślnie usunięte z bazy pytań testowych oraz MongoDB Atlas." });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = $"Błąd podczas masowego usuwania pytań: {ex.Message}" });
+        }
+    }
+
+    [HttpPost("import-attack-samples")]
+    [Authorize(Roles = "Administrator")]
+    public async Task<ActionResult> ImportAttackSamples()
+    {
+        try
+        {
+            string samplesPath = AttackSampleImporter.FindAttackSamplesFilePath();
+            if (string.IsNullOrEmpty(samplesPath) || !System.IO.File.Exists(samplesPath))
+            {
+                return NotFound(new { message = "Nie odnaleziono pliku próbek 'próbki_ataków_zbiorcze.json' w katalogach projektu." });
+            }
+
+            string testSetPath = GetTestSetFilePath();
+            List<Alert> existingAlerts = new();
+            if (System.IO.File.Exists(testSetPath))
+            {
+                var jsonText = await System.IO.File.ReadAllTextAsync(testSetPath);
+                var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                existingAlerts = System.Text.Json.JsonSerializer.Deserialize<List<Alert>>(jsonText, options) ?? new();
+            }
+
+            int startIndex = existingAlerts.Count + 1;
+            var sampleAlerts = AttackSampleImporter.ConvertSamplesToAlerts(samplesPath, startIndex);
+
+            if (sampleAlerts.Count == 0)
+            {
+                return BadRequest(new { message = "Brak poprawnych próbek w pliku 'próbki_ataków_zbiorcze.json' do zaimportowania." });
+            }
+
+            // Dołącz lub zaktualizuj pytania
+            var mergedMap = existingAlerts.ToDictionary(a => a.Id, a => a);
+            foreach (var s in sampleAlerts)
+            {
+                mergedMap[s.Id] = s;
+            }
+
+            var updatedAlerts = mergedMap.Values.ToList();
+
+            // Zapis do test_pytania.json w obu lokalizacjach
+            SaveTestSetToAllFiles(updatedAlerts);
+
+            // Zapis w AlertStore w pamięci
+            _alertStore.SetAlerts(updatedAlerts);
+
+            // Zapis w MongoDB Atlas
+            if (_mongoContext?.IsConnectedToMongo == true && _mongoContext.Alerts != null)
+            {
+                try
+                {
+                    var bulkOps = updatedAlerts.Select(a => new MongoDB.Driver.ReplaceOneModel<Alert>(
+                        MongoDB.Driver.Builders<Alert>.Filter.Eq(x => x.Id, a.Id), a) { IsUpsert = true }).ToList();
+                    await _mongoContext.Alerts.BulkWriteAsync(bulkOps);
+                    Console.WriteLine($"[MongoDB Atlas] Zaimportowano {sampleAlerts.Count} próbek ataków z próbki_ataków_zbiorcze.json!");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[MongoDB Atlas] Błąd zapisu próbek: {ex.Message}");
+                }
+            }
+
+            return Ok(new
+            {
+                message = $"Pomyślnie zaimportowano i znormalizowano {sampleAlerts.Count} próbek z pliku 'próbki_ataków_zbiorcze.json' do bazy pytań testowych! Łączna liczba pytań: {updatedAlerts.Count}.",
+                importedCount = sampleAlerts.Count,
+                totalCount = updatedAlerts.Count
+            });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = $"Błąd podczas importu próbek ataków: {ex.Message}" });
         }
     }
 }

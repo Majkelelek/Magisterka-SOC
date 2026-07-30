@@ -4,11 +4,17 @@ using Server.Models;
 
 namespace Server.Services;
 
+public class AiProcessResult
+{
+    public string ExtractedText { get; set; } = string.Empty;
+    public string RawJson { get; set; } = string.Empty;
+}
+
 public class AiService
 {
-    private static readonly SemaphoreSlim _rateLimiter = new(1, 1);
+    private static readonly SemaphoreSlim _rateLimiter = new(4, 4);
     private static DateTime _lastRequestTime = DateTime.MinValue;
-    private static readonly TimeSpan MinRequestInterval = TimeSpan.FromMilliseconds(600);
+    private static readonly TimeSpan MinRequestInterval = TimeSpan.FromMilliseconds(300);
 
     private readonly HttpClient _httpClient;
     private readonly AlertStore _alertStore;
@@ -19,7 +25,7 @@ public class AiService
         _alertStore = alertStore;
     }
 
-    public async Task<string> ProcessQueryAsync(string alertId, string prompt)
+    public async Task<AiProcessResult> ProcessQueryAsync(string alertId, string prompt)
     {
         EnvLoader.Load();
 
@@ -36,84 +42,165 @@ public class AiService
         // Jeśli klucz API nie został wprowadzony lub ma domyślną wartość zastępczą
         if (string.IsNullOrWhiteSpace(apiKey) || apiKey.Equals("your_azure_ai_key_here", StringComparison.OrdinalIgnoreCase))
         {
-            return $"[AI Backend] Punkt końcowy Azure AI '{endpoint}' jest podłączony i zabezpieczony.\n\nAby uzyskać autentyczną odpowiedź przetrenowanego modelu (fine-tuned), dodaj swój klucz do pliku .env:\nAZURE_AI_KEY=twój_prawdziwy_klucz_api";
+            var msg = $"[AI Backend] Punkt końcowy Azure AI '{endpoint}' jest podłączony i zabezpieczony.\n\nAby uzyskać autentyczną odpowiedź przetrenowanego modelu (fine-tuned), dodaj swój klucz do pliku .env:\nAZURE_AI_KEY=twój_prawdziwy_klucz_api";
+            return new AiProcessResult { ExtractedText = msg, RawJson = msg };
         }
 
         // Zabezpieczenie przed przeciążeniem (Throttling & Concurrency Rate-Limiting)
-        await _rateLimiter.WaitAsync();
-        try
-        {
-            var elapsed = DateTime.UtcNow - _lastRequestTime;
-            if (elapsed < MinRequestInterval)
+            await _rateLimiter.WaitAsync();
+            try
             {
-                await Task.Delay(MinRequestInterval - elapsed);
+                var elapsed = DateTime.UtcNow - _lastRequestTime;
+                if (elapsed < MinRequestInterval)
+                {
+                    await Task.Delay(MinRequestInterval - elapsed);
+                }
+                _lastRequestTime = DateTime.UtcNow;
+
+                var modelName = Environment.GetEnvironmentVariable("AZURE_AI_MODEL")
+                            ?? Environment.GetEnvironmentVariable("AZURE_OPENAI_DEPLOYMENT")
+                            ?? Environment.GetEnvironmentVariable("AZURE_MODEL_NAME")
+                            ?? "gpt-4o-mini-2024-07-18-SOC_1";
+
+                var alertContext = GetAlertContext(alertId);
+
+                var systemMessage = @"Jesteś zaawansowanym dostrojonym (fine-tuned) asystentem SOC Sentinel. Analizujesz alerty bezpieczeństwa i udzielasz zwięzłych, trafnych i profesjonalnych odpowiedzi dla analityka bezpieczeństwa.
+
+                    Twoim zadaniem jest:
+                    1. Ocenić, czy alert wskazuje na rzeczywisty atak czy fałszywy alarm.
+                    2. Określić poziom ryzyka.
+                    3. Uzasadnić swoją decyzję na podstawie informacji zawartych w alercie.
+                    4. Wybrać rekomendowaną akcję STRYKTIE według poniższych reguł.
+                    5. Określić poziom pewności swojej analizy.
+
+                    BEZWZGLĘDNE REGUŁY WYBORU AKCJI:
+
+                    • Brute Force, Web Brute Force, Credential Brute Force, Password Guessing, Credential Access
+                    → Badanie / Reset Hasła
+
+                    • SQL Injection, Database Exploit, Remote Code Execution, Vulnerability Exploitation, Web Vulnerability Exploitation, Command Injection, Directory Traversal, Network Infiltration
+                    → Eskalacja (Tier 2)
+
+                    • DDoS, DoS, Application DoS, HTTP Flood DoS, SYN Flood, UDP Flood, ICMP Flood, Botnet Command & Control, Network Reconnaissance
+                    → Izolacja Hosta / Blokada
+
+                    • Normal Network Traffic, Benign Traffic, Health Check, Monitoring Traffic
+                    → Odrzucenie (Fałszywy Alarm)
+
+                    Podczas analizy uwzględniaj:
+                    - Kategorię/Typ alertu oraz port docelowy (Destination Port)
+                    - Czas trwania przepływu (Flow Duration) i wolumen pakietów
+                    - Wskaźniki anomalii sieciowych
+
+                    Jeżeli host docelowy pełni krytyczną rolę (np. Domain Controller, DNS, Serwer Bazy Danych), możesz zwiększyć ocenę ryzyka, ale NIE ZMIENIAJ przypisanej wyżej Akcji.
+
+                    Nie zakładaj informacji, których nie ma w alercie.
+                    Jeżeli danych jest za mało do jednoznacznej oceny, wskaż to w uzasadnieniu i odpowiednio obniż poziom pewności.
+
+                    ODPOWIADAJ ZAWSZE WYŁĄCZNIE W PONIŻSZYM FORMATZE:
+
+                    Wynik analizy:
+                    <Atak | Fałszywy alarm | Wymaga dalszej analizy>
+
+                    Ocena ryzyka:
+                    <Niskie | Średnie | Wysokie | Krytyczne>
+
+                    Uzasadnienie:
+                    <krótkie uzasadnienie odnoszące się do danych alertu>
+
+                    Rekomendowana akcja:
+                    <Badanie / Reset Hasła | Eskalacja (Tier 2) | Izolacja Hosta / Blokada | Odrzucenie (Fałszywy Alarm)>
+
+                    PEWNOŚĆ AI:
+                    <XX%>";
+                var userContent = $"{alertContext}\n\n[PYTANIE OPERATORA SOC]\n{prompt}";
+
+                // Struktura zgodna z wymaganiami Azure OpenAI Responses API (/v1/responses)
+                var requestBody = new
+                {
+                    model = modelName,
+                    temperature = 0.0,
+                    input = new object[]
+                    {
+                        new { role = "system", content = systemMessage },
+                        new { role = "user", content = userContent }
+                    }
+                };
+
+                int maxRetries = 6;
+                int delayMs = 800;
+
+                for (int attempt = 0; attempt <= maxRetries; attempt++)
+                {
+                    using var request = new HttpRequestMessage(HttpMethod.Post, endpoint);
+                    request.Content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
+
+                    request.Headers.TryAddWithoutValidation("api-key", apiKey);
+                    request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {apiKey}");
+
+                    var response = await _httpClient.SendAsync(request);
+
+                    if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests ||
+                        response.StatusCode == System.Net.HttpStatusCode.ServiceUnavailable ||
+                        response.StatusCode == System.Net.HttpStatusCode.BadGateway)
+                    {
+                        if (attempt < maxRetries)
+                        {
+                            Console.WriteLine($"[AiService] Status {(int)response.StatusCode} Rate Limit / Occupied. Próba {attempt + 1}/{maxRetries}. Ponawiam za {delayMs}ms...");
+                            await Task.Delay(delayMs);
+                            delayMs += 800;
+                            continue;
+                        }
+
+                        var err = $"[Błąd AI Rate Limit ({(int)response.StatusCode})] Przekroczono dopuszczalny limit żądań do modelu AI w jednostce czasu. Odczekaj chwilę i ponów zapytanie.";
+                        return new AiProcessResult { ExtractedText = err, RawJson = err };
+                    }
+
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        var errText = await response.Content.ReadAsStringAsync();
+                        var err = $"[Błąd punktu końcowego AI ({response.StatusCode})] Nie udało się uzyskać odpowiedzi z modelu. Szczegóły: {errText}";
+                        return new AiProcessResult { ExtractedText = err, RawJson = errText };
+                    }
+
+                    var responseJson = await response.Content.ReadAsStringAsync();
+                    var extractedAnswer = ExtractAnswerFromJson(responseJson);
+
+                    Console.WriteLine($"\n==================== [ODPOWIEDŹ Z AZURE OPENAI (RAW RESPONSE)] ====================");
+                    Console.WriteLine($"ALERT ID: {alertId}");
+                    Console.WriteLine($"SUROWA ODPOWIEDŹ AZURE OPENAI API (RAW JSON):");
+                    Console.WriteLine(responseJson);
+                    Console.WriteLine($"----------------------------------------------------------------------------------");
+                    Console.WriteLine($"WYEKSTRAHOWANA TREŚĆ ODPOWIEDZI (EXTRACTED TEXT):");
+                    Console.WriteLine(extractedAnswer);
+                    Console.WriteLine($"==================================================================================\n");
+
+                    return new AiProcessResult
+                    {
+                        ExtractedText = string.IsNullOrWhiteSpace(extractedAnswer)
+                            ? "[AI Backend] Otrzymano pustą odpowiedź od modelu AI."
+                            : extractedAnswer,
+                        RawJson = responseJson
+                    };
+                }
+
+                var fallbackErr = "[Błąd AI Rate Limit (429)] Przekroczono dopuszczalny limit żądań do modelu AI w jednostce czasu. Odczekaj chwilę i ponów zapytanie.";
+                return new AiProcessResult { ExtractedText = fallbackErr, RawJson = fallbackErr };
             }
-            _lastRequestTime = DateTime.UtcNow;
-
-            var modelName = Environment.GetEnvironmentVariable("AZURE_AI_MODEL")
-                         ?? Environment.GetEnvironmentVariable("AZURE_OPENAI_DEPLOYMENT")
-                         ?? Environment.GetEnvironmentVariable("AZURE_MODEL_NAME")
-                         ?? "gpt-4o-mini-2024-07-18-SOC_1";
-
-            var alertContext = GetAlertContext(alertId);
-
-            var systemMessage = "Jesteś zaawansowanym dostrojonym (fine-tuned) asystentem SOC Sentinel. Analizujesz alerty bezpieczeństwa i udzielasz zwięzłych, trafnych i profesjonalnych odpowiedzi dla analityka bezpieczeństwa. W swojej analizie podaj ocenę ryzyka, rekomendowaną akcję oraz procentowy wskaźnik pewności oceny na końcu odpowiedzi w formacie: PEWNOŚĆ AI: XX% (np. PEWNOŚĆ AI: 95%).";
-            var combinedInput = $"{systemMessage}\n\n{alertContext}\n\n[PYTANIE OPERATORA SOC]\n{prompt}";
-
-            Console.WriteLine($"\n==================== [PROMPT WYSYŁANY DO AI] ====================");
-            Console.WriteLine($"ENDPOINT: {endpoint}");
-            Console.WriteLine($"MODEL: {modelName}");
-            Console.WriteLine($"ALERT ID: {alertId}");
-            Console.WriteLine($"TREŚĆ WYSŁANA DO MODELU:\n{combinedInput}");
-            Console.WriteLine($"=================================================================\n");
-
-            var requestBody = new Dictionary<string, object>
+            catch (TaskCanceledException)
             {
-                ["model"] = modelName,
-                ["input"] = combinedInput
-            };
-
-            var jsonContent = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
-
-            using var request = new HttpRequestMessage(HttpMethod.Post, endpoint);
-            request.Content = jsonContent;
-
-            // Obie formy nagłówków uwierzytelniających dla pełnej kompatybilności z Azure OpenAI i usługami AI
-            request.Headers.TryAddWithoutValidation("api-key", apiKey);
-            request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {apiKey}");
-
-            var response = await _httpClient.SendAsync(request);
-
-            if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
-            {
-                return "[Błąd AI Rate Limit (429)] Przekroczono dopuszczalny limit żądań do modelu AI w jednostce czasu. Odczekaj chwilę i ponów zapytanie.";
+                var err = "[Błąd AI Limit Czasu] Przekroczono czas oczekiwania (timeout) na odpowiedź z punktu końcowego Azure AI.";
+                return new AiProcessResult { ExtractedText = err, RawJson = err };
             }
-
-            if (!response.IsSuccessStatusCode)
+            catch (Exception ex)
             {
-                var errText = await response.Content.ReadAsStringAsync();
-                return $"[Błąd punktu końcowego AI ({response.StatusCode})] Nie udało się uzyskać odpowiedzi z modelu. Szczegóły: {errText}";
+                var err = $"[Błąd Usługi AI] Wystąpił wyjątek podczas komunikacji z punktem końcowym Azure AI: {ex.Message}";
+                return new AiProcessResult { ExtractedText = err, RawJson = err };
             }
-
-            var responseJson = await response.Content.ReadAsStringAsync();
-            var extractedAnswer = ExtractAnswerFromJson(responseJson);
-
-            return string.IsNullOrWhiteSpace(extractedAnswer)
-                ? "[AI Backend] Otrzymano pustą odpowiedź od modelu AI."
-                : extractedAnswer;
-        }
-        catch (TaskCanceledException)
-        {
-            return "[Błąd AI Limit Czasu] Przekroczono czas oczekiwania (timeout) na odpowiedź z punktu końcowego Azure AI.";
-        }
-        catch (Exception ex)
-        {
-            return $"[Błąd Usługi AI] Wystąpił wyjątek podczas komunikacji z punktem końcowym Azure AI: {ex.Message}";
-        }
-        finally
-        {
-            _rateLimiter.Release();
-        }
+            finally
+            {
+                _rateLimiter.Release();
+            }
     }
 
     private string GetAlertContext(string alertId)

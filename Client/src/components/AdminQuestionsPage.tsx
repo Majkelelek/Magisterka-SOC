@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Search, Filter, HelpCircle, CheckCircle, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, Filter, HelpCircle, CheckCircle, AlertTriangle, RefreshCw, Shield, Upload } from 'lucide-react';
 import type { Alert } from '../types/alert';
-import { fetchTestSet, addTestAlertItem, updateTestAlertItem, deleteTestAlertItem } from '../services/api';
+import { fetchTestSet, addTestAlertItem, updateTestAlertItem, deleteTestAlertItem, deleteAllTestAlerts, importAttackSamples } from '../services/api';
 
 export const AdminQuestionsPage: React.FC = () => {
   const [alerts, setAlerts] = useState<Alert[]>([]);
@@ -9,6 +9,8 @@ export const AdminQuestionsPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterSeverity, setFilterSeverity] = useState('ALL');
   const [filterThreat, setFilterThreat] = useState('ALL');
+  const [deletingAll, setDeletingAll] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -83,6 +85,37 @@ export const AdminQuestionsPage: React.FC = () => {
     }
   };
 
+  const handleDeleteAll = async () => {
+    if (!window.confirm("CZY NA PEWNO chcesz usunąć WSZYSTKIE pytania testowe z bazy danych MongoDB Atlas oraz pliku lokalnego?\n\nTa operacja usunie wszystkie rekordy pytań i jest NIEODWRACALNA!")) {
+      return;
+    }
+    setDeletingAll(true);
+    setStatusMsg(null);
+    const res = await deleteAllTestAlerts();
+    setDeletingAll(false);
+
+    if (res.success) {
+      setStatusMsg({ text: res.message, type: 'success' });
+      setAlerts([]);
+    } else {
+      setStatusMsg({ text: res.message, type: 'error' });
+    }
+  };
+
+  const handleImportSamples = async () => {
+    setImporting(true);
+    setStatusMsg(null);
+    const res = await importAttackSamples();
+    setImporting(false);
+
+    if (res.success) {
+      setStatusMsg({ text: res.message, type: 'success' });
+      loadQuestions();
+    } else {
+      setStatusMsg({ text: res.message, type: 'error' });
+    }
+  };
+
   const handleSubmitForm = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.title || !formData.description) {
@@ -145,11 +178,11 @@ export const AdminQuestionsPage: React.FC = () => {
               Baza Zdarzeń i Pytań Testowych ({alerts.length} Incydentów)
             </h2>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '0.2rem', margin: 0 }}>
-              Możesz tu dodawać nowe pytania, modyfikować parametry (IP, techniki MITRE, flagę isThreat) oraz uaktualniać wzorcowe odpowiedzi operatora.
+              Możesz tu dodawać nowe pytania, modyfikować parametry (IP, techniki MITRE, flagę isThreat) oraz masowo usuwać lub importować zdarzenia.
             </p>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
             <button
               onClick={loadQuestions}
               className="btn-action"
@@ -162,7 +195,44 @@ export const AdminQuestionsPage: React.FC = () => {
               className="btn-action btn-primary"
               style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', padding: '0.4rem 0.9rem', background: 'linear-gradient(135deg, #0284c7, #2563eb)' }}
             >
-              <Plus size={15} /> Dodaj Nowe Pytanie / Alert
+              <Plus size={15} /> Dodaj Pytanie
+            </button>
+
+            <button
+              onClick={handleImportSamples}
+              disabled={importing}
+              className="btn-action"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '0.8rem',
+                padding: '0.4rem 0.85rem',
+                background: 'rgba(6, 182, 212, 0.15)',
+                color: '#38bdf8',
+                border: '1px solid rgba(6, 182, 212, 0.35)'
+              }}
+            >
+              <Upload size={14} /> {importing ? 'Importowanie...' : 'Importuj Próbki Ataków'}
+            </button>
+
+            <button
+              onClick={handleDeleteAll}
+              disabled={deletingAll}
+              className="btn-action"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '0.8rem',
+                padding: '0.4rem 0.85rem',
+                background: 'rgba(239, 68, 68, 0.18)',
+                color: '#f87171',
+                border: '1px solid rgba(239, 68, 68, 0.4)',
+                fontWeight: 600
+              }}
+            >
+              <Trash2 size={14} /> {deletingAll ? 'Usuwanie...' : 'Usuń Wszystkie Pytania z Bazy'}
             </button>
           </div>
         </div>

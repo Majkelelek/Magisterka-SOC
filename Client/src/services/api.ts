@@ -208,7 +208,7 @@ export async function deleteAllTestSessions(): Promise<boolean> {
 
 // ─── AI API ───────────────────────────────────────────────────
 
-export async function sendAiQuery(alertId: string, prompt: string): Promise<string> {
+export async function sendAiQuery(alertId: string, prompt: string): Promise<{ responseText: string; rawResponse?: string }> {
   try {
     const res = await fetch(`${API_BASE_URL}/ai/query`, {
       method: 'POST',
@@ -217,15 +217,21 @@ export async function sendAiQuery(alertId: string, prompt: string): Promise<stri
     });
     if (!res.ok) throw new Error('Błąd połączenia z serwisem AI');
     const data = await res.json();
-    return data.responseText;
+
+    console.log(`%c[AZURE OPENAI RAW RESPONSE] Alert ID: ${alertId}`, 'color: #ef4444; font-weight: bold; font-size: 12px;');
+    console.log(data.rawResponse || data.responseText);
+    console.log(`%c[AZURE OPENAI PARSED ANSWER] Alert ID: ${alertId}`, 'color: #38bdf8; font-weight: bold; font-size: 12px;');
+    console.log(data.responseText);
+
+    return { responseText: data.responseText, rawResponse: data.rawResponse };
   } catch {
-    return 'Błąd połączenia z modułem AI backendu.';
+    return { responseText: 'Błąd połączenia z modułem AI backendu.' };
   }
 }
 
-export async function askAiAssistant(alertId: string, prompt: string): Promise<{ answer: string }> {
-  const text = await sendAiQuery(alertId, prompt);
-  return { answer: text };
+export async function askAiAssistant(alertId: string, prompt: string): Promise<{ answer: string; rawResponse?: string }> {
+  const res = await sendAiQuery(alertId, prompt);
+  return { answer: res.responseText, rawResponse: res.rawResponse };
 }
 
 // ─── Authentication API ───────────────────────────────────────
@@ -332,3 +338,34 @@ export async function getAuthStatus(): Promise<{ isConnectedToMongoDB: boolean; 
     return { isConnectedToMongoDB: false, databaseProvider: 'Brak połączenia' };
   }
 }
+
+// ─── Admin: Question & Test Dataset Management ───────────────
+
+export async function deleteAllTestAlerts(): Promise<{ success: boolean; message: string }> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/alerts/test-set/all`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+    const data = await res.json();
+    if (!res.ok) return { success: false, message: data.message || 'Nie udało się usunąć pytań.' };
+    return { success: true, message: data.message };
+  } catch {
+    return { success: false, message: 'Błąd połączenia z serwerem podczas usuwania pytań.' };
+  }
+}
+
+export async function importAttackSamples(): Promise<{ success: boolean; message: string; importedCount?: number; totalCount?: number }> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/alerts/import-attack-samples`, {
+      method: 'POST',
+      headers: getAuthHeaders()
+    });
+    const data = await res.json();
+    if (!res.ok) return { success: false, message: data.message || 'Nie udało się zaimportować próbek.' };
+    return { success: true, message: data.message, importedCount: data.importedCount, totalCount: data.totalCount };
+  } catch {
+    return { success: false, message: 'Błąd połączenia z serwerem podczas importowania próbek.' };
+  }
+}
+

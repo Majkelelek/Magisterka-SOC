@@ -39,30 +39,35 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-// Automatyczne zasilenie bazy MongoDB Atlas wszystkimi 75 pytaniami testowymi przy starcie
+// Automatyczna synchronizacja bazy MongoDB Atlas pytaniami testowymi z pliku przy starcie
 try
 {
+    var alertStore = app.Services.GetRequiredService<AlertStore>();
     var mongoCtx = app.Services.GetRequiredService<MongoDbContext>();
-    if (mongoCtx.IsConnectedToMongo && mongoCtx.Alerts != null)
-    {
-        string testSetPath = Path.Combine(Directory.GetCurrentDirectory(), "Data", "test_pytania.json");
-        if (!File.Exists(testSetPath))
-        {
-            testSetPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "test_pytania.json");
-        }
 
-        if (File.Exists(testSetPath))
+    string testSetPath = Path.Combine(Directory.GetCurrentDirectory(), "Data", "test_pytania.json");
+    if (!File.Exists(testSetPath))
+    {
+        testSetPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "test_pytania.json");
+    }
+
+    List<Alert> alerts = new();
+    if (File.Exists(testSetPath))
+    {
+        var jsonText = File.ReadAllText(testSetPath);
+        var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+        alerts = System.Text.Json.JsonSerializer.Deserialize<List<Alert>>(jsonText, options) ?? new();
+    }
+
+    if (alerts.Count > 0)
+    {
+        alertStore.SetAlerts(alerts);
+        if (mongoCtx.IsConnectedToMongo && mongoCtx.Alerts != null)
         {
-            var jsonText = File.ReadAllText(testSetPath);
-            var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            var alerts = System.Text.Json.JsonSerializer.Deserialize<List<Alert>>(jsonText, options);
-            if (alerts != null && alerts.Count > 0)
-            {
-                var bulkOps = alerts.Select(a => new ReplaceOneModel<Alert>(
-                    Builders<Alert>.Filter.Eq(x => x.Id, a.Id), a) { IsUpsert = true }).ToList();
-                mongoCtx.Alerts.BulkWrite(bulkOps);
-                Console.WriteLine($"[MongoDB Atlas] AUTOMATYCZNIE ZAPISANO ALL {alerts.Count} PYTAŃ W BAZIE DANYCH MONGODB!");
-            }
+            var bulkOps = alerts.Select(a => new ReplaceOneModel<Alert>(
+                Builders<Alert>.Filter.Eq(x => x.Id, a.Id), a) { IsUpsert = true }).ToList();
+            mongoCtx.Alerts.BulkWrite(bulkOps);
+            Console.WriteLine($"[MongoDB Atlas] AUTOMATYCZNIE ZAPISANO {alerts.Count} PYTAŃ W BAZIE DANYCH MONGODB!");
         }
     }
 

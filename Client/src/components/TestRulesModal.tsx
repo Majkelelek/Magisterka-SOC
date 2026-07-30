@@ -4,6 +4,7 @@ import { ShieldAlert, Play, Clock, HelpCircle, CheckCircle2 } from 'lucide-react
 interface TestRulesModalProps {
   isOpen: boolean;
   testMode: 'NoAI' | 'WithAI';
+  alertCount?: number;
   onStartTest: () => void;
   onClose: () => void;
 }
@@ -11,6 +12,7 @@ interface TestRulesModalProps {
 export const TestRulesModal: React.FC<TestRulesModalProps> = ({
   isOpen,
   testMode,
+  alertCount = 20,
   onStartTest,
   onClose
 }) => {
@@ -28,34 +30,32 @@ export const TestRulesModal: React.FC<TestRulesModalProps> = ({
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      zIndex: 9999,
-      padding: '1.5rem'
+      zIndex: 1000
     }}>
-      <div style={{
-        backgroundColor: '#0f172a',
-        border: '1px solid #1e293b',
-        borderRadius: '16px',
-        maxWidth: '650px',
+      <div className="soc-card" style={{
         width: '100%',
+        maxWidth: '560px',
         padding: '2rem',
-        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)',
-        color: '#f8fafc'
+        background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.98), rgba(7, 10, 18, 0.99))',
+        border: '1px solid rgba(56, 189, 248, 0.3)',
+        borderRadius: '16px',
+        boxShadow: '0 20px 50px rgba(0, 0, 0, 0.6)'
       }}>
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '1.5rem', borderBottom: '1px solid #1e293b', paddingBottom: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '1.5rem', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '1rem' }}>
           <div style={{
-            background: testMode === 'WithAI' ? 'rgba(168, 85, 247, 0.2)' : 'rgba(59, 130, 246, 0.2)',
-            padding: '12px',
+            background: testMode === 'WithAI' ? 'rgba(168, 85, 247, 0.2)' : 'rgba(37, 99, 235, 0.2)',
+            padding: '10px',
             borderRadius: '12px',
-            display: 'flex'
+            border: testMode === 'WithAI' ? '1px solid rgba(168, 85, 247, 0.4)' : '1px solid rgba(37, 99, 235, 0.4)'
           }}>
             <ShieldAlert size={28} color={testMode === 'WithAI' ? '#c084fc' : '#60a5fa'} />
           </div>
           <div>
-            <h2 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 700 }}>
-              Instrukcja Testu Badawczego Operatora SOC
+            <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#ffffff', margin: 0 }}>
+              Instrukcja i Zasady Testu
             </h2>
-            <span style={{ fontSize: '0.85rem', color: '#94a3b8' }}>
+            <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
               Tryb: <strong style={{ color: testMode === 'WithAI' ? '#c084fc' : '#60a5fa' }}>
                 {testMode === 'WithAI' ? 'Test 2 (Z AI)' : 'Test 1 (Tradycyjny - Bez AI)'}
               </strong>
@@ -68,7 +68,7 @@ export const TestRulesModal: React.FC<TestRulesModalProps> = ({
           <div style={{ display: 'flex', gap: '12px' }}>
             <Clock size={20} color="#38bdf8" style={{ flexShrink: 0, marginTop: '2px' }} />
             <div>
-              <strong>Zestaw zdarzeń:</strong> Przeanalizujesz 75 wyselekcjonowanych zdarzeń z autentycznego zestawu incydentów bezpieczeństwa – od groźnych ataków po rutynowy ruch (False Positive).
+              <strong>Zestaw zdarzeń:</strong> Przeanalizujesz {alertCount} wyselekcjonowanych zdarzeń z autentycznego zestawu incydentów bezpieczeństwa – od groźnych ataków po rutynowy ruch (False Positive).
             </div>
           </div>
 
@@ -107,7 +107,6 @@ export const TestRulesModal: React.FC<TestRulesModalProps> = ({
           <button
             onClick={onStartTest}
             style={{
-              background: testMode === 'WithAI' ? 'linear-[#a855f7, #7c3aed]' : 'linear-[#2563eb, #1d4ed8]',
               backgroundColor: testMode === 'WithAI' ? '#8b5cf6' : '#2563eb',
               color: 'white',
               border: 'none',
@@ -122,7 +121,7 @@ export const TestRulesModal: React.FC<TestRulesModalProps> = ({
               boxShadow: '0 4px 14px rgba(37, 99, 235, 0.4)'
             }}
           >
-            <Play size={18} /> Rozpocznij Test (30 Zdarzeń)
+            <Play size={18} /> Rozpocznij Test ({alertCount} Zdarzeń)
           </button>
         </div>
       </div>

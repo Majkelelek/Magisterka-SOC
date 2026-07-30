@@ -24,14 +24,15 @@ public class AiController : ControllerBase
             return BadRequest(new { message = "Treść zapytania (prompt) nie może być pusta." });
         }
 
-        var responseText = await _aiService.ProcessQueryAsync(request.AlertId ?? string.Empty, request.Prompt);
+        var result = await _aiService.ProcessQueryAsync(request.AlertId ?? string.Empty, request.Prompt);
 
         return Ok(new AiQueryResponse(
-            ResponseText: responseText,
+            ResponseText: result.ExtractedText,
+            RawResponse: result.RawJson,
             Timestamp: DateTime.UtcNow
         ));
     }
 }
 
 public record AiQueryRequest(string AlertId, string Prompt);
-public record AiQueryResponse(string ResponseText, DateTime Timestamp);
+public record AiQueryResponse(string ResponseText, string RawResponse, DateTime Timestamp);
