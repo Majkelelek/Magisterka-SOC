@@ -1,10 +1,11 @@
-import React from 'react';
-import { Shield, Bot, Eye, UserCheck, Home, LogOut, Database, Users, BarChart2, HelpCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Shield, Bot, Eye, UserCheck, Home, LogOut, Database, Users, BarChart2, HelpCircle, Sparkles } from 'lucide-react';
 import type { UserSession } from '../types/alert';
+import { getAuthStatus, type SystemHealthStatus } from '../services/api';
 
 interface HeaderProps {
-  activeTab: 'home' | 'no-ai' | 'with-ai' | 'test-results' | 'admin-users' | 'admin-questions';
-  onTabChange: (tab: 'home' | 'no-ai' | 'with-ai' | 'test-results' | 'admin-users' | 'admin-questions') => void;
+  activeTab: 'home' | 'no-ai' | 'with-ai' | 'test-results' | 'admin-users' | 'admin-questions' | 'benchmark';
+  onTabChange: (tab: 'home' | 'no-ai' | 'with-ai' | 'test-results' | 'admin-users' | 'admin-questions' | 'benchmark') => void;
   userSession: UserSession | null;
   onLogout: () => void;
 }
@@ -15,10 +16,34 @@ export const Header: React.FC<HeaderProps> = ({
   userSession,
   onLogout
 }) => {
+  const [healthStatus, setHealthStatus] = useState<SystemHealthStatus>({
+    isServerOnline: null,
+    isConnectedToMongoDB: null,
+    databaseProvider: 'Sprawdzanie...'
+  });
+
+  useEffect(() => {
+    let isMounted = true;
+    const checkHealth = async () => {
+      const status = await getAuthStatus();
+      if (isMounted) {
+        setHealthStatus(status);
+      }
+    };
+
+    checkHealth();
+    // Sprawdzaj status co 30 sekund zamiast co 4 sekundy, aby nie spamować konsoli sieciowej (Network)
+    const interval = setInterval(checkHealth, 30000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
+
   return (
     <header className="soc-header">
       <div className="soc-header-inner">
-        {/* Left: Logo & System Status */}
+        {/* Left: Logo & Dynamic System / DB Status Badges */}
         <div className="soc-logo" style={{ cursor: 'pointer' }} onClick={() => onTabChange('home')}>
           <div className="soc-logo-icon">
             <Shield size={22} />
@@ -26,11 +51,32 @@ export const Header: React.FC<HeaderProps> = ({
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span style={{ fontWeight: 700, letterSpacing: '0.5px', fontSize: '0.95rem' }}>Magisterka SOC</span>
-              <span className="soc-status-badge">
-                <span className="pulse-dot"></span> ONLINE
+              
+              {/* Backend Server Status Badge */}
+              <span className="soc-status-badge" style={{
+                background: healthStatus.isServerOnline === null ? 'rgba(148, 163, 184, 0.15)' : healthStatus.isServerOnline ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                border: healthStatus.isServerOnline === null ? '1px solid rgba(148, 163, 184, 0.3)' : healthStatus.isServerOnline ? '1px solid rgba(34, 197, 94, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)',
+                color: healthStatus.isServerOnline === null ? '#94a3b8' : healthStatus.isServerOnline ? '#4ade80' : '#f87171'
+              }}>
+                <span className="pulse-dot" style={{
+                  background: healthStatus.isServerOnline === null ? '#94a3b8' : healthStatus.isServerOnline ? '#22c55e' : '#ef4444',
+                  boxShadow: healthStatus.isServerOnline === true ? '0 0 8px #22c55e' : healthStatus.isServerOnline === false ? '0 0 8px #ef4444' : 'none'
+                }}></span>
+                SERVER: {healthStatus.isServerOnline === null ? 'SPRAWDZANIE...' : healthStatus.isServerOnline ? 'ONLINE' : 'OFFLINE'}
               </span>
-            </div>
-            <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)', fontWeight: 400, marginTop: '1px' }}>
+
+              {/* Database Status Badge */}
+              <span className="soc-status-badge" style={{
+                background: healthStatus.isConnectedToMongoDB === null ? 'rgba(148, 163, 184, 0.15)' : healthStatus.isConnectedToMongoDB ? 'rgba(56, 189, 248, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                border: healthStatus.isConnectedToMongoDB === null ? '1px solid rgba(148, 163, 184, 0.3)' : healthStatus.isConnectedToMongoDB ? '1px solid rgba(56, 189, 248, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)',
+                color: healthStatus.isConnectedToMongoDB === null ? '#94a3b8' : healthStatus.isConnectedToMongoDB ? '#38bdf8' : '#f87171',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}>
+                <Database size={12} />
+                BAZA: {healthStatus.isConnectedToMongoDB === null ? 'SPRAWDZANIE...' : healthStatus.isConnectedToMongoDB ? 'ONLINE' : 'OFFLINE'}
+              </span>
             </div>
           </div>
         </div>
@@ -74,6 +120,16 @@ export const Header: React.FC<HeaderProps> = ({
 
             {userSession.role === 'Administrator' && (
               <button
+                className={`soc-tab ${activeTab === 'benchmark' ? 'active-ai' : ''}`}
+                onClick={() => onTabChange('benchmark')}
+              >
+                <Sparkles size={16} color="#a855f7" />
+                <span style={{ color: '#a855f7', fontWeight: 700 }}>Ewaluacja AI (Benchmark)</span>
+              </button>
+            )}
+
+            {userSession.role === 'Administrator' && (
+              <button
                 className={`soc-tab ${activeTab === 'admin-questions' ? 'active-ai' : ''}`}
                 onClick={() => onTabChange('admin-questions')}
               >
@@ -97,7 +153,7 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Right: Session Meta */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          {userSession ? (
+          {userSession && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <div style={{ display: 'flex', flexShrink: 0, alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                 <UserCheck size={15} color="#38bdf8" />
@@ -122,11 +178,6 @@ export const Header: React.FC<HeaderProps> = ({
               >
                 <LogOut size={14} /> Wyloguj
               </button>
-            </div>
-          ) : (
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Database size={14} color="var(--ai-cyan)" />
-              <span>System Wymaga Zalogowania Operatora</span>
             </div>
           )}
         </div>

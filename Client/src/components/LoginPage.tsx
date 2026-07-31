@@ -1,18 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { loginUser, getAuthStatus } from '../services/api';
+import React, { useState } from 'react';
+import { loginUser } from '../services/api';
 import type { UserSession } from '../types/alert';
-import { Shield, Lock, User, LogIn, Database, AlertCircle } from 'lucide-react';
+import { Shield, Lock, User, LogIn, AlertCircle } from 'lucide-react';
 
 interface LoginPageProps {
   onLoginSuccess: (session: UserSession) => void;
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
-  const [dbStatus, setDbStatus] = useState<{ isConnectedToMongoDB: boolean; databaseProvider: string }>({
-    isConnectedToMongoDB: false,
-    databaseProvider: 'Sprawdzanie stanu bazy...'
-  });
-
   // Form State
   const [username, setUsername] = useState<string>('');
   const [password, setPassword] = useState<string>('');
@@ -20,12 +15,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   // UI State
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
-
-  useEffect(() => {
-    getAuthStatus().then(status => {
-      setDbStatus(status);
-    });
-  }, []);
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -86,25 +75,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           <h2 style={{ fontSize: '1.45rem', fontWeight: 800, color: '#ffffff', marginBottom: '0.35rem' }}>
             SOC SENTINEL AUTHENTICATION
           </h2>
-          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-            System Autoryzacji Operatorów SOC (MongoDB Integrated)
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>
           </p>
-
-          <div style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-            marginTop: '0.85rem',
-            background: dbStatus.isConnectedToMongoDB ? 'rgba(16, 185, 129, 0.1)' : 'rgba(56, 189, 248, 0.1)',
-            border: `1px solid ${dbStatus.isConnectedToMongoDB ? 'rgba(16, 185, 129, 0.3)' : 'rgba(56, 189, 248, 0.3)'}`,
-            color: dbStatus.isConnectedToMongoDB ? '#10b981' : '#38bdf8',
-            padding: '0.25rem 0.75rem',
-            borderRadius: '20px',
-            fontSize: '0.725rem',
-            fontWeight: 600
-          }}>
-            <Database size={12} /> Baza Danych: {dbStatus.databaseProvider}
-          </div>
         </div>
 
         {/* Header Title */}

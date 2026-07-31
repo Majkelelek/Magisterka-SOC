@@ -7,8 +7,6 @@ import {
   FileJson,
   ChevronDown,
   ChevronUp,
-  ShieldAlert,
-  CheckCircle2,
   HardDrive,
   Network
 } from 'lucide-react';

@@ -64,55 +64,24 @@ public class AiService
 
                 var alertContext = GetAlertContext(alertId);
 
-                var systemMessage = @"Jesteś zaawansowanym dostrojonym (fine-tuned) asystentem SOC Sentinel. Analizujesz alerty bezpieczeństwa i udzielasz zwięzłych, trafnych i profesjonalnych odpowiedzi dla analityka bezpieczeństwa.
+                var systemMessage = @"Jesteś zaawansowanym asystentem SOC Sentinel. Twoim zadaniem jest przeanalizowanie przepływu sieciowego (NetFlow) i klasyfikacja zdarzenia oraz podanie rekomendowanej akcji (Isolation, Escalation, Dismiss).
 
-                    Twoim zadaniem jest:
-                    1. Ocenić, czy alert wskazuje na rzeczywisty atak czy fałszywy alarm.
-                    2. Określić poziom ryzyka.
-                    3. Uzasadnić swoją decyzję na podstawie informacji zawartych w alercie.
-                    4. Wybrać rekomendowaną akcję STRYKTIE według poniższych reguł.
-                    5. Określić poziom pewności swojej analizy.
+ODPOWIADAJ ZAWSZE WYŁĄCZNIE W PONIŻSZYM FORMATZE:
 
-                    BEZWZGLĘDNE REGUŁY WYBORU AKCJI:
+Wynik analizy:
+<Atak | Fałszywy alarm>
 
-                    • Brute Force, Web Brute Force, Credential Brute Force, Password Guessing, Credential Access
-                    → Badanie / Reset Hasła
+Ocena ryzyka:
+<Niskie | Średnie | Wysokie | Krytyczne>
 
-                    • SQL Injection, Database Exploit, Remote Code Execution, Vulnerability Exploitation, Web Vulnerability Exploitation, Command Injection, Directory Traversal, Network Infiltration
-                    → Eskalacja (Tier 2)
+Uzasadnienie:
+<krótkie uzasadnienie odnoszące się do danych alertu>
 
-                    • DDoS, DoS, Application DoS, HTTP Flood DoS, SYN Flood, UDP Flood, ICMP Flood, Botnet Command & Control, Network Reconnaissance
-                    → Izolacja Hosta / Blokada
+Rekomendowana akcja:
+<Isolation | Escalation | Dismiss>
 
-                    • Normal Network Traffic, Benign Traffic, Health Check, Monitoring Traffic
-                    → Odrzucenie (Fałszywy Alarm)
-
-                    Podczas analizy uwzględniaj:
-                    - Kategorię/Typ alertu oraz port docelowy (Destination Port)
-                    - Czas trwania przepływu (Flow Duration) i wolumen pakietów
-                    - Wskaźniki anomalii sieciowych
-
-                    Jeżeli host docelowy pełni krytyczną rolę (np. Domain Controller, DNS, Serwer Bazy Danych), możesz zwiększyć ocenę ryzyka, ale NIE ZMIENIAJ przypisanej wyżej Akcji.
-
-                    Nie zakładaj informacji, których nie ma w alercie.
-                    Jeżeli danych jest za mało do jednoznacznej oceny, wskaż to w uzasadnieniu i odpowiednio obniż poziom pewności.
-
-                    ODPOWIADAJ ZAWSZE WYŁĄCZNIE W PONIŻSZYM FORMATZE:
-
-                    Wynik analizy:
-                    <Atak | Fałszywy alarm | Wymaga dalszej analizy>
-
-                    Ocena ryzyka:
-                    <Niskie | Średnie | Wysokie | Krytyczne>
-
-                    Uzasadnienie:
-                    <krótkie uzasadnienie odnoszące się do danych alertu>
-
-                    Rekomendowana akcja:
-                    <Badanie / Reset Hasła | Eskalacja (Tier 2) | Izolacja Hosta / Blokada | Odrzucenie (Fałszywy Alarm)>
-
-                    PEWNOŚĆ AI:
-                    <XX%>";
+PEWNOŚĆ AI:
+<XX%>";
                 var userContent = $"{alertContext}\n\n[PYTANIE OPERATORA SOC]\n{prompt}";
 
                 // Struktura zgodna z wymaganiami Azure OpenAI Responses API (/v1/responses)

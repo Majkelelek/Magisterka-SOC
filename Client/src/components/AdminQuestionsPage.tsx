@@ -667,7 +667,7 @@ export const AdminQuestionsPage: React.FC = () => {
                       setFormData({
                         ...formData,
                         isThreat: isT,
-                        correctAction: isT ? (formData.correctAction === 'Dismiss / False Positive' ? 'Isolate Host / Block' : formData.correctAction) : 'Dismiss / False Positive'
+                        correctAction: isT ? (formData.correctAction === 'Dismiss' ? 'Isolation' : formData.correctAction) : 'Dismiss'
                       });
                     }}
                     style={{ width: '100%', background: 'rgba(15, 23, 42, 0.8)', border: '1px solid var(--border-color)', color: '#ffffff', padding: '0.45rem', borderRadius: '6px', fontSize: '0.825rem' }}
@@ -680,14 +680,13 @@ export const AdminQuestionsPage: React.FC = () => {
                 <div>
                   <label style={{ display: 'block', fontSize: '0.775rem', color: 'var(--text-muted)', marginBottom: '0.3rem' }}>Wzorcowa Odpowiedź Operatora (Correct Action)</label>
                   <select
-                    value={formData.correctAction || 'Isolate Host / Block'}
+                    value={formData.correctAction || 'Isolation'}
                     onChange={e => setFormData({ ...formData, correctAction: e.target.value })}
                     style={{ width: '100%', background: 'rgba(15, 23, 42, 0.8)', border: '1px solid var(--border-color)', color: '#ffffff', padding: '0.45rem', borderRadius: '6px', fontSize: '0.825rem' }}
                   >
-                    <option value="Isolate Host / Block">Isolate Host / Block (Izolacja Hosta)</option>
-                    <option value="Investigate / Reset Password">Investigate / Reset Password (Badanie / Reset Hasła)</option>
-                    <option value="Escalate / Tier 2">Escalate / Tier 2 (Eskalacja do L2)</option>
-                    <option value="Dismiss / False Positive">Dismiss / False Positive (Zignoruj / Fałszywy Alarm)</option>
+                    <option value="Isolation">Isolation (Izolacja Hosta / Blokada Ruchu)</option>
+                    <option value="Escalation">Escalation (Eskalacja do L2)</option>
+                    <option value="Dismiss">Dismiss (Zignoruj / Fałszywy Alarm / BENIGN)</option>
                   </select>
                 </div>
               </div>

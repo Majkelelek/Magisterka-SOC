@@ -1,4 +1,5 @@
 import type { Alert, TestSession, UserSession } from '../types/alert';
+import type { EvaluationReport } from '../types/evaluation';
 
 const API_BASE_URL = 'http://localhost:5000/api';
 
@@ -327,15 +328,28 @@ export async function fetchActiveSessions(): Promise<Array<{ id: string; usernam
   }
 }
 
-// ─── System Status ───────────────────────────────────────────
+export interface SystemHealthStatus {
+  isServerOnline: boolean | null;
+  isConnectedToMongoDB: boolean | null;
+  databaseProvider: string;
+}
 
-export async function getAuthStatus(): Promise<{ isConnectedToMongoDB: boolean; databaseProvider: string }> {
+export async function getAuthStatus(): Promise<SystemHealthStatus> {
   try {
     const res = await fetch(`${API_BASE_URL}/auth/status`);
     if (!res.ok) throw new Error('Status unavailable');
-    return await res.json();
+    const data = await res.json();
+    return {
+      isServerOnline: true,
+      isConnectedToMongoDB: !!data.isConnectedToMongoDB,
+      databaseProvider: data.databaseProvider || 'MongoDB Atlas'
+    };
   } catch {
-    return { isConnectedToMongoDB: false, databaseProvider: 'Brak połączenia' };
+    return {
+      isServerOnline: false,
+      isConnectedToMongoDB: false,
+      databaseProvider: 'Brak połączenia'
+    };
   }
 }
 
@@ -396,6 +410,80 @@ export async function generateAllAiAnalyses(): Promise<{ success: boolean; messa
     return { success: true, message: data.message, alerts: data.alerts };
   } catch (err: any) {
     return { success: false, message: err.message || 'Nie udało się połączyć z serwerem.' };
+  }
+}
+
+export async function fetchOllamaModels(): Promise<{ success: boolean; models: string[]; isOllamaOnline: boolean }> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/evaluation/ollama-models`, {
+      headers: getAuthHeaders()
+    });
+    if (!res.ok) return { success: false, models: [], isOllamaOnline: false };
+    const data = await res.json();
+    return { success: data.success, models: data.models || [], isOllamaOnline: !!data.isOllamaOnline };
+  } catch {
+    return { success: false, models: [], isOllamaOnline: false };
+  }
+}
+
+export async function runModelEvaluation(
+  count: number = 20,
+  mode: 'both' | 'base' | 'ft' = 'both',
+  ollamaModel: string = 'llama3.2'
+): Promise<{ success: boolean; message: string; report?: EvaluationReport }> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/evaluation/run?count=${count}&mode=${mode}&ollamaModel=${encodeURIComponent(ollamaModel)}`, {
+      method: 'POST',
+      headers: getAuthHeaders()
+    });
+    checkResponseStatus(res);
+    const data = await res.json();
+    if (!res.ok) return { success: false, message: data.message || 'Błąd podczas wykonywania ewaluacji.' };
+    return { success: true, message: data.message, report: data.report };
+  } catch (err: any) {
+    return { success: false, message: err.message || 'Nie udało się połączyć z serwerem.' };
+  }
+}
+
+export async function getLatestEvaluationReport(): Promise<{ success: boolean; message?: string; report?: EvaluationReport }> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/evaluation/latest`, {
+      headers: getAuthHeaders()
+    });
+    checkResponseStatus(res);
+    const data = await res.json();
+    if (!res.ok) return { success: false, message: data.message };
+    return { success: data.success, message: data.message, report: data.report };
+  } catch (err: any) {
+    return { success: false, message: err.message || 'Nie udało się pobrać ostatniego raportu.' };
+  }
+}
+
+export async function getEvaluationHistory(): Promise<{ success: boolean; reports: EvaluationReport[] }> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/evaluation/history`, {
+      headers: getAuthHeaders()
+    });
+    if (!res.ok) return { success: false, reports: [] };
+    const data = await res.json();
+    return { success: true, reports: data.reports || [] };
+  } catch {
+    return { success: false, reports: [] };
+  }
+}
+
+export async function deleteEvaluationReport(reportId: string): Promise<{ success: boolean; message: string }> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/evaluation/${encodeURIComponent(reportId)}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+    checkResponseStatus(res);
+    const data = await res.json();
+    if (!res.ok) return { success: false, message: data.message || 'Błąd usuwania raportu.' };
+    return { success: true, message: data.message };
+  } catch (err: any) {
+    return { success: false, message: err.message || 'Błąd połączenia podczas usuwania.' };
   }
 }
 

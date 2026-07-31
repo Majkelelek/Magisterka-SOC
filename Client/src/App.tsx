@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import './styles/soc-theme.css';
 import type { Alert, TestSession, UserSession } from './types/alert';
-import { fetchAlerts, fetchTestSet, updateAlertStatus, submitTestSession, logoutUser, verifyCurrentSession, cleanAlertStrings } from './services/api';
+import { fetchTestSet, updateAlertStatus, submitTestSession, logoutUser, verifyCurrentSession, cleanAlertStrings } from './services/api';
 import { Header } from './components/Header';
 import { HomePage } from './components/HomePage';
 import { NoAiTestView } from './components/NoAiTestView';
@@ -10,6 +10,7 @@ import { LoginPage } from './components/LoginPage';
 import { AdminUserPanel } from './components/AdminUserPanel';
 import { TestResultsPage } from './components/TestResultsPage';
 import { AdminQuestionsPage } from './components/AdminQuestionsPage';
+import { EvaluationBenchmarkPage } from './components/EvaluationBenchmarkPage';
 import { TestRulesModal } from './components/TestRulesModal';
 import { ShieldAlert, AlertTriangle, CheckCircle, Activity, BarChart2 } from 'lucide-react';
 
@@ -26,9 +27,9 @@ export const App: React.FC = () => {
     return null;
   });
 
-  const [activeTab, setActiveTab] = useState<'home' | 'no-ai' | 'with-ai' | 'test-results' | 'admin-users' | 'admin-questions'>(() => {
+  const [activeTab, setActiveTab] = useState<'home' | 'no-ai' | 'with-ai' | 'test-results' | 'admin-users' | 'admin-questions' | 'benchmark'>(() => {
     const saved = sessionStorage.getItem('soc_active_tab');
-    if (saved && ['home', 'no-ai', 'with-ai', 'test-results', 'admin-users', 'admin-questions'].includes(saved)) {
+    if (saved && ['home', 'no-ai', 'with-ai', 'test-results', 'admin-users', 'admin-questions', 'benchmark'].includes(saved)) {
       return saved as any;
     }
     return 'home';
@@ -104,27 +105,55 @@ export const App: React.FC = () => {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [activeTab]);
 
+const SAMPLE_TEST_SIZE = 20;
+
+function getUserAssignedSubset(fullList: Alert[], username: string): Alert[] {
+  if (!fullList || fullList.length === 0) return [];
+  if (fullList.length <= SAMPLE_TEST_SIZE) return fullList;
+
+  const storageKey = `soc_user_subset_${username}`;
+  const savedIdsRaw = sessionStorage.getItem(storageKey) || localStorage.getItem(storageKey);
+
+  if (savedIdsRaw) {
+    try {
+      const savedIds: string[] = JSON.parse(savedIdsRaw);
+      if (Array.isArray(savedIds) && savedIds.length === SAMPLE_TEST_SIZE) {
+        const matched = savedIds
+          .map(id => fullList.find(a => a.id === id))
+          .filter((a): a is Alert => Boolean(a));
+        if (matched.length === SAMPLE_TEST_SIZE) {
+          return matched;
+        }
+      }
+    } catch {}
+  }
+
+  // Losujemy dokładnie 20 pytań metodą Fisher-Yates
+  const shuffled = [...fullList];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+
+  const selected = shuffled.slice(0, SAMPLE_TEST_SIZE);
+  const selectedIds = selected.map(a => a.id);
+
+  try {
+    sessionStorage.setItem(storageKey, JSON.stringify(selectedIds));
+    localStorage.setItem(storageKey, JSON.stringify(selectedIds));
+  } catch {}
+
+  return selected;
+}
+
   const loadData = async () => {
     setLoading(true);
-    const savedTestAlerts = sessionStorage.getItem('soc_test_alerts');
-
-    if (savedTestAlerts) {
-      try {
-        const parsed = JSON.parse(savedTestAlerts);
-        if (Array.isArray(parsed) && parsed.length >= 10) {
-          setAlerts(cleanAlertStrings(parsed));
-          setLoading(false);
-          return;
-        }
-      } catch { }
-    }
-
     const testSet = await fetchTestSet();
     const cleaned = cleanAlertStrings(testSet);
-    setAlerts(cleaned);
-    if (cleaned && cleaned.length > 0) {
-      sessionStorage.setItem('soc_test_alerts', JSON.stringify(cleaned));
-    }
+    const username = userSession?.username || 'anonymous';
+    const userSubset = getUserAssignedSubset(cleaned, username);
+    setAlerts(userSubset);
+    sessionStorage.setItem('soc_test_alerts', JSON.stringify(userSubset));
     setLoading(false);
   };
 
@@ -174,25 +203,28 @@ export const App: React.FC = () => {
   }, [userSession]);
 
   // Przechwytywanie przełączenia zakładki testowej -> pokazanie modala z zasadami tylko jeśli test nie trwał
-  const handleTabChange = (tab: 'home' | 'no-ai' | 'with-ai' | 'test-results' | 'admin-users') => {
-    if (tab === 'test-results' && userSession?.role !== 'Administrator') {
+  const handleTabChange = (tab: string) => {
+    const targetTab = tab as 'home' | 'no-ai' | 'with-ai' | 'test-results' | 'admin-users' | 'admin-questions' | 'benchmark';
+    if ((targetTab === 'test-results' || targetTab === 'admin-questions' || targetTab === 'benchmark') && userSession?.role !== 'Administrator') {
       setActiveTab('home');
       return;
     }
-    if ((tab === 'no-ai' || tab === 'with-ai') && !testStartTime) {
-      setPendingTab(tab);
+    if ((targetTab === 'no-ai' || targetTab === 'with-ai') && !testStartTime) {
+      setPendingTab(targetTab);
       setIsRulesModalOpen(true);
     } else {
-      if ((tab === 'no-ai' || tab === 'with-ai') && alerts.length < 10) {
+      if ((targetTab === 'no-ai' || targetTab === 'with-ai') && alerts.length < 10) {
         fetchTestSet().then(data => {
           if (data && data.length > 0) {
             const cleaned = cleanAlertStrings(data);
-            setAlerts(cleaned);
-            sessionStorage.setItem('soc_test_alerts', JSON.stringify(cleaned));
+            const username = userSession?.username || 'anonymous';
+            const userSubset = getUserAssignedSubset(cleaned, username);
+            setAlerts(userSubset);
+            sessionStorage.setItem('soc_test_alerts', JSON.stringify(userSubset));
           }
         });
       }
-      setActiveTab(tab);
+      setActiveTab(targetTab);
     }
   };
 
@@ -207,8 +239,10 @@ export const App: React.FC = () => {
     sessionStorage.removeItem('soc_ai_chat_messages_map');
     const testSet = await fetchTestSet();
     const cleaned = cleanAlertStrings(testSet);
-    setAlerts(cleaned);
-    sessionStorage.setItem('soc_test_alerts', JSON.stringify(cleaned));
+    const username = userSession?.username || 'anonymous';
+    const userSubset = getUserAssignedSubset(cleaned, username);
+    setAlerts(userSubset);
+    sessionStorage.setItem('soc_test_alerts', JSON.stringify(userSubset));
 
     setHandledCount(0);
     sessionStorage.setItem('soc_test_handled_count', '0');
@@ -250,12 +284,6 @@ export const App: React.FC = () => {
     setHandledCount(0);
     setTestStartTime(null);
     setTestSessionId(null);
-    setActiveTab('home');
-  };
-
-  const handleCreateSampleAlert = async () => {
-    const testSet = await fetchTestSet();
-    setAlerts(testSet);
   };
 
   const handleActionTaken = async (alertId: string, actionName: string) => {
@@ -330,6 +358,8 @@ export const App: React.FC = () => {
           <AdminUserPanel userSession={userSession} />
         ) : (activeTab === 'admin-questions' && userSession.role === 'Administrator') ? (
           <AdminQuestionsPage />
+        ) : (activeTab === 'benchmark' && userSession.role === 'Administrator') ? (
+          <EvaluationBenchmarkPage />
         ) : (activeTab === 'test-results' && userSession.role === 'Administrator') ? (
           <TestResultsPage userSession={userSession} />
         ) : (
@@ -378,7 +408,6 @@ export const App: React.FC = () => {
             ) : activeTab === 'home' ? (
               <HomePage
                 onNavigate={handleTabChange}
-                alertCount={totalAlerts}
               />
             ) : activeTab === 'no-ai' ? (
               <NoAiTestView

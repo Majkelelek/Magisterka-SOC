@@ -1,12 +1,11 @@
 import React from 'react';
-import { Shield, Eye, Bot, Play, Server, Layers, Cpu } from 'lucide-react';
+import { Shield, Eye, Bot, Play, Layers, Cpu } from 'lucide-react';
 
 interface HomePageProps {
   onNavigate: (tab: 'no-ai' | 'with-ai') => void;
-  alertCount: number;
 }
 
-export const HomePage: React.FC<HomePageProps> = ({ onNavigate, alertCount }) => {
+export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
   return (
     <div style={{ width: '100%', padding: '1rem 0' }}>
       {/* Hero Welcome Banner */}

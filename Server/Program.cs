@@ -17,6 +17,7 @@ builder.Services.AddSingleton<AlertStore>();
 builder.Services.AddSingleton<AuthService>();
 builder.Services.AddSingleton<TokenService>();
 builder.Services.AddSingleton<AiService>();
+builder.Services.AddSingleton<EvaluationService>();
 
 // Obsługa atrybutu [Authorize] i [Authorize(Roles = "...")] w ASP.NET Core
 builder.Services.AddAuthentication("MongoSession")

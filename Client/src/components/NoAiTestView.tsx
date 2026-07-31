@@ -5,7 +5,6 @@ import {
   ShieldAlert,
   Search,
   Lock,
-  Server,
   ArrowUpRight,
   XCircle,
   Terminal,
@@ -14,7 +13,6 @@ import {
   FileText,
   Shield,
   CheckCircle2,
-  AlertTriangle,
   PanelLeftClose,
   PanelLeftOpen,
   BarChart2,
@@ -586,37 +584,28 @@ export const NoAiTestView: React.FC<NoAiTestViewProps> = ({
                   <button
                     className="btn-action btn-danger"
                     style={{ width: '100%', justifyContent: 'flex-start', padding: '0.75rem 1rem' }}
-                    onClick={() => handleAction('Isolate Host / Block')}
+                    onClick={() => handleAction('Isolation')}
                   >
                     <Lock size={16} color="#ffffff" />
-                    <span style={{ color: '#ffffff', fontWeight: 700 }}>Izoluj Hosta / Zablokuj Ruch</span>
+                    <span style={{ color: '#ffffff', fontWeight: 700 }}>Izoluj Hosta / Zablokuj Ruch (Isolation)</span>
                   </button>
 
                   <button
                     className="btn-action btn-warning"
                     style={{ width: '100%', justifyContent: 'flex-start', padding: '0.75rem 1rem' }}
-                    onClick={() => handleAction('Investigate / Reset Password')}
+                    onClick={() => handleAction('Escalation')}
                   >
-                    <Server size={16} />
-                    <span>Badaj / Zresetuj Hasło Użytkownika</span>
+                    <ArrowUpRight size={16} color="#f59e0b" />
+                    <span style={{ color: '#fbbf24', fontWeight: 700 }}>Eskaluj Incydent do L2 (Escalation)</span>
                   </button>
 
                   <button
                     className="btn-action"
-                    style={{ width: '100%', justifyContent: 'flex-start', padding: '0.75rem 1rem' }}
-                    onClick={() => handleAction('Escalate / Tier 2')}
+                    style={{ width: '100%', justifyContent: 'flex-start', padding: '0.75rem 1rem', background: 'rgba(34, 197, 94, 0.15)', border: '1px solid rgba(34, 197, 94, 0.4)' }}
+                    onClick={() => handleAction('Dismiss')}
                   >
-                    <ArrowUpRight size={16} />
-                    <span>Eskaluj Incydent do Analityka L2</span>
-                  </button>
-
-                  <button
-                    className="btn-action"
-                    style={{ width: '100%', justifyContent: 'flex-start', padding: '0.75rem 1rem' }}
-                    onClick={() => handleAction('Dismiss / False Positive')}
-                  >
-                    <XCircle size={16} />
-                    <span>Zignoruj jako Fałszywy Alarm (False Positive)</span>
+                    <XCircle size={16} color="#4ade80" />
+                    <span style={{ color: '#4ade80', fontWeight: 700 }}>Zignoruj jako Fałszywy Alarm / BENIGN (Dismiss)</span>
                   </button>
                 </div>
               </div>

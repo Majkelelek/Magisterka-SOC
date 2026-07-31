@@ -97,14 +97,14 @@ public static class AttackSampleImporter
                         title = $"Zdarzenie #{index:D2}: Rutynowa Komunikacja Stacji {sourceIp} z Serwerem (Port {destPort})";
                         severity = "Low";
                         category = "Normal Network Traffic";
-                        correctAction = "Dismiss / False Positive";
+                        correctAction = "Dismiss";
                         mitreTechnique = "N/A - Legitimate Network Activity";
                         break;
                     case "DDOS":
                         title = $"Zdarzenie #{index:D2}: Wykryto Atak Network DDoS na Port {destPort}";
                         severity = "Critical";
                         category = "DDoS Flood Attack";
-                        correctAction = "Isolate Host / Block";
+                        correctAction = "Isolation";
                         mitreTechnique = "T1498.001 - Direct Volume Flood";
                         break;
                     case "WEB ATTACK - SQL INJECTION":
@@ -113,7 +113,7 @@ public static class AttackSampleImporter
                         title = $"Zdarzenie #{index:D2}: Wykryto Atak Network Web Attack - Sql Injection na Port {destPort}";
                         severity = "Critical";
                         category = "Database Exploit";
-                        correctAction = "Escalate / Tier 2";
+                        correctAction = "Escalation";
                         mitreTechnique = "T1190 - SQL Injection Exploit";
                         break;
                     case "WEB ATTACK - BRUTE FORCE":
@@ -121,7 +121,7 @@ public static class AttackSampleImporter
                         title = $"Zdarzenie #{index:D2}: Wykryto Atak Network Web Attack - Brute Force na Port {destPort}";
                         severity = "High";
                         category = "Web Brute Force Attack";
-                        correctAction = "Investigate / Reset Password";
+                        correctAction = "Isolation";
                         mitreTechnique = "T1110.001 - Password Guessing (Web Application)";
                         break;
                     case "WEB ATTACK - XSS":
@@ -129,70 +129,70 @@ public static class AttackSampleImporter
                         title = $"Zdarzenie #{index:D2}: Wykryto Atak Network Web Attack - XSS na Port {destPort}";
                         severity = "High";
                         category = "Web Vulnerability Exploitation";
-                        correctAction = "Escalate / Tier 2";
+                        correctAction = "Escalation";
                         mitreTechnique = "T1059.007 - JavaScript XSS Injection";
                         break;
                     case "SSH-PATATOR":
                         title = $"Zdarzenie #{index:D2}: Wykryto Atak Network SSH-Patator na Port {destPort}";
                         severity = "High";
                         category = "Credential Brute Force";
-                        correctAction = "Investigate / Reset Password";
+                        correctAction = "Isolation";
                         mitreTechnique = "T1110.001 - Password Spraying / Brute Force (SSH)";
                         break;
                     case "FTP-PATATOR":
                         title = $"Zdarzenie #{index:D2}: Wykryto Atak Network FTP-Patator na Port {destPort}";
                         severity = "High";
                         category = "Credential Brute Force";
-                        correctAction = "Investigate / Reset Password";
+                        correctAction = "Isolation";
                         mitreTechnique = "T1110.001 - Password Spraying / Brute Force (FTP)";
                         break;
                     case "DOS HULK":
                         title = $"Zdarzenie #{index:D2}: Wykryto Atak Network DoS Hulk na Port {destPort}";
                         severity = "Critical";
                         category = "HTTP Flood DoS Attack";
-                        correctAction = "Isolate Host / Block";
+                        correctAction = "Isolation";
                         mitreTechnique = "T1498.001 - Direct Volume Flood (HULK DoS)";
                         break;
                     case "DOS SLOWLORIS":
                         title = $"Zdarzenie #{index:D2}: Wykryto Atak Network DoS slowloris na Port {destPort}";
                         severity = "High";
                         category = "Application DoS Attack";
-                        correctAction = "Isolate Host / Block";
+                        correctAction = "Isolation";
                         mitreTechnique = "T1499.002 - Service Exhaustion Flood (Slowloris)";
                         break;
                     case "DOS SLOWHTTPTEST":
                         title = $"Zdarzenie #{index:D2}: Wykryto Atak Network DoS Slowhttptest na Port {destPort}";
                         severity = "High";
                         category = "Application DoS Attack";
-                        correctAction = "Isolate Host / Block";
+                        correctAction = "Isolation";
                         mitreTechnique = "T1499.002 - Service Exhaustion Flood (Slow HTTP)";
                         break;
                     case "BOT":
                         title = $"Zdarzenie #{index:D2}: Wykryto Atak Network Bot na Port {destPort}";
                         severity = "High";
                         category = "Botnet Command & Control";
-                        correctAction = "Isolate Host / Block";
+                        correctAction = "Isolation";
                         mitreTechnique = "T1071.001 - Web Protocols Command and Control (Botnet C2)";
                         break;
                     case "PORTSCAN":
                         title = $"Zdarzenie #{index:D2}: Wykryto Atak Network PortScan na Port {destPort}";
                         severity = "Medium";
                         category = "Network Reconnaissance";
-                        correctAction = "Isolate Host / Block";
+                        correctAction = "Escalation";
                         mitreTechnique = "T1046 - Network Service Discovery (Port Scan)";
                         break;
                     case "INFILTRATION":
                         title = $"Zdarzenie #{index:D2}: Wykryto Atak Network Infiltration na Port {destPort}";
                         severity = "Critical";
                         category = "Network Infiltration";
-                        correctAction = "Escalate / Tier 2";
+                        correctAction = "Escalation";
                         mitreTechnique = "T1190 - Exploit Public-Facing Application (Infiltration)";
                         break;
                     default:
                         title = $"Zdarzenie #{index:D2}: Wykryto Anomalię Sieciową ({label}) na Port {destPort}";
                         severity = "Medium";
                         category = "Network Anomaly";
-                        correctAction = "Escalate / Tier 2";
+                        correctAction = "Escalation";
                         mitreTechnique = "T1059 - Network Protocol Anomaly";
                         break;
                 }
