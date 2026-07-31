@@ -1,0 +1,261 @@
+/* styles/NetworkTopologyModal.css */
+
+.network-topology-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(5, 10, 20, 0.88);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999999;
+  padding: 1.25rem;
+  cursor: pointer;
+}
+
+.network-topology-container {
+  background-color: #0c1322;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 16px;
+  max-width: 900px;
+  width: 100%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.95);
+  color: #f8fafc;
+  overflow: hidden;
+  cursor: default;
+}
+
+.network-topology-header {
+  padding: 1.25rem 1.5rem;
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.95));
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.network-topology-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.network-topology-icon-box {
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  padding: 10px;
+  borderRadius: 10px;
+  display: flex;
+}
+
+.network-topology-title {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.network-topology-subtitle {
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+
+.network-topology-ip-highlight {
+  color: #38bdf8;
+}
+
+.network-topology-close-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #94a3b8;
+  padding: 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.network-topology-close-btn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.network-topology-body {
+  padding: 1.5rem;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.network-topology-info-alert {
+  background: rgba(56, 189, 248, 0.08);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  border-radius: 10px;
+  padding: 0.85rem 1.1rem;
+  font-size: 0.825rem;
+  color: #cbd5e1;
+  margin-bottom: 1.25rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.network-topology-info-icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.network-topology-section {
+  margin-bottom: 1.5rem;
+}
+
+.network-topology-section.last {
+  margin-bottom: 0;
+}
+
+.network-topology-section-title {
+  font-size: 0.875rem;
+  font-weight: 700;
+  margin-bottom: 0.65rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.network-topology-section-title.firewall {
+  color: #f87171;
+}
+
+.network-topology-section-title.infrastructure {
+  color: #fbbf24;
+}
+
+.network-topology-section-title.public-server {
+  color: #38bdf8;
+}
+
+.network-topology-section-title.workstation {
+  color: #4ade80;
+}
+
+.network-topology-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 0.75rem;
+}
+
+.network-topology-grid.workstations {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.host-card {
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 0.75rem 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.host-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.host-card-name {
+  font-size: 0.825rem;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.host-card-role-badge {
+  font-size: 0.65rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.host-card-role-badge.role-firewall {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+}
+
+.host-card-role-badge.role-infrastructure {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+}
+
+.host-card-role-badge.role-public-server {
+  background: rgba(56, 189, 248, 0.2);
+  color: #38bdf8;
+}
+
+.host-card-role-badge.role-workstation {
+  background: rgba(74, 222, 128, 0.2);
+  color: #4ade80;
+}
+
+.host-card-ip-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.host-card-ip {
+  font-size: 0.8rem;
+  color: #38bdf8;
+  font-weight: 700;
+}
+
+.host-card-public-ip {
+  font-size: 0.725rem;
+  color: #94a3b8;
+}
+
+.host-card-os {
+  font-size: 0.725rem;
+  color: #cbd5e1;
+  margin-top: 2px;
+}
+
+.host-card-desc {
+  font-size: 0.675rem;
+  color: #64748b;
+  margin-top: 1px;
+}
+
+.network-topology-footer {
+  padding: 1rem 1.5rem;
+  background: #070a12;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.network-topology-footer-close-btn {
+  background: linear-gradient(135deg, #38bdf8, #0284c7);
+  color: #000000;
+  border: none;
+  padding: 0.55rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.network-topology-footer-close-btn:hover {
+  opacity: 0.9;
+}
+

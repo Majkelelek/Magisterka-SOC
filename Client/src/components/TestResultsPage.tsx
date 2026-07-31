@@ -19,6 +19,7 @@ import {
   Trash2,
   AlertTriangle
 } from 'lucide-react';
+import '../styles/TestResultsPage.css';
 
 interface TestResultsPageProps {
   userSession: UserSession;
@@ -327,15 +328,15 @@ export const TestResultsPage: React.FC<TestResultsPageProps> = ({ userSession })
   const getActionBadge = (action: string) => {
     const act = (action || '').toLowerCase();
     if (act.includes('investigate') || act.includes('badaj') || act.includes('reset') || act.includes('hasło')) {
-      return { label: 'Badanie / Reset Hasła', bg: 'rgba(234, 179, 8, 0.2)', color: '#facc15' };
+      return { label: 'Badanie / Reset Hasła', className: 'badge-action-investigate' };
     }
     if (act.includes('isolate') || act.includes('izoluj') || act.includes('block') || act.includes('zablokuj')) {
-      return { label: 'Izolacja Hosta / Blokada', bg: 'rgba(239, 68, 68, 0.2)', color: '#f87171' };
+      return { label: 'Izolacja Hosta / Blokada', className: 'badge-action-isolate' };
     }
     if (act.includes('escalat') || act.includes('eskaluj') || act.includes('tier 2') || act.includes('l2')) {
-      return { label: 'Eskalacja (Tier 2)', bg: 'rgba(168, 85, 247, 0.2)', color: '#c084fc' };
+      return { label: 'Eskalacja (Tier 2)', className: 'badge-action-escalate' };
     }
-    return { label: 'Odrzucenie (Fałszywy Alarm)', bg: 'rgba(100, 116, 139, 0.2)', color: '#94a3b8' };
+    return { label: 'Odrzucenie (Fałszywy Alarm)', className: 'badge-action-dismiss' };
   };
 
   // Statystyki porównawcze: Test 1 (Bez AI) vs Test 2 (Z AI)
@@ -394,52 +395,34 @@ export const TestResultsPage: React.FC<TestResultsPageProps> = ({ userSession })
   const totalSessionsCount = condensedAll.length;
 
   return (
-    <div style={{ width: '100%', maxWidth: '1400px', margin: '0 auto', padding: '1rem 0' }}>
+    <div className="test-results-wrapper">
       {/* Kompaktowy Nagłówek */}
-      <div className="soc-card" style={{
-        padding: '1.1rem 1.5rem',
-        marginBottom: '1.25rem',
-        background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(7, 10, 18, 0.98))',
-        border: '1px solid rgba(168, 85, 247, 0.3)'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem' }}>
+      <div className="soc-card test-results-header-card">
+        <div className="test-results-header-top">
           <div>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: 'rgba(168, 85, 247, 0.12)', color: '#c084fc', padding: '0.15rem 0.6rem', borderRadius: '12px', fontSize: '0.7rem', fontWeight: 600, marginBottom: '0.3rem' }}>
+            <div className="test-results-badge-pill">
               <Award size={13} /> RAPORTY & ANALIZA TRAFNOŚCI DECYZJI OPERATORÓW
             </div>
-            <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#ffffff', margin: 0 }}>
+            <h2 className="test-results-header-title">
               Wyniki Testów Badawczych i Trafność Akcji Operatorów ({usersWithTestsCount} Operatorów, {totalSessionsCount} Sesji)
             </h2>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '0.2rem', margin: 0 }}>
+            <p className="test-results-header-subtitle">
               Porównanie akcji operatorów z wzorcowymi odpowiedziami z bazy zdarzeń oraz ocena wpływu asystenta AI.
             </p>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div className="test-results-header-actions">
             {isAdmin && totalSessionsCount > 0 && (
               <button
                 onClick={() => setShowClearAllModal(true)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  fontSize: '0.775rem',
-                  padding: '0.35rem 0.75rem',
-                  background: 'rgba(239, 68, 68, 0.15)',
-                  color: '#f87171',
-                  border: '1px solid rgba(239, 68, 68, 0.35)',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontWeight: 600
-                }}
+                className="test-results-btn-clear"
               >
                 <Trash2 size={13} /> Wyczyść Wszystkie Wyniki Testów
               </button>
             )}
             <button
               onClick={loadData}
-              className="btn-action"
-              style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.775rem', padding: '0.35rem 0.75rem' }}
+              className="btn-action test-results-btn-refresh"
             >
               <RefreshCw size={13} /> Odśwież Dane
             </button>
@@ -448,77 +431,64 @@ export const TestResultsPage: React.FC<TestResultsPageProps> = ({ userSession })
       </div>
 
       {/* DEDYKOWANA SEKCJA PORÓWNAWCZA: Test 1 (Bez AI) vs Test 2 (Z AI) */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-        gap: '1rem',
-        marginBottom: '1.25rem'
-      }}>
+      <div className="test-results-comparison-grid">
         {/* Test 1 (Bez AI) Card */}
-        <div className="soc-card" style={{ padding: '1rem 1.25rem', border: '1px solid rgba(59, 130, 246, 0.3)', background: 'rgba(15, 23, 42, 0.6)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#60a5fa', display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <div className="soc-card test-results-card-no-ai">
+          <div className="test-results-card-header">
+            <span className="test-results-card-title-no-ai">
               <Eye size={15} /> TEST 1: BEZ WSPARCIA AI
             </span>
-            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{statsComparison.noAi.sessionCount} sesji</span>
+            <span className="test-results-card-subtitle">{statsComparison.noAi.sessionCount} sesji</span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px' }}>
+          <div className="test-results-card-body">
             <div>
-              <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#ffffff' }}>{statsComparison.noAi.accuracyPct}%</div>
-              <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>Średnia Trafność Decyzji</div>
+              <div className="test-results-stat-value">{statsComparison.noAi.accuracyPct}%</div>
+              <div className="test-results-stat-label">Średnia Trafność Decyzji</div>
             </div>
-            <div style={{ borderLeft: '1px solid var(--border-color)', paddingLeft: '12px' }}>
-              <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#cbd5e1' }}>~{statsComparison.noAi.avgSecPerAlert}s</div>
-              <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>Śr. Czas / Alert</div>
+            <div className="test-results-stat-divider-box">
+              <div className="test-results-stat-value-sub">~{statsComparison.noAi.avgSecPerAlert}s</div>
+              <div className="test-results-stat-label">Śr. Czas / Alert</div>
             </div>
           </div>
         </div>
 
         {/* Test 2 (Z AI) Card */}
-        <div className="soc-card" style={{ padding: '1rem 1.25rem', border: '1px solid rgba(168, 85, 247, 0.3)', background: 'rgba(15, 23, 42, 0.6)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#c084fc', display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <div className="soc-card test-results-card-with-ai">
+          <div className="test-results-card-header">
+            <span className="test-results-card-title-with-ai">
               <Bot size={15} /> TEST 2: Z ASYSTENTEM AI
             </span>
-            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{statsComparison.withAi.sessionCount} sesji</span>
+            <span className="test-results-card-subtitle">{statsComparison.withAi.sessionCount} sesji</span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px' }}>
+          <div className="test-results-card-body">
             <div>
-              <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#34d399' }}>{statsComparison.withAi.accuracyPct}%</div>
-              <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>Średnia Trafność Decyzji</div>
+              <div className="test-results-stat-value-success">{statsComparison.withAi.accuracyPct}%</div>
+              <div className="test-results-stat-label">Średnia Trafność Decyzji</div>
             </div>
-            <div style={{ borderLeft: '1px solid var(--border-color)', paddingLeft: '12px' }}>
-              <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#38bdf8' }}>~{statsComparison.withAi.avgSecPerAlert}s</div>
-              <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>Śr. Czas / Alert</div>
+            <div className="test-results-stat-divider-box">
+              <div className="test-results-stat-value-info">~{statsComparison.withAi.avgSecPerAlert}s</div>
+              <div className="test-results-stat-label">Śr. Czas / Alert</div>
             </div>
           </div>
         </div>
 
         {/* Efektywność AI Wpływ Badawczy */}
-        <div className="soc-card" style={{ padding: '1rem 1.25rem', border: '1px solid rgba(56, 189, 248, 0.4)', background: 'linear-gradient(135deg, rgba(14, 165, 233, 0.1), rgba(168, 85, 247, 0.1))' }}>
-          <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--ai-cyan)', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <div className="soc-card test-results-impact-card">
+          <div className="test-results-impact-title">
             <TrendingUp size={15} /> WPŁYW ASYSTENTA AI
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div className="test-results-impact-body">
             <div>
-              <div style={{
-                fontSize: '1.2rem',
-                fontWeight: 800,
-                color: statsComparison.accuracyDiff >= 0 ? '#34d399' : '#f87171'
-              }}>
+              <div className={`test-results-impact-value ${statsComparison.accuracyDiff >= 0 ? 'text-success-custom' : 'text-danger-custom'}`}>
                 {statsComparison.accuracyDiff >= 0 ? `+${statsComparison.accuracyDiff}%` : `${statsComparison.accuracyDiff}%`}
               </div>
-              <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>Wzrost Trafności</div>
+              <div className="test-results-stat-label">Wzrost Trafności</div>
             </div>
-            <div style={{ borderLeft: '1px solid var(--border-color)', paddingLeft: '16px' }}>
-              <div style={{
-                fontSize: '1.2rem',
-                fontWeight: 800,
-                color: statsComparison.speedDiff >= 0 ? '#38bdf8' : '#f87171'
-              }}>
+            <div className="test-results-impact-divider-box">
+              <div className={`test-results-impact-value ${statsComparison.speedDiff >= 0 ? 'text-info-custom' : 'text-danger-custom'}`}>
                 {statsComparison.speedDiff >= 0 ? `-${statsComparison.speedDiff.toFixed(1)}s` : `+${Math.abs(statsComparison.speedDiff).toFixed(1)}s`}
               </div>
-              <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>Zmiana Czasu</div>
+              <div className="test-results-stat-label">Zmiana Czasu</div>
             </div>
           </div>
         </div>
@@ -526,98 +496,60 @@ export const TestResultsPage: React.FC<TestResultsPageProps> = ({ userSession })
 
       {/* Lista Użytkowników z Testami */}
       {loading ? (
-        <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-          <BarChart2 size={32} className="pulse-dot" style={{ margin: '0 auto 0.75rem auto' }} />
-          <p style={{ fontSize: '0.85rem' }}>Ładowanie skondensowanych wyników testów...</p>
+        <div className="test-results-loading-state">
+          <BarChart2 size={32} className="pulse-dot test-results-icon-centered" />
+          <p>Ładowanie skondensowanych wyników testów...</p>
         </div>
       ) : userGroups.length === 0 ? (
-        <div className="soc-card" style={{ padding: '2.5rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-          <Users size={36} style={{ margin: '0 auto 0.75rem auto', opacity: 0.5 }} />
-          <h3 style={{ fontSize: '1rem' }}>Brak ukończonych sesji testowych w bazie</h3>
-          <p style={{ fontSize: '0.825rem', marginTop: '0.35rem' }}>Przeprowadź test bez AI lub z AI, aby zapisać pierwsze wyniki.</p>
+        <div className="soc-card test-results-empty-state">
+          <Users size={36} className="test-results-icon-empty" />
+          <h3 className="test-results-empty-title">Brak ukończonych sesji testowych w bazie</h3>
+          <p className="test-results-empty-text">Przeprowadź test bez AI lub z AI, aby zapisać pierwsze wyniki.</p>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+        <div className="test-results-list">
           {userGroups.map((group) => {
             const isUserExpanded = !!expandedUsers[group.username];
 
             return (
               <div
                 key={group.username}
-                className="soc-card"
-                style={{
-                  padding: '0.85rem 1.25rem',
-                  border: isUserExpanded ? '1px solid rgba(56, 189, 248, 0.4)' : '1px solid var(--border-color)',
-                  transition: 'all 0.15s ease'
-                }}
+                className={`soc-card test-results-user-card ${isUserExpanded ? 'expanded' : ''}`}
               >
                 {/* Kompaktowy Pasek Nagłówkowy Użytkownika */}
                 <div
                   onClick={() => toggleUserExpanded(group.username)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    cursor: 'pointer',
-                    userSelect: 'none'
-                  }}
+                  className="test-results-user-card-header"
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <div style={{
-                      width: '36px',
-                      height: '36px',
-                      borderRadius: '8px',
-                      background: 'rgba(56, 189, 248, 0.15)',
-                      border: '1px solid rgba(56, 189, 248, 0.3)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: 'var(--ai-cyan)'
-                    }}>
+                  <div className="test-results-user-info-left">
+                    <div className="test-results-user-avatar">
                       <User size={18} />
                     </div>
 
                     <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <h3 style={{ fontSize: '0.975rem', fontWeight: 800, color: '#ffffff', margin: 0 }}>
+                      <div className="test-results-user-title-row">
+                        <h3 className="test-results-user-name">
                           Operator: {group.username}
                         </h3>
-                        <span style={{
-                          padding: '0.1rem 0.45rem',
-                          borderRadius: '8px',
-                          fontSize: '0.65rem',
-                          fontWeight: 700,
-                          background: group.role === 'Administrator' ? 'rgba(139, 92, 246, 0.18)' : 'rgba(59, 130, 246, 0.18)',
-                          color: group.role === 'Administrator' ? '#c084fc' : '#60a5fa',
-                          border: group.role === 'Administrator' ? '1px solid rgba(139, 92, 246, 0.35)' : '1px solid rgba(59, 130, 246, 0.35)'
-                        }}>
+                        <span className={`test-results-user-role-badge ${group.role === 'Administrator' ? 'admin' : 'user'}`}>
                           {group.role}
                         </span>
                       </div>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
-                        <span>Sesje: <strong style={{ color: '#ffffff' }}>{group.totalSessionsCount}</strong></span>
+                      <div className="test-results-user-summary-row">
+                        <span>Sesje: <strong className="test-results-highlight-white">{group.totalSessionsCount}</strong></span>
                         <span>•</span>
-                        <span>Ogólna Trafność: <strong style={{ color: group.overallAccuracy >= 80 ? '#34d399' : group.overallAccuracy >= 60 ? '#fbbf24' : '#f87171' }}>{group.overallAccuracy}% ({group.totalCorrectDecisionsCount}/{group.totalDecisionsCount})</strong></span>
+                        <span>Ogólna Trafność: <strong className={group.overallAccuracy >= 80 ? 'text-success-custom' : group.overallAccuracy >= 60 ? 'text-warning-custom' : 'text-danger-custom'}>{group.overallAccuracy}% ({group.totalCorrectDecisionsCount}/{group.totalDecisionsCount})</strong></span>
                         <span>•</span>
-                        <span>Łączny Czas: <strong style={{ color: '#cbd5e1' }}>{formatDuration(group.totalDurationSeconds)}</strong></span>
+                        <span>Łączny Czas: <strong className="test-results-highlight-slate">{formatDuration(group.totalDurationSeconds)}</strong></span>
                       </div>
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div className="test-results-user-info-right">
                     <button
                       type="button"
-                      className="btn-action"
-                      style={{
-                        padding: '0.3rem 0.65rem',
-                        fontSize: '0.75rem',
-                        background: isUserExpanded ? 'rgba(56, 189, 248, 0.2)' : 'rgba(30, 41, 59, 0.8)',
-                        color: isUserExpanded ? 'var(--ai-cyan)' : 'var(--text-muted)',
-                        border: '1px solid var(--border-color)',
-                        pointerEvents: 'none',
-                        borderRadius: '6px'
-                      }}
+                      className={`btn-action test-results-user-expand-btn ${isUserExpanded ? 'expanded' : ''}`}
                     >
                       {isUserExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                       <span>{isUserExpanded ? 'Zwiń' : `Rozwiń (${group.sessions.length} sesji)`}</span>
@@ -627,19 +559,19 @@ export const TestResultsPage: React.FC<TestResultsPageProps> = ({ userSession })
 
                 {/* Rozwijana Tabela Wyników Użytkownika */}
                 {isUserExpanded && (
-                  <div style={{ marginTop: '0.85rem', paddingTop: '0.85rem', borderTop: '1px solid var(--border-color)' }}>
-                    <div style={{ overflowX: 'auto' }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.775rem', textAlign: 'left' }}>
+                  <div className="test-results-user-details">
+                    <div className="test-results-table-scroll">
+                      <table className="test-results-table">
                         <thead>
-                          <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-muted)' }}>
-                            <th style={{ padding: '0.45rem 0.65rem' }}>#</th>
-                            <th style={{ padding: '0.45rem 0.65rem' }}>Tryb Testu</th>
-                            <th style={{ padding: '0.45rem 0.65rem' }}>Postęp</th>
-                            <th style={{ padding: '0.45rem 0.65rem' }}>Trafność Decyzji</th>
-                            <th style={{ padding: '0.45rem 0.65rem' }}>Czas Łączny</th>
-                            <th style={{ padding: '0.45rem 0.65rem' }}>Śr. Czas / Alert</th>
-                            <th style={{ padding: '0.45rem 0.65rem' }}>Data Rozpoczęcia</th>
-                            <th style={{ padding: '0.45rem 0.65rem', textAlign: 'right' }}>Decyzje</th>
+                          <tr className="test-results-table-header-row">
+                            <th className="test-results-th">#</th>
+                            <th className="test-results-th">Tryb Testu</th>
+                            <th className="test-results-th">Postęp</th>
+                            <th className="test-results-th">Trafność Decyzji</th>
+                            <th className="test-results-th">Czas Łączny</th>
+                            <th className="test-results-th">Śr. Czas / Alert</th>
+                            <th className="test-results-th">Data Rozpoczęcia</th>
+                            <th className="test-results-th test-results-td-right">Decyzje</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -666,88 +598,59 @@ export const TestResultsPage: React.FC<TestResultsPageProps> = ({ userSession })
 
                             return (
                               <React.Fragment key={sessionId}>
-                                <tr style={{
-                                  borderBottom: '1px solid var(--border-color)',
-                                  background: isSessionExpanded ? 'rgba(30, 41, 59, 0.5)' : 'transparent'
-                                }}>
-                                  <td style={{ padding: '0.55rem 0.65rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                                <tr className={`test-results-table-row ${isSessionExpanded ? 'expanded' : ''}`}>
+                                  <td className="test-results-td-muted">
                                     {idx + 1}
                                   </td>
-                                  <td style={{ padding: '0.55rem 0.65rem' }}>
-                                    <span style={{
-                                      padding: '0.15rem 0.5rem',
-                                      borderRadius: '8px',
-                                      fontSize: '0.675rem',
-                                      fontWeight: 700,
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: '4px',
-                                      background: mode === 'WithAI' ? 'rgba(168, 85, 247, 0.15)' : 'rgba(59, 130, 246, 0.15)',
-                                      color: mode === 'WithAI' ? '#c084fc' : '#60a5fa',
-                                      border: mode === 'WithAI' ? '1px solid rgba(168, 85, 247, 0.3)' : '1px solid rgba(59, 130, 246, 0.3)'
-                                    }}>
+                                  <td className="test-results-td">
+                                    <span className={`test-results-mode-badge ${mode === 'WithAI' ? 'with-ai' : 'no-ai'}`}>
                                       {mode === 'WithAI' ? <Bot size={12} /> : <Eye size={12} />}
                                       {mode === 'WithAI' ? 'Test 2 (Wsparcie AI)' : 'Test 1 (Bez AI)'}
                                     </span>
                                   </td>
-                                  <td style={{ padding: '0.55rem 0.65rem' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                      <span style={{ fontWeight: 700, fontSize: '0.825rem', color: handledCount >= 75 ? '#34d399' : '#60a5fa' }}>
+                                  <td className="test-results-td">
+                                    <div className="test-results-flex-align">
+                                      <span className={`test-results-progress-text ${handledCount >= 75 ? 'text-success-custom' : 'text-primary-custom'}`}>
                                         {handledCount} / 75
                                       </span>
                                       {handledCount >= 75 ? (
-                                        <span style={{ fontSize: '0.625rem', padding: '0.08rem 0.35rem', borderRadius: '4px', background: 'rgba(16, 185, 129, 0.2)', color: '#34d399', fontWeight: 600 }}>
+                                        <span className="test-results-badge-success-small">
                                           Ukończony
                                         </span>
                                       ) : (
-                                        <span style={{ fontSize: '0.625rem', padding: '0.08rem 0.35rem', borderRadius: '4px', background: 'rgba(59, 130, 246, 0.2)', color: '#60a5fa', fontWeight: 600 }}>
+                                        <span className="test-results-badge-primary-small">
                                           W trakcie
                                         </span>
                                       )}
                                     </div>
                                   </td>
-                                  <td style={{ padding: '0.55rem 0.65rem' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                      <span style={{
-                                        padding: '0.12rem 0.45rem',
-                                        borderRadius: '6px',
-                                        fontSize: '0.725rem',
-                                        fontWeight: 700,
-                                        background: sessionAccuracyPct >= 80 ? 'rgba(16, 185, 129, 0.2)' : sessionAccuracyPct >= 60 ? 'rgba(245, 158, 11, 0.2)' : 'rgba(239, 68, 68, 0.2)',
-                                        color: sessionAccuracyPct >= 80 ? '#34d399' : sessionAccuracyPct >= 60 ? '#fbbf24' : '#f87171'
-                                      }}>
+                                  <td className="test-results-td">
+                                    <div className="test-results-flex-align">
+                                      <span className={`test-results-accuracy-badge ${sessionAccuracyPct >= 80 ? 'bg-success-small' : sessionAccuracyPct >= 60 ? 'bg-warning-small' : 'bg-danger-small'}`}>
                                         {sessionAccuracyPct}%
                                       </span>
-                                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                                      <span className="test-results-text-muted-small">
                                         ({sessionCorrectCount}/{decisionsList.length})
                                       </span>
                                     </div>
                                   </td>
-                                  <td style={{ padding: '0.55rem 0.65rem', color: '#f3f4f6', fontWeight: 500 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                      <Clock size={12} color="var(--text-muted)" />
+                                  <td className="test-results-td-highlight">
+                                    <div className="test-results-flex-align-small">
+                                      <Clock size={12} />
                                       <span>{formatDuration(durationSec)}</span>
                                     </div>
                                   </td>
-                                  <td style={{ padding: '0.55rem 0.65rem', color: 'var(--text-muted)', fontSize: '0.725rem' }}>
+                                  <td className="test-results-td-muted-small">
                                     ~{avgSecPerAlert}s / alert
                                   </td>
-                                  <td style={{ padding: '0.55rem 0.65rem', color: 'var(--text-muted)', fontSize: '0.725rem' }}>
+                                  <td className="test-results-td-muted-small">
                                     {startTime}
                                   </td>
-                                  <td style={{ padding: '0.55rem 0.65rem', textAlign: 'right' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
+                                  <td className="test-results-td-right">
+                                    <div className="test-results-flex-right">
                                       <button
                                         onClick={() => toggleSessionExpanded(sessionId)}
-                                        className="btn-action"
-                                        style={{
-                                          padding: '0.2rem 0.5rem',
-                                          fontSize: '0.7rem',
-                                          background: isSessionExpanded ? 'rgba(6, 182, 212, 0.2)' : 'rgba(30, 41, 59, 0.8)',
-                                          color: isSessionExpanded ? 'var(--ai-cyan)' : 'var(--text-muted)',
-                                          border: '1px solid var(--border-color)',
-                                          borderRadius: '5px'
-                                        }}
+                                        className={`btn-action test-results-session-expand-btn ${isSessionExpanded ? 'expanded' : ''}`}
                                       >
                                         {isSessionExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                                         <span>{isSessionExpanded ? 'Ukryj' : `Decyzje (${decisionsList.length})`}</span>
@@ -757,19 +660,7 @@ export const TestResultsPage: React.FC<TestResultsPageProps> = ({ userSession })
                                         <button
                                           onClick={() => setSessionToDelete(sessionId)}
                                           title="Usuń tę sesję z bazy danych"
-                                          style={{
-                                            padding: '0.2rem 0.55rem',
-                                            fontSize: '0.7rem',
-                                            background: 'rgba(239, 68, 68, 0.15)',
-                                            color: '#f87171',
-                                            border: '1px solid rgba(239, 68, 68, 0.35)',
-                                            borderRadius: '5px',
-                                            cursor: 'pointer',
-                                            display: 'inline-flex',
-                                            alignItems: 'center',
-                                            gap: '4px',
-                                            fontWeight: 600
-                                          }}
+                                          className="test-results-btn-delete-session"
                                         >
                                           <Trash2 size={12} />
                                           <span>Usuń</span>
@@ -782,31 +673,31 @@ export const TestResultsPage: React.FC<TestResultsPageProps> = ({ userSession })
                                 {/* Sub-Accordion dla Jednostkowych Decyzji z Porównaniem do Wzorca */}
                                 {isSessionExpanded && (
                                   <tr>
-                                    <td colSpan={8} style={{ padding: '0.5rem 0.75rem 0.85rem 0.75rem', background: 'rgba(11, 15, 25, 0.85)', borderBottom: '1px solid var(--border-color)' }}>
-                                      <div style={{ background: '#070a12', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '0.75rem' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                                          <h4 style={{ fontSize: '0.775rem', fontWeight: 700, color: 'var(--ai-cyan)', margin: 0, display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                    <td colSpan={8} className="test-results-nested-td">
+                                      <div className="test-results-nested-container">
+                                        <div className="test-results-nested-header">
+                                          <h4 className="test-results-nested-title">
                                             <Activity size={13} /> Podjęte Decyzje Operatora z Porównaniem do Wzorca Odpowiedzi ({decisionsList.length} zdarzeń)
                                           </h4>
-                                          <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>
-                                            Trafność sesji: <strong style={{ color: sessionAccuracyPct >= 80 ? '#34d399' : '#f87171' }}>{sessionAccuracyPct}%</strong>
+                                          <div className="test-results-nested-accuracy">
+                                            Trafność sesji: <strong className={sessionAccuracyPct >= 80 ? 'text-success-custom' : 'text-danger-custom'}>{sessionAccuracyPct}%</strong>
                                           </div>
                                         </div>
 
                                         {decisionsList.length === 0 ? (
-                                          <p style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>Brak zarejestrowanych decyzji w tej sesji.</p>
+                                          <p className="test-results-nested-empty">Brak zarejestrowanych decyzji w tej sesji.</p>
                                         ) : (
-                                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.725rem' }}>
+                                          <table className="test-results-nested-table">
                                             <thead>
-                                              <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', color: 'var(--text-muted)', textAlign: 'left' }}>
-                                                <th style={{ padding: '0.35rem 0.5rem' }}>#</th>
-                                                <th style={{ padding: '0.35rem 0.5rem' }}>ID Alertu</th>
-                                                <th style={{ padding: '0.35rem 0.5rem' }}>Typ Ataku / Zdarzenia</th>
-                                                <th style={{ padding: '0.35rem 0.5rem' }}>Podjęta Akcja Operatora</th>
-                                                <th style={{ padding: '0.35rem 0.5rem' }}>Prawidłowa Odpowiedź (Wzorzec)</th>
-                                                <th style={{ padding: '0.35rem 0.5rem' }}>Ocena Decyzji</th>
-                                                <th style={{ padding: '0.35rem 0.5rem' }}>Czas Reakcji</th>
-                                                <th style={{ padding: '0.35rem 0.5rem' }}>Znacznik Czasu</th>
+                                              <tr className="test-results-nested-th-row">
+                                                <th className="test-results-nested-th">#</th>
+                                                <th className="test-results-nested-th">ID Alertu</th>
+                                                <th className="test-results-nested-th">Typ Ataku / Zdarzenia</th>
+                                                <th className="test-results-nested-th">Podjęta Akcja Operatora</th>
+                                                <th className="test-results-nested-th">Prawidłowa Odpowiedź (Wzorzec)</th>
+                                                <th className="test-results-nested-th">Ocena Decyzji</th>
+                                                <th className="test-results-nested-th">Czas Reakcji</th>
+                                                <th className="test-results-nested-th">Znacznik Czasu</th>
                                               </tr>
                                             </thead>
                                             <tbody>
@@ -819,47 +710,39 @@ export const TestResultsPage: React.FC<TestResultsPageProps> = ({ userSession })
                                                 const isThreatRow = evalAccuracy.isThreat;
 
                                                 return (
-                                                  <tr key={dIdx} style={{
-                                                    borderBottom: '1px solid rgba(255,255,255,0.04)',
-                                                    background: evalAccuracy.isCorrect ? 'transparent' : 'rgba(239, 68, 68, 0.04)'
-                                                  }}>
-                                                    <td style={{ padding: '0.35rem 0.5rem', color: 'var(--text-muted)' }}>{dIdx + 1}</td>
-                                                    <td style={{ padding: '0.35rem 0.5rem', fontWeight: 600, color: '#e2e8f0' }}>{alertId}</td>
-                                                    <td style={{ padding: '0.35rem 0.5rem' }}>
-                                                      <span style={{
-                                                        padding: '0.08rem 0.45rem', borderRadius: '5px', fontSize: '0.65rem', fontWeight: 600,
-                                                        background: isThreatRow ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.12)',
-                                                        color: isThreatRow ? '#fca5a5' : '#6ee7b7',
-                                                        border: `1px solid ${isThreatRow ? 'rgba(239,68,68,0.3)' : 'rgba(16,185,129,0.3)'}`
-                                                      }}>
+                                                  <tr key={dIdx} className={`test-results-nested-tr ${evalAccuracy.isCorrect ? 'correct' : 'incorrect'}`}>
+                                                    <td className="test-results-nested-td-muted">{dIdx + 1}</td>
+                                                    <td className="test-results-nested-td-highlight">{alertId}</td>
+                                                    <td className="test-results-nested-td-cell">
+                                                      <span className={`test-results-category-badge ${isThreatRow ? 'threat' : 'no-threat'}`}>
                                                         {categoryLabel}
                                                       </span>
                                                     </td>
-                                                    <td style={{ padding: '0.35rem 0.5rem' }}>
-                                                      <span style={{ padding: '0.08rem 0.4rem', borderRadius: '5px', fontSize: '0.65rem', fontWeight: 600, background: badge.bg, color: badge.color }}>
+                                                    <td className="test-results-nested-td-cell">
+                                                      <span className={badge.className}>
                                                         {badge.label}
                                                       </span>
                                                     </td>
-                                                    <td style={{ padding: '0.35rem 0.5rem', fontWeight: 600, color: '#94a3b8' }}>
-                                                      <span style={{ padding: '0.08rem 0.4rem', borderRadius: '5px', fontSize: '0.65rem', background: 'rgba(255,255,255,0.06)', color: '#e2e8f0' }}>
+                                                    <td className="test-results-nested-td-cell">
+                                                      <span className="test-results-correct-action-badge">
                                                         {evalAccuracy.correctActionLabel}
                                                       </span>
                                                     </td>
-                                                    <td style={{ padding: '0.35rem 0.5rem' }}>
+                                                    <td className="test-results-nested-td-cell">
                                                       {evalAccuracy.isCorrect ? (
-                                                        <span style={{ padding: '0.08rem 0.45rem', borderRadius: '5px', fontSize: '0.65rem', fontWeight: 700, background: 'rgba(16, 185, 129, 0.2)', color: '#34d399', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                                        <span className="test-results-eval-correct-badge">
                                                           <CheckCircle size={11} /> POPRAWNA
                                                         </span>
                                                       ) : (
-                                                        <span style={{ padding: '0.08rem 0.45rem', borderRadius: '5px', fontSize: '0.65rem', fontWeight: 700, background: 'rgba(239, 68, 68, 0.2)', color: '#f87171', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                                        <span className="test-results-eval-incorrect-badge">
                                                           <XCircle size={11} /> BŁĘDNA
                                                         </span>
                                                       )}
                                                     </td>
-                                                    <td style={{ padding: '0.35rem 0.5rem', color: '#cbd5e1', fontWeight: 500 }}>
+                                                    <td className="test-results-nested-td-highlight-slate">
                                                       {d.decisionTimeSeconds || d.DecisionTimeSeconds || 0}s
                                                     </td>
-                                                    <td style={{ padding: '0.35rem 0.5rem', color: 'var(--text-muted)', fontSize: '0.675rem' }}>
+                                                    <td className="test-results-nested-td-muted-small">
                                                       {d.timestamp || d.Timestamp ? new Date(d.timestamp || d.Timestamp).toLocaleTimeString() : 'N/A'}
                                                     </td>
                                                   </tr>
@@ -888,79 +771,36 @@ export const TestResultsPage: React.FC<TestResultsPageProps> = ({ userSession })
 
       {/* Modal Potwierdzenia Usuwania Pojedynczej Sesji */}
       {sessionToDelete && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(5, 10, 20, 0.85)',
-          backdropFilter: 'blur(6px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 9999,
-          padding: '1rem'
-        }}>
-          <div style={{
-            backgroundColor: '#0f172a',
-            border: '1px solid rgba(239, 68, 68, 0.4)',
-            borderRadius: '14px',
-            maxWidth: '500px',
-            width: '100%',
-            padding: '1.75rem',
-            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.8)',
-            color: '#f8fafc'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '1rem' }}>
-              <div style={{ background: 'rgba(239, 68, 68, 0.2)', padding: '10px', borderRadius: '10px', display: 'flex' }}>
+        <div className="test-results-modal-overlay">
+          <div className="test-results-modal-content modal-delete">
+            <div className="test-results-modal-header">
+              <div className="test-results-modal-icon-wrapper-delete">
                 <AlertTriangle size={24} color="#f87171" />
               </div>
               <div>
-                <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700, color: '#ffffff' }}>
+                <h3 className="test-results-modal-title">
                   Potwierdź Usunięcie Sesji Testowej
                 </h3>
-                <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Operacja wymaga uprawnień Administratora</span>
+                <span className="test-results-modal-subtitle-muted">Operacja wymaga uprawnień Administratora</span>
               </div>
             </div>
 
-            <p style={{ fontSize: '0.9rem', lineHeight: '1.5', color: '#cbd5e1', marginBottom: '1.5rem' }}>
+            <p className="test-results-modal-text">
               Czy na pewno chcesz usunąć wybraną sesję testową z bazy danych? Ta czynność nieodwracalnie usunie podjęte decyzje oraz wynik czasowy tej próby.
             </p>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+            <div className="test-results-modal-actions">
               <button
                 onClick={() => setSessionToDelete(null)}
                 disabled={isDeleting}
-                style={{
-                  background: 'transparent',
-                  border: '1px solid #334155',
-                  color: '#94a3b8',
-                  padding: '0.6rem 1.25rem',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontWeight: 600,
-                  fontSize: '0.875rem'
-                }}
+                className="test-results-modal-btn-cancel"
               >
                 Anuluj
               </button>
               <button
                 onClick={() => handleDeleteSingleSession(sessionToDelete)}
                 disabled={isDeleting}
-                style={{
-                  background: '#dc2626',
-                  color: 'white',
-                  border: 'none',
-                  padding: '0.6rem 1.25rem',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontWeight: 700,
-                  fontSize: '0.875rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px'
-                }}
+                className="test-results-modal-btn-confirm-delete"
               >
                 <Trash2 size={16} /> {isDeleting ? 'Usuwanie...' : 'Usuń Sesję'}
               </button>
@@ -971,80 +811,36 @@ export const TestResultsPage: React.FC<TestResultsPageProps> = ({ userSession })
 
       {/* Modal Potwierdzenia Czyszczenia Wszystkich Sesji */}
       {showClearAllModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(5, 10, 20, 0.85)',
-          backdropFilter: 'blur(6px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 9999,
-          padding: '1rem'
-        }}>
-          <div style={{
-            backgroundColor: '#0f172a',
-            border: '1px solid rgba(239, 68, 68, 0.5)',
-            borderRadius: '14px',
-            maxWidth: '520px',
-            width: '100%',
-            padding: '1.75rem',
-            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.9)',
-            color: '#f8fafc'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '1rem' }}>
-              <div style={{ background: 'rgba(239, 68, 68, 0.25)', padding: '12px', borderRadius: '12px', display: 'flex' }}>
+        <div className="test-results-modal-overlay">
+          <div className="test-results-modal-content modal-clear-all">
+            <div className="test-results-modal-header">
+              <div className="test-results-modal-icon-wrapper-clear-all">
                 <AlertTriangle size={28} color="#ef4444" />
               </div>
               <div>
-                <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: '#ffffff' }}>
+                <h3 className="test-results-modal-title">
                   Wyczyścić WSZYSTKIE Wyniki Testów?
                 </h3>
-                <span style={{ fontSize: '0.8rem', color: '#f87171', fontWeight: 600 }}>OSTRZEŻENIE: Całkowite czyszczenie bazy wyników</span>
+                <span className="test-results-modal-subtitle-danger">OSTRZEŻENIE: Całkowite czyszczenie bazy wyników</span>
               </div>
             </div>
 
-            <p style={{ fontSize: '0.9rem', lineHeight: '1.5', color: '#cbd5e1', marginBottom: '1.5rem' }}>
+            <p className="test-results-modal-text">
               Czy na pewno chcesz <strong>usunąć wszystkie wyniki testów ({totalSessionsCount} sesji)</strong> ze wszystkich kont użytkowników z bazy danych? Wszystkie zapamiętane podejścia, wskaźniki dokładności i statystyki czasowe zostaną bezpowrotnie skasowane.
             </p>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+            <div className="test-results-modal-actions">
               <button
                 onClick={() => setShowClearAllModal(false)}
                 disabled={isDeleting}
-                style={{
-                  background: 'transparent',
-                  border: '1px solid #334155',
-                  color: '#94a3b8',
-                  padding: '0.65rem 1.25rem',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontWeight: 600,
-                  fontSize: '0.875rem'
-                }}
+                className="test-results-modal-btn-cancel"
               >
                 Anuluj
               </button>
               <button
                 onClick={handleDeleteAllSessions}
                 disabled={isDeleting}
-                style={{
-                  background: '#dc2626',
-                  color: 'white',
-                  border: 'none',
-                  padding: '0.65rem 1.5rem',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontWeight: 700,
-                  fontSize: '0.875rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  boxShadow: '0 4px 14px rgba(220, 38, 38, 0.4)'
-                }}
+                className="test-results-modal-btn-confirm-clear-all"
               >
                 <Trash2 size={16} /> {isDeleting ? 'Usuwanie...' : 'Tak, Wyczyść Wszystkie Wyniki'}
               </button>

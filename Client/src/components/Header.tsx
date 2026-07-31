@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Shield, Bot, Eye, UserCheck, Home, LogOut, Database, Users, BarChart2, HelpCircle, Sparkles } from 'lucide-react';
 import type { UserSession } from '../types/alert';
 import { getAuthStatus, type SystemHealthStatus } from '../services/api';
+import '../styles/Header.css';
 
 interface HeaderProps {
   activeTab: 'home' | 'no-ai' | 'with-ai' | 'test-results' | 'admin-users' | 'admin-questions' | 'benchmark';
@@ -44,36 +45,22 @@ export const Header: React.FC<HeaderProps> = ({
     <header className="soc-header">
       <div className="soc-header-inner">
         {/* Left: Logo & Dynamic System / DB Status Badges */}
-        <div className="soc-logo" style={{ cursor: 'pointer' }} onClick={() => onTabChange('home')}>
+        <div className="soc-logo soc-logo-clickable" onClick={() => onTabChange('home')}>
           <div className="soc-logo-icon">
             <Shield size={22} />
           </div>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontWeight: 700, letterSpacing: '0.5px', fontSize: '0.95rem' }}>Magisterka SOC</span>
+            <div className="soc-header-title-box">
+              <span className="soc-header-title">Magisterka SOC</span>
               
               {/* Backend Server Status Badge */}
-              <span className="soc-status-badge" style={{
-                background: healthStatus.isServerOnline === null ? 'rgba(148, 163, 184, 0.15)' : healthStatus.isServerOnline ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                border: healthStatus.isServerOnline === null ? '1px solid rgba(148, 163, 184, 0.3)' : healthStatus.isServerOnline ? '1px solid rgba(34, 197, 94, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)',
-                color: healthStatus.isServerOnline === null ? '#94a3b8' : healthStatus.isServerOnline ? '#4ade80' : '#f87171'
-              }}>
-                <span className="pulse-dot" style={{
-                  background: healthStatus.isServerOnline === null ? '#94a3b8' : healthStatus.isServerOnline ? '#22c55e' : '#ef4444',
-                  boxShadow: healthStatus.isServerOnline === true ? '0 0 8px #22c55e' : healthStatus.isServerOnline === false ? '0 0 8px #ef4444' : 'none'
-                }}></span>
+              <span className={`soc-status-badge ${healthStatus.isServerOnline === null ? 'status-badge-checking' : healthStatus.isServerOnline ? 'status-badge-online' : 'status-badge-offline'}`}>
+                <span className={`pulse-dot ${healthStatus.isServerOnline === null ? 'checking' : healthStatus.isServerOnline ? 'online' : 'offline'}`}></span>
                 SERVER: {healthStatus.isServerOnline === null ? 'SPRAWDZANIE...' : healthStatus.isServerOnline ? 'ONLINE' : 'OFFLINE'}
               </span>
 
               {/* Database Status Badge */}
-              <span className="soc-status-badge" style={{
-                background: healthStatus.isConnectedToMongoDB === null ? 'rgba(148, 163, 184, 0.15)' : healthStatus.isConnectedToMongoDB ? 'rgba(56, 189, 248, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                border: healthStatus.isConnectedToMongoDB === null ? '1px solid rgba(148, 163, 184, 0.3)' : healthStatus.isConnectedToMongoDB ? '1px solid rgba(56, 189, 248, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)',
-                color: healthStatus.isConnectedToMongoDB === null ? '#94a3b8' : healthStatus.isConnectedToMongoDB ? '#38bdf8' : '#f87171',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px'
-              }}>
+              <span className={`soc-status-badge ${healthStatus.isConnectedToMongoDB === null ? 'status-badge-checking' : healthStatus.isConnectedToMongoDB ? 'status-badge-db-online' : 'status-badge-offline'}`}>
                 <Database size={12} />
                 BAZA: {healthStatus.isConnectedToMongoDB === null ? 'SPRAWDZANIE...' : healthStatus.isConnectedToMongoDB ? 'ONLINE' : 'OFFLINE'}
               </span>
@@ -124,7 +111,7 @@ export const Header: React.FC<HeaderProps> = ({
                 onClick={() => onTabChange('benchmark')}
               >
                 <Sparkles size={16} color="#a855f7" />
-                <span style={{ color: '#a855f7', fontWeight: 700 }}>Ewaluacja AI (Benchmark)</span>
+                <span className="soc-tab-label-benchmark">Ewaluacja AI (Benchmark)</span>
               </button>
             )}
 
@@ -134,37 +121,31 @@ export const Header: React.FC<HeaderProps> = ({
                 onClick={() => onTabChange('admin-questions')}
               >
                 <HelpCircle size={16} color="#38bdf8" />
-                <span style={{ color: '#38bdf8' }}>Zarządzanie Pytaniami</span>
+                <span className="soc-tab-label-questions">Zarządzanie Pytaniami</span>
               </button>
             )}
 
             {userSession.role === 'Administrator' && (
               <button
-                className={`soc-tab ${activeTab === 'admin-users' ? 'active-ai' : ''}`}
+                className={`soc-tab soc-tab-users-btn ${activeTab === 'admin-users' ? 'active-ai' : ''}`}
                 onClick={() => onTabChange('admin-users')}
-                style={{ borderLeft: '1px solid var(--border-color)' }}
               >
                 <Users size={16} color="#c084fc" />
-                <span style={{ color: '#c084fc' }}>Zarządzanie Użytkownikami</span>
+                <span className="soc-tab-label-users">Zarządzanie Użytkownikami</span>
               </button>
             )}
           </div>
         )}
 
         {/* Right: Session Meta */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        <div className="soc-user-session-box">
           {userSession && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div style={{ display: 'flex', flexShrink: 0, alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+            <div className="soc-user-session-info">
+              <div className="soc-user-meta">
                 <UserCheck size={15} color="#38bdf8" />
                 <span>
-                  Operator: <strong style={{ color: '#ffffff' }}>{userSession.username}</strong>
-                  <span style={{
-                    marginLeft: '6px',
-                    fontSize: '0.725rem',
-                    color: userSession.role === 'Administrator' ? '#c084fc' : 'var(--text-muted)',
-                    fontWeight: 600
-                  }}>
+                  Operator: <strong className="soc-username-strong">{userSession.username}</strong>
+                  <span className={`soc-user-role-badge ${userSession.role === 'Administrator' ? 'admin' : ''}`}>
                     ({userSession.role})
                   </span>
                 </span>
@@ -172,8 +153,7 @@ export const Header: React.FC<HeaderProps> = ({
 
               <button
                 onClick={onLogout}
-                className="btn-action btn-danger"
-                style={{ padding: '0.35rem 0.65rem', fontSize: '0.775rem' }}
+                className="btn-action btn-danger soc-btn-logout-small"
                 title="Wyloguj operatora"
               >
                 <LogOut size={14} /> Wyloguj

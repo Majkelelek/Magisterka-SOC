@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Search, Filter, HelpCircle, CheckCircle, AlertTriangle, RefreshCw, Shield, Upload, Sparkles, Loader2 } from 'lucide-react';
 import type { Alert } from '../types/alert';
 import { fetchTestSet, addTestAlertItem, updateTestAlertItem, deleteTestAlertItem, deleteAllTestAlerts, importAttackSamples, generateSingleAiAnalysis, generateAllAiAnalyses } from '../services/api';
+import '../styles/AdminQuestionsPage.css';
 
 export const AdminQuestionsPage: React.FC = () => {
   const [alerts, setAlerts] = useState<Alert[]>([]);
@@ -194,39 +195,32 @@ export const AdminQuestionsPage: React.FC = () => {
   });
 
   return (
-    <div style={{ width: '100%', maxWidth: '1400px', margin: '0 auto', padding: '1rem 0' }}>
+    <div className="admin-q-wrapper">
       {/* Header Banner */}
-      <div className="soc-card" style={{
-        padding: '1.25rem 1.5rem',
-        marginBottom: '1.25rem',
-        background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(7, 10, 18, 0.98))',
-        border: '1px solid rgba(56, 189, 248, 0.3)'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+      <div className="soc-card admin-q-header">
+        <div className="admin-q-flex-header">
           <div>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(56, 189, 248, 0.12)', color: '#38bdf8', padding: '0.15rem 0.6rem', borderRadius: '12px', fontSize: '0.7rem', fontWeight: 600, marginBottom: '0.4rem' }}>
+            <div className="admin-q-sub-badge">
               <HelpCircle size={13} /> PANEL ADMINISTRATORA: ZARZĄDZANIE ZESTAWEM PYTAŃ (TEST_PYTANIA.JSON)
             </div>
-            <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#ffffff', margin: 0 }}>
+            <h2 className="admin-q-title">
               Baza Zdarzeń i Pytań Testowych ({alerts.length} Incydentów)
             </h2>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '0.2rem', margin: 0 }}>
+            <p className="admin-q-desc">
               Możesz tu dodawać nowe pytania, modyfikować parametry (IP, techniki MITRE, flagę isThreat) oraz masowo usuwać lub importować zdarzenia.
             </p>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <div className="admin-q-btn-group">
             <button
               onClick={loadQuestions}
-              className="btn-action"
-              style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', padding: '0.4rem 0.85rem' }}
+              className="btn-action admin-q-btn-refresh"
             >
               <RefreshCw size={14} /> Odśwież
             </button>
             <button
               onClick={handleOpenAddModal}
-              className="btn-action btn-primary"
-              style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', padding: '0.4rem 0.9rem', background: 'linear-gradient(135deg, #0284c7, #2563eb)' }}
+              className="btn-action btn-primary admin-q-btn-add"
             >
               <Plus size={15} /> Dodaj Pytanie
             </button>
@@ -234,17 +228,7 @@ export const AdminQuestionsPage: React.FC = () => {
             <button
               onClick={handleImportSamples}
               disabled={importing}
-              className="btn-action"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                fontSize: '0.8rem',
-                padding: '0.4rem 0.85rem',
-                background: 'rgba(6, 182, 212, 0.15)',
-                color: '#38bdf8',
-                border: '1px solid rgba(6, 182, 212, 0.35)'
-              }}
+              className="btn-action admin-q-btn-cyan"
             >
               <Upload size={14} /> {importing ? 'Importowanie...' : 'Importuj Próbki Ataków'}
             </button>
@@ -252,18 +236,7 @@ export const AdminQuestionsPage: React.FC = () => {
             <button
               onClick={handleGenerateAllAi}
               disabled={generatingAllAi || loading || alerts.length === 0}
-              className="btn-action"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                fontSize: '0.8rem',
-                padding: '0.4rem 0.85rem',
-                background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.25), rgba(99, 102, 241, 0.25))',
-                color: '#c084fc',
-                border: '1px solid rgba(139, 92, 246, 0.45)',
-                fontWeight: 600
-              }}
+              className="btn-action admin-q-btn-sparkles"
               title="Wstępnie wygeneruj i zapisz analizy AI w bazie dla wszystkich pytań testowych"
             >
               {generatingAllAi ? (
@@ -280,18 +253,7 @@ export const AdminQuestionsPage: React.FC = () => {
             <button
               onClick={handleDeleteAll}
               disabled={deletingAll}
-              className="btn-action"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                fontSize: '0.8rem',
-                padding: '0.4rem 0.85rem',
-                background: 'rgba(239, 68, 68, 0.18)',
-                color: '#f87171',
-                border: '1px solid rgba(239, 68, 68, 0.4)',
-                fontWeight: 600
-              }}
+              className="btn-action admin-q-btn-danger"
             >
               <Trash2 size={14} /> {deletingAll ? 'Usuwanie...' : 'Usuń Wszystkie Pytania z Bazy'}
             </button>
@@ -300,71 +262,47 @@ export const AdminQuestionsPage: React.FC = () => {
       </div>
 
       {statusMsg && (
-        <div style={{
-          padding: '0.75rem 1rem',
-          borderRadius: '8px',
-          marginBottom: '1rem',
-          background: statusMsg.type === 'success' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-          border: statusMsg.type === 'success' ? '1px solid rgba(34, 197, 94, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)',
-          color: statusMsg.type === 'success' ? '#4ade80' : '#f87171',
-          fontSize: '0.85rem',
-          fontWeight: 600
-        }}>
+        <div className={`admin-q-status-msg ${statusMsg.type}`}>
           {statusMsg.text}
         </div>
       )}
 
       {/* Metrics Bar */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '1.25rem' }}>
-        <div className="soc-card" style={{ padding: '1rem' }}>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>ŁĄCZNIE PYTAŃ W BAZIE</div>
-          <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#ffffff', marginTop: '0.2rem' }}>{alerts.length}</div>
+      <div className="admin-q-metrics-grid">
+        <div className="soc-card admin-q-metric-card">
+          <div className="admin-q-metric-label">ŁĄCZNIE PYTAŃ W BAZIE</div>
+          <div className="admin-q-metric-val">{alerts.length}</div>
         </div>
-        <div className="soc-card" style={{ padding: '1rem' }}>
-          <div style={{ fontSize: '0.75rem', color: '#f87171', fontWeight: 600 }}>INCYDENTY ZAGROŻEŃ (ATAKI)</div>
-          <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#f87171', marginTop: '0.2rem' }}>{alerts.filter(a => a.isThreat).length}</div>
+        <div className="soc-card admin-q-metric-card">
+          <div className="admin-q-metric-label" style={{ color: '#f87171' }}>INCYDENTY ZAGROŻEŃ (ATAKI)</div>
+          <div className="admin-q-metric-val red">{alerts.filter(a => a.isThreat).length}</div>
         </div>
-        <div className="soc-card" style={{ padding: '1rem' }}>
-          <div style={{ fontSize: '0.75rem', color: '#4ade80', fontWeight: 600 }}>RUCH PRAWIDŁOWY (FALSE POSITIVE)</div>
-          <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#4ade80', marginTop: '0.2rem' }}>{alerts.filter(a => !a.isThreat).length}</div>
+        <div className="soc-card admin-q-metric-card">
+          <div className="admin-q-metric-label" style={{ color: '#4ade80' }}>RUCH PRAWIDŁOWY (FALSE POSITIVE)</div>
+          <div className="admin-q-metric-val green">{alerts.filter(a => !a.isThreat).length}</div>
         </div>
       </div>
 
       {/* Filters Bar */}
-      <div className="soc-card" style={{ padding: '0.85rem 1.1rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.85rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: '260px' }}>
+      <div className="soc-card admin-q-filter-bar">
+        <div className="admin-q-filter-search-col">
           <Search size={16} color="var(--text-muted)" />
           <input
             type="text"
             placeholder="Szukaj po ID (ALT-001), tytule, IP lub kategorii..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            style={{
-              width: '100%',
-              background: 'rgba(15, 23, 42, 0.6)',
-              border: '1px solid var(--border-color)',
-              color: '#ffffff',
-              borderRadius: '6px',
-              padding: '0.4rem 0.75rem',
-              fontSize: '0.825rem'
-            }}
+            className="admin-q-search-input"
           />
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+        <div className="admin-q-filter-dropdowns">
+          <div className="admin-q-filter-label">
             <Filter size={14} /> Severność:
             <select
               value={filterSeverity}
               onChange={e => setFilterSeverity(e.target.value)}
-              style={{
-                background: 'rgba(15, 23, 42, 0.8)',
-                border: '1px solid var(--border-color)',
-                color: '#ffffff',
-                borderRadius: '6px',
-                padding: '0.35rem 0.6rem',
-                fontSize: '0.8rem'
-              }}
+              className="admin-q-filter-select"
             >
               <option value="ALL">Wszystkie</option>
               <option value="CRITICAL">Critical</option>
@@ -374,19 +312,12 @@ export const AdminQuestionsPage: React.FC = () => {
             </select>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+          <div className="admin-q-filter-label">
             Typ Zdarzenia:
             <select
               value={filterThreat}
               onChange={e => setFilterThreat(e.target.value)}
-              style={{
-                background: 'rgba(15, 23, 42, 0.8)',
-                border: '1px solid var(--border-color)',
-                color: '#ffffff',
-                borderRadius: '6px',
-                padding: '0.35rem 0.6rem',
-                fontSize: '0.8rem'
-              }}
+              className="admin-q-filter-select"
             >
               <option value="ALL">Wszystkie</option>
               <option value="THREAT">Tylko Ataki (Threat = True)</option>
@@ -397,29 +328,29 @@ export const AdminQuestionsPage: React.FC = () => {
       </div>
 
       {/* Table of Alerts */}
-      <div className="soc-card" style={{ padding: 0, overflow: 'hidden' }}>
+      <div className="soc-card admin-q-table-card">
         {loading ? (
-          <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+          <div className="admin-q-table-msg">
             Ładowanie bazy pytań testowych...
           </div>
         ) : filteredAlerts.length === 0 ? (
-          <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+          <div className="admin-q-table-msg">
             Brak pytań spełniających podane kryteria wyszukiwania.
           </div>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.8rem' }}>
+          <div className="admin-q-table-scroll">
+            <table className="admin-q-table">
               <thead>
-                <tr style={{ background: 'rgba(15, 23, 42, 0.8)', borderBottom: '1px solid var(--border-color)', color: 'var(--text-muted)' }}>
-                  <th style={{ padding: '0.75rem 1rem' }}>ID</th>
-                  <th style={{ padding: '0.75rem 1rem' }}>TYTUŁ / OPIS INCYDENTU</th>
-                  <th style={{ padding: '0.75rem 1rem' }}>KATEGORIA</th>
-                  <th style={{ padding: '0.75rem 1rem' }}>SEVERITY</th>
-                  <th style={{ padding: '0.75rem 1rem' }}>TYP (IS THREAT)</th>
-                  <th style={{ padding: '0.75rem 1rem' }}>WZORCOWA ODPOWIEDŹ (CORRECT ACTION)</th>
-                  <th style={{ padding: '0.75rem 1rem' }}>ANALIZA AI</th>
-                  <th style={{ padding: '0.75rem 1rem' }}>ŹRÓDŁO IP</th>
-                  <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>AKCJE</th>
+                <tr className="admin-q-table-row-head">
+                  <th className="admin-q-table-th">ID</th>
+                  <th className="admin-q-table-th">TYTUŁ / OPIS INCYDENTU</th>
+                  <th className="admin-q-table-th">KATEGORIA</th>
+                  <th className="admin-q-table-th">SEVERITY</th>
+                  <th className="admin-q-table-th">TYP (IS THREAT)</th>
+                  <th className="admin-q-table-th">WZORCOWA ODPOWIEDŹ (CORRECT ACTION)</th>
+                  <th className="admin-q-table-th">ANALIZA AI</th>
+                  <th className="admin-q-table-th">ŹRÓDŁO IP</th>
+                  <th className="admin-q-table-th" style={{ textAlign: 'right' }}>AKCJE</th>
                 </tr>
               </thead>
               <tbody>
@@ -441,103 +372,59 @@ export const AdminQuestionsPage: React.FC = () => {
                   const hasPreGeneratedAi = Boolean(alert.aiAnalysis && !alert.aiAnalysis.includes('[Błąd'));
 
                   return (
-                    <tr key={alert.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)', transition: 'background 0.15s' }}>
-                      <td style={{ padding: '0.75rem 1rem', fontWeight: 700, color: '#38bdf8' }}>{alert.id}</td>
-                      <td style={{ padding: '0.75rem 1rem', maxWidth: '340px' }}>
-                        <div style={{ fontWeight: 600, color: '#ffffff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <tr key={alert.id} className="admin-q-table-row">
+                      <td className="admin-q-table-td-id">{alert.id}</td>
+                      <td className="admin-q-table-td-title">
+                        <div className="admin-q-table-title-main">
                           {alert.title}
                         </div>
-                        <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: '2px' }}>
+                        <div className="admin-q-table-title-sub">
                           {alert.description}
                         </div>
                       </td>
-                      <td style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)' }}>{alert.category}</td>
-                      <td style={{ padding: '0.75rem 1rem' }}>
-                        <span style={{
-                          padding: '0.15rem 0.5rem',
-                          borderRadius: '4px',
-                          fontSize: '0.725rem',
-                          fontWeight: 700,
-                          background: alert.severity === 'Critical' ? 'rgba(239, 68, 68, 0.2)' : alert.severity === 'High' ? 'rgba(249, 115, 22, 0.2)' : alert.severity === 'Medium' ? 'rgba(234, 179, 8, 0.2)' : 'rgba(100, 116, 139, 0.2)',
-                          color: alert.severity === 'Critical' ? '#f87171' : alert.severity === 'High' ? '#fb923c' : alert.severity === 'Medium' ? '#facc15' : '#94a3b8'
-                        }}>
+                      <td className="admin-q-table-td-category">{alert.category}</td>
+                      <td className="admin-q-table-td">
+                        <span className={`admin-q-severity-badge ${alert.severity.toLowerCase()}`}>
                           {alert.severity}
                         </span>
                       </td>
-                      <td style={{ padding: '0.75rem 1rem' }}>
+                      <td className="admin-q-table-td">
                         {alert.isThreat ? (
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#f87171', fontWeight: 600, fontSize: '0.75rem' }}>
+                          <span className="admin-q-threat-badge threat">
                             <AlertTriangle size={13} /> Atak (Zagrożenie)
                           </span>
                         ) : (
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#4ade80', fontWeight: 600, fontSize: '0.75rem' }}>
+                          <span className="admin-q-threat-badge benign">
                             <CheckCircle size={13} /> Ruch Prawidłowy
                           </span>
                         )}
                       </td>
-                      <td style={{ padding: '0.75rem 1rem' }}>
-                        <span style={{
-                          padding: '0.2rem 0.55rem',
-                          borderRadius: '6px',
-                          fontSize: '0.725rem',
-                          fontWeight: 600,
+                      <td className="admin-q-table-td">
+                        <span className="admin-q-action-badge" style={{
                           background: correctLabelBg,
                           color: correctLabelColor
                         }}>
                           {alert.correctAction || (alert.isThreat ? 'Isolate Host / Block' : 'Dismiss / False Positive')}
                         </span>
                       </td>
-                      <td style={{ padding: '0.75rem 1rem' }}>
+                      <td className="admin-q-table-td">
                         {hasPreGeneratedAi ? (
-                          <span style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            padding: '0.2rem 0.55rem',
-                            borderRadius: '6px',
-                            fontSize: '0.725rem',
-                            fontWeight: 700,
-                            background: 'rgba(139, 92, 246, 0.15)',
-                            border: '1px solid rgba(139, 92, 246, 0.35)',
-                            color: '#c084fc'
-                          }}>
+                          <span className="admin-q-ai-badge ready">
                             <Sparkles size={11} /> AI Gotowe
                           </span>
                         ) : (
-                          <span style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            padding: '0.2rem 0.55rem',
-                            borderRadius: '6px',
-                            fontSize: '0.725rem',
-                            fontWeight: 600,
-                            background: 'rgba(100, 116, 139, 0.15)',
-                            color: '#94a3b8'
-                          }}>
+                          <span className="admin-q-ai-badge live">
                             ⚪ Brak (Na żywo)
                           </span>
                         )}
                       </td>
-                      <td style={{ padding: '0.75rem 1rem', fontFamily: 'monospace', color: 'var(--text-muted)' }}>{alert.sourceIp}</td>
-                      <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
+                      <td className="admin-q-table-td-ip">{alert.sourceIp}</td>
+                      <td className="admin-q-table-td" style={{ textAlign: 'right' }}>
+                        <div className="admin-q-row-actions">
                           <button
                             onClick={() => handleGenerateSingleAi(alert.id)}
                             disabled={generatingAiId === alert.id || generatingAllAi}
-                            style={{
-                              background: hasPreGeneratedAi ? 'rgba(139, 92, 246, 0.15)' : 'rgba(99, 102, 241, 0.25)',
-                              border: hasPreGeneratedAi ? '1px solid rgba(139, 92, 246, 0.35)' : '1px solid rgba(99, 102, 241, 0.5)',
-                              color: hasPreGeneratedAi ? '#c084fc' : '#818cf8',
-                              padding: '0.3rem 0.5rem',
-                              borderRadius: '4px',
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              fontSize: '0.725rem',
-                              fontWeight: 600
-                            }}
+                            className={`admin-q-row-btn-sparkles ${hasPreGeneratedAi ? 'ready' : 'live'}`}
                             title={hasPreGeneratedAi ? "Wygeneruj ponownie wstępną analizę AI dla tego pytania" : "Wygeneruj i zapisz wstępną analizę AI w bazie"}
                           >
                             {generatingAiId === alert.id ? (
@@ -549,36 +436,14 @@ export const AdminQuestionsPage: React.FC = () => {
                           </button>
                           <button
                             onClick={() => handleOpenEditModal(alert)}
-                            style={{
-                              background: 'rgba(56, 189, 248, 0.15)',
-                              border: '1px solid rgba(56, 189, 248, 0.3)',
-                              color: '#38bdf8',
-                              padding: '0.3rem 0.5rem',
-                              borderRadius: '4px',
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              fontSize: '0.725rem'
-                            }}
+                            className="admin-q-row-btn-edit"
                             title="Edytuj parametry pytania"
                           >
                             <Edit2 size={12} /> Edytuj
                           </button>
                           <button
                             onClick={() => handleDelete(alert.id)}
-                            style={{
-                              background: 'rgba(239, 68, 68, 0.15)',
-                              border: '1px solid rgba(239, 68, 68, 0.3)',
-                              color: '#f87171',
-                              padding: '0.3rem 0.5rem',
-                              borderRadius: '4px',
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              fontSize: '0.725rem'
-                            }}
+                            className="admin-q-row-btn-delete"
                             title="Usuń pytanie"
                           >
                             <Trash2 size={12} /> Usuń
@@ -596,47 +461,34 @@ export const AdminQuestionsPage: React.FC = () => {
 
       {/* Modal Dodawania / Edycji Pytania */}
       {isModalOpen && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0, 0, 0, 0.75)',
-          backdropFilter: 'blur(4px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 9999,
-          padding: '1rem'
-        }}>
-          <div className="soc-card" style={{ width: '100%', maxWidth: '720px', maxHeight: '90vh', overflowY: 'auto', padding: '1.5rem', border: '1px solid rgba(56, 189, 248, 0.4)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
-              <h3 style={{ margin: 0, fontSize: '1.15rem', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className="admin-q-modal-overlay">
+          <div className="soc-card admin-q-modal-card">
+            <div className="admin-q-modal-header">
+              <h3 className="admin-q-modal-title">
                 <Shield size={18} color="#38bdf8" />
                 {editingAlert ? `Edycja Pytania / Alertu (${editingAlert.id})` : 'Dodaj Nowe Pytanie do Bazy Testowej'}
               </h3>
-              <button onClick={() => setIsModalOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1.2rem', cursor: 'pointer' }}>✕</button>
+              <button onClick={() => setIsModalOpen(false)} className="admin-q-modal-close">✕</button>
             </div>
 
-            <form onSubmit={handleSubmitForm} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <form onSubmit={handleSubmitForm} className="admin-q-form">
+              <div className="admin-q-form-row-2col">
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.775rem', color: 'var(--text-muted)', marginBottom: '0.3rem' }}>ID Alertu / Pytania</label>
+                  <label className="admin-q-form-label">ID Alertu / Pytania</label>
                   <input
                     type="text"
                     value={formData.id || ''}
                     onChange={e => setFormData({ ...formData, id: e.target.value })}
                     disabled={!!editingAlert}
-                    style={{ width: '100%', background: 'rgba(15, 23, 42, 0.6)', border: '1px solid var(--border-color)', color: '#ffffff', padding: '0.45rem', borderRadius: '6px', fontSize: '0.825rem' }}
+                    className="admin-q-form-input"
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.775rem', color: 'var(--text-muted)', marginBottom: '0.3rem' }}>Poziom Zagrożenia (Severity)</label>
+                  <label className="admin-q-form-label">Poziom Zagrożenia (Severity)</label>
                   <select
                     value={formData.severity || 'High'}
                     onChange={e => setFormData({ ...formData, severity: e.target.value as Alert['severity'] })}
-                    style={{ width: '100%', background: 'rgba(15, 23, 42, 0.8)', border: '1px solid var(--border-color)', color: '#ffffff', padding: '0.45rem', borderRadius: '6px', fontSize: '0.825rem' }}
+                    className="admin-q-form-select"
                   >
                     <option value="Critical">Critical</option>
                     <option value="High">High</option>
@@ -647,19 +499,19 @@ export const AdminQuestionsPage: React.FC = () => {
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.775rem', color: 'var(--text-muted)', marginBottom: '0.3rem' }}>Tytuł Pytania / Zdarzenia</label>
+                <label className="admin-q-form-label">Tytuł Pytania / Zdarzenia</label>
                 <input
                   type="text"
                   value={formData.title || ''}
                   onChange={e => setFormData({ ...formData, title: e.target.value })}
-                  style={{ width: '100%', background: 'rgba(15, 23, 42, 0.6)', border: '1px solid var(--border-color)', color: '#ffffff', padding: '0.45rem', borderRadius: '6px', fontSize: '0.825rem' }}
+                  className="admin-q-form-input"
                   placeholder="np. Zdarzenie #76: Wykryto Atak SQL Injection"
                 />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div className="admin-q-form-row-2col">
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.775rem', color: 'var(--text-muted)', marginBottom: '0.3rem' }}>Czy to jest Atak (IsThreat)?</label>
+                  <label className="admin-q-form-label">Czy to jest Atak (IsThreat)?</label>
                   <select
                     value={formData.isThreat ? 'true' : 'false'}
                     onChange={e => {
@@ -670,7 +522,7 @@ export const AdminQuestionsPage: React.FC = () => {
                         correctAction: isT ? (formData.correctAction === 'Dismiss' ? 'Isolation' : formData.correctAction) : 'Dismiss'
                       });
                     }}
-                    style={{ width: '100%', background: 'rgba(15, 23, 42, 0.8)', border: '1px solid var(--border-color)', color: '#ffffff', padding: '0.45rem', borderRadius: '6px', fontSize: '0.825rem' }}
+                    className="admin-q-form-select"
                   >
                     <option value="true">TAK (Jest Atakiem / Threat)</option>
                     <option value="false">NIE (Ruch Prawidłowy / Benign)</option>
@@ -678,11 +530,11 @@ export const AdminQuestionsPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.775rem', color: 'var(--text-muted)', marginBottom: '0.3rem' }}>Wzorcowa Odpowiedź Operatora (Correct Action)</label>
+                  <label className="admin-q-form-label">Wzorcowa Odpowiedź Operatora (Correct Action)</label>
                   <select
                     value={formData.correctAction || 'Isolation'}
                     onChange={e => setFormData({ ...formData, correctAction: e.target.value })}
-                    style={{ width: '100%', background: 'rgba(15, 23, 42, 0.8)', border: '1px solid var(--border-color)', color: '#ffffff', padding: '0.45rem', borderRadius: '6px', fontSize: '0.825rem' }}
+                    className="admin-q-form-select"
                   >
                     <option value="Isolation">Isolation (Izolacja Hosta / Blokada Ruchu)</option>
                     <option value="Escalation">Escalation (Eskalacja do L2)</option>
@@ -691,89 +543,88 @@ export const AdminQuestionsPage: React.FC = () => {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div className="admin-q-form-row-2col">
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.775rem', color: 'var(--text-muted)', marginBottom: '0.3rem' }}>Kategoria</label>
+                  <label className="admin-q-form-label">Kategoria</label>
                   <input
                     type="text"
                     value={formData.category || ''}
                     onChange={e => setFormData({ ...formData, category: e.target.value })}
-                    style={{ width: '100%', background: 'rgba(15, 23, 42, 0.6)', border: '1px solid var(--border-color)', color: '#ffffff', padding: '0.45rem', borderRadius: '6px', fontSize: '0.825rem' }}
+                    className="admin-q-form-input"
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.775rem', color: 'var(--text-muted)', marginBottom: '0.3rem' }}>Technika MITRE ATT&CK</label>
+                  <label className="admin-q-form-label">Technika MITRE ATT&CK</label>
                   <input
                     type="text"
                     value={formData.mitreTechnique || ''}
                     onChange={e => setFormData({ ...formData, mitreTechnique: e.target.value })}
-                    style={{ width: '100%', background: 'rgba(15, 23, 42, 0.6)', border: '1px solid var(--border-color)', color: '#ffffff', padding: '0.45rem', borderRadius: '6px', fontSize: '0.825rem' }}
+                    className="admin-q-form-input"
                   />
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+              <div className="admin-q-form-row-3col">
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.775rem', color: 'var(--text-muted)', marginBottom: '0.3rem' }}>Źródłowy IP</label>
+                  <label className="admin-q-form-label">Źródłowy IP</label>
                   <input
                     type="text"
                     value={formData.sourceIp || ''}
                     onChange={e => setFormData({ ...formData, sourceIp: e.target.value })}
-                    style={{ width: '100%', background: 'rgba(15, 23, 42, 0.6)', border: '1px solid var(--border-color)', color: '#ffffff', padding: '0.45rem', borderRadius: '6px', fontSize: '0.825rem' }}
+                    className="admin-q-form-input"
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.775rem', color: 'var(--text-muted)', marginBottom: '0.3rem' }}>Host Docelowy</label>
+                  <label className="admin-q-form-label">Host Docelowy</label>
                   <input
                     type="text"
                     value={formData.destinationHost || ''}
                     onChange={e => setFormData({ ...formData, destinationHost: e.target.value })}
-                    style={{ width: '100%', background: 'rgba(15, 23, 42, 0.6)', border: '1px solid var(--border-color)', color: '#ffffff', padding: '0.45rem', borderRadius: '6px', fontSize: '0.825rem' }}
+                    className="admin-q-form-input"
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.775rem', color: 'var(--text-muted)', marginBottom: '0.3rem' }}>Konto Użytkownika</label>
+                  <label className="admin-q-form-label">Konto Użytkownika</label>
                   <input
                     type="text"
                     value={formData.userAccount || ''}
                     onChange={e => setFormData({ ...formData, userAccount: e.target.value })}
-                    style={{ width: '100%', background: 'rgba(15, 23, 42, 0.6)', border: '1px solid var(--border-color)', color: '#ffffff', padding: '0.45rem', borderRadius: '6px', fontSize: '0.825rem' }}
+                    className="admin-q-form-input"
                   />
                 </div>
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.775rem', color: 'var(--text-muted)', marginBottom: '0.3rem' }}>Opis Incydentu / Przepływu Sieciowego</label>
+                <label className="admin-q-form-label">Opis Incydentu / Przepływu Sieciowego</label>
                 <textarea
                   rows={3}
                   value={formData.description || ''}
                   onChange={e => setFormData({ ...formData, description: e.target.value })}
-                  style={{ width: '100%', background: 'rgba(15, 23, 42, 0.6)', border: '1px solid var(--border-color)', color: '#ffffff', padding: '0.45rem', borderRadius: '6px', fontSize: '0.825rem', fontFamily: 'inherit' }}
+                  className="admin-q-form-textarea"
                 />
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.775rem', color: 'var(--text-muted)', marginBottom: '0.3rem' }}>Surowe Logi / NetFlow (JSON)</label>
+                <label className="admin-q-form-label">Surowe Logi / NetFlow (JSON)</label>
                 <textarea
                   rows={4}
                   value={Array.isArray(formData.rawLogs) ? formData.rawLogs[0] : (formData.rawLogs || '')}
                   onChange={e => setFormData({ ...formData, rawLogs: [e.target.value] })}
-                  style={{ width: '100%', background: 'rgba(15, 23, 42, 0.8)', border: '1px solid var(--border-color)', color: '#38bdf8', padding: '0.45rem', borderRadius: '6px', fontSize: '0.775rem', fontFamily: 'monospace' }}
+                  className="admin-q-form-textarea-code"
                 />
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '0.5rem' }}>
+              <div className="admin-q-form-footer">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  style={{ padding: '0.45rem 1rem', background: 'rgba(100, 116, 139, 0.2)', color: 'var(--text-muted)', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.825rem' }}
+                  className="admin-q-btn-cancel"
                 >
                   Anuluj
                 </button>
                 <button
                   type="submit"
-                  className="btn-action btn-primary"
-                  style={{ padding: '0.45rem 1.25rem', fontSize: '0.825rem' }}
+                  className="btn-action btn-primary admin-q-btn-submit"
                 >
                   Zapisz Pytanie do Bazy (test_pytania.json)
                 </button>

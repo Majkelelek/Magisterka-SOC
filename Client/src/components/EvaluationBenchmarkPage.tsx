@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Play, BarChart2, CheckCircle2, XCircle, Clock, Zap, Shield, Sparkles, RefreshCw, AlertTriangle, Layers, ChevronDown, ChevronUp, FileText, Cpu, Cloud, Download, FileSpreadsheet, Filter, Trash2 } from 'lucide-react';
 import type { EvaluationReport, EvaluationItemResult, ModelEvaluationMetrics } from '../types/evaluation';
 import { runModelEvaluation, getLatestEvaluationReport, getEvaluationHistory, fetchOllamaModels, deleteEvaluationReport } from '../services/api';
+import '../styles/EvaluationBenchmarkPage.css';
 
 export const EvaluationBenchmarkPage: React.FC = () => {
   const [report, setReport] = useState<EvaluationReport | null>(null);
@@ -108,11 +109,41 @@ export const EvaluationBenchmarkPage: React.FC = () => {
 
   const computeStrictMetrics = (rawMetrics: ModelEvaluationMetrics | undefined, itemResults: EvaluationItemResult[] | undefined, isBaseModel: boolean) => {
     if (!rawMetrics) return undefined;
+
+    // Check if the model execution was skipped
+    const isSkipped = itemResults && itemResults.length > 0
+      ? itemResults.every(item => {
+          const resp = isBaseModel ? item.baseModelResponse : item.fineTunedModelResponse;
+          return resp.predictedAction === 'Pominięte' || resp.extractedText === '[Test pominięty]';
+        })
+      : (rawMetrics.modelName.includes('Pominięty') || (rawMetrics.accuracy === 0 && rawMetrics.averageLatencyMs === 0));
+
+    if (isSkipped) {
+      return {
+        ...rawMetrics,
+        accuracy: 0,
+        precision: 0,
+        recall: 0,
+        f1Score: 0,
+        truePositives: 0,
+        falsePositives: 0,
+        trueNegatives: 0,
+        falseNegatives: 0,
+        correctClassCount: 0,
+        correctActionCount: 0,
+        validSyntaxCount: 0,
+        formatAdherenceRate: 0,
+        classAccuracy: 0,
+        actionAccuracy: 0,
+        isSkipped: true
+      };
+    }
+
     if (!itemResults || itemResults.length === 0) {
       const totalTested = (rawMetrics.truePositives + rawMetrics.falsePositives + rawMetrics.trueNegatives + rawMetrics.falseNegatives) || 1;
       const classAcc = rawMetrics.correctClassCount ? (rawMetrics.correctClassCount / totalTested) * 100 : rawMetrics.accuracy;
       const actAcc = rawMetrics.correctActionCount ? (rawMetrics.correctActionCount / totalTested) * 100 : rawMetrics.accuracy;
-      return { ...rawMetrics, classAccuracy: classAcc, actionAccuracy: actAcc };
+      return { ...rawMetrics, classAccuracy: classAcc, actionAccuracy: actAcc, isSkipped: false };
     }
 
     const total = itemResults.length;
@@ -161,8 +192,11 @@ export const EvaluationBenchmarkPage: React.FC = () => {
       falseNegatives: fn,
       correctClassCount,
       correctActionCount,
+      validSyntaxCount,
+      formatAdherenceRate: (validSyntaxCount / total) * 100.0,
       classAccuracy,
-      actionAccuracy
+      actionAccuracy,
+      isSkipped: false
     };
   };
 
@@ -223,7 +257,7 @@ export const EvaluationBenchmarkPage: React.FC = () => {
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    const modelTag = selectedModelFilter === 'ALL' ? 'Wszystkie_Modele' : selectedModelFilter.replace(/[:\/]/g, '_');
+    const modelTag = selectedModelFilter === 'ALL' ? 'Wszystkie_Modele' : selectedModelFilter.replace(/[:/]/g, '_');
     const timestampStr = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
     link.href = url;
     link.download = `Benchmark_Modelu_${modelTag}_${timestampStr}.csv`;
@@ -763,6 +797,8 @@ export const EvaluationBenchmarkPage: React.FC = () => {
             </div>
           )}
 
+
+
           {/* Model Multiple Runs History Table (shown when filtered model has > 1 run) */}
           {filteredHistoricalReports.length > 1 && (
             <div className="soc-card" style={{ padding: '1.25rem', marginBottom: '1.5rem', background: 'rgba(15, 23, 42, 0.6)', border: '1px solid rgba(56, 189, 248, 0.25)' }}>
@@ -969,14 +1005,14 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                       🎯 Pełna Dokładność SOC (100% OK: Klasa + Akcja)
                     </td>
                     <td style={{ padding: '0.85rem 1rem', fontFamily: 'monospace', fontSize: '0.95rem', color: '#38bdf8', fontWeight: 700 }}>
-                      {baseMetrics ? `${baseMetrics.accuracy.toFixed(1)}%` : '-'}
+                      {baseMetrics && !baseMetrics.isSkipped ? `${baseMetrics.accuracy.toFixed(1)}%` : 'Pominięto'}
                     </td>
                     <td style={{ padding: '0.85rem 1rem', fontFamily: 'monospace', fontSize: '0.95rem', color: '#c084fc', fontWeight: 700 }}>
-                      {ftMetrics ? `${ftMetrics.accuracy.toFixed(1)}%` : '-'}
+                      {ftMetrics && !ftMetrics.isSkipped ? `${ftMetrics.accuracy.toFixed(1)}%` : 'Pominięto'}
                     </td>
                     <td style={{ padding: '0.85rem 1rem', textAlign: 'right' }}>
                       {(() => {
-                        if (!baseMetrics || !ftMetrics) return '-';
+                        if (!baseMetrics || !ftMetrics || baseMetrics.isSkipped || ftMetrics.isSkipped) return '-';
                         const diff = calculateDiff(ftMetrics.accuracy, baseMetrics.accuracy);
                         return (
                           <span style={{
@@ -1000,14 +1036,14 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                       🏷️ Zgodność Klasyfikacji (Trafienie Kategori/Typu Ruchu)
                     </td>
                     <td style={{ padding: '0.85rem 1rem', fontFamily: 'monospace', fontSize: '0.95rem', color: '#38bdf8', fontWeight: 700 }}>
-                      {baseMetrics && baseMetrics.classAccuracy !== undefined ? `${baseMetrics.classAccuracy.toFixed(1)}%` : '-'}
+                      {baseMetrics && baseMetrics.classAccuracy !== undefined && !baseMetrics.isSkipped ? `${baseMetrics.classAccuracy.toFixed(1)}%` : 'Pominięto'}
                     </td>
                     <td style={{ padding: '0.85rem 1rem', fontFamily: 'monospace', fontSize: '0.95rem', color: '#c084fc', fontWeight: 700 }}>
-                      {ftMetrics && ftMetrics.classAccuracy !== undefined ? `${ftMetrics.classAccuracy.toFixed(1)}%` : '-'}
+                      {ftMetrics && ftMetrics.classAccuracy !== undefined && !ftMetrics.isSkipped ? `${ftMetrics.classAccuracy.toFixed(1)}%` : 'Pominięto'}
                     </td>
                     <td style={{ padding: '0.85rem 1rem', textAlign: 'right' }}>
                       {(() => {
-                        if (!baseMetrics || !ftMetrics || baseMetrics.classAccuracy === undefined || ftMetrics.classAccuracy === undefined) return '-';
+                        if (!baseMetrics || !ftMetrics || baseMetrics.isSkipped || ftMetrics.isSkipped || baseMetrics.classAccuracy === undefined || ftMetrics.classAccuracy === undefined) return '-';
                         const diff = calculateDiff(ftMetrics.classAccuracy, baseMetrics.classAccuracy);
                         return (
                           <span style={{
@@ -1031,14 +1067,14 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                       ⚙️ Zgodność Rekomendacji Akcji (Isolation / Escalation / Dismiss)
                     </td>
                     <td style={{ padding: '0.85rem 1rem', fontFamily: 'monospace', fontSize: '0.95rem', color: '#38bdf8', fontWeight: 700 }}>
-                      {baseMetrics && baseMetrics.actionAccuracy !== undefined ? `${baseMetrics.actionAccuracy.toFixed(1)}%` : '-'}
+                      {baseMetrics && baseMetrics.actionAccuracy !== undefined && !baseMetrics.isSkipped ? `${baseMetrics.actionAccuracy.toFixed(1)}%` : 'Pominięto'}
                     </td>
                     <td style={{ padding: '0.85rem 1rem', fontFamily: 'monospace', fontSize: '0.95rem', color: '#c084fc', fontWeight: 700 }}>
-                      {ftMetrics && ftMetrics.actionAccuracy !== undefined ? `${ftMetrics.actionAccuracy.toFixed(1)}%` : '-'}
+                      {ftMetrics && ftMetrics.actionAccuracy !== undefined && !ftMetrics.isSkipped ? `${ftMetrics.actionAccuracy.toFixed(1)}%` : 'Pominięto'}
                     </td>
                     <td style={{ padding: '0.85rem 1rem', textAlign: 'right' }}>
                       {(() => {
-                        if (!baseMetrics || !ftMetrics || baseMetrics.actionAccuracy === undefined || ftMetrics.actionAccuracy === undefined) return '-';
+                        if (!baseMetrics || !ftMetrics || baseMetrics.isSkipped || ftMetrics.isSkipped || baseMetrics.actionAccuracy === undefined || ftMetrics.actionAccuracy === undefined) return '-';
                         const diff = calculateDiff(ftMetrics.actionAccuracy, baseMetrics.actionAccuracy);
                         return (
                           <span style={{
@@ -1062,14 +1098,14 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                       🔍 Precision (Precyzja Wykrywania Ataków)
                     </td>
                     <td style={{ padding: '0.85rem 1rem', fontFamily: 'monospace', fontSize: '0.95rem', color: '#38bdf8', fontWeight: 700 }}>
-                      {baseMetrics ? `${baseMetrics.precision.toFixed(1)}%` : '-'}
+                      {baseMetrics && !baseMetrics.isSkipped ? `${baseMetrics.precision.toFixed(1)}%` : 'Pominięto'}
                     </td>
                     <td style={{ padding: '0.85rem 1rem', fontFamily: 'monospace', fontSize: '0.95rem', color: '#c084fc', fontWeight: 700 }}>
-                      {ftMetrics ? `${ftMetrics.precision.toFixed(1)}%` : '-'}
+                      {ftMetrics && !ftMetrics.isSkipped ? `${ftMetrics.precision.toFixed(1)}%` : 'Pominięto'}
                     </td>
                     <td style={{ padding: '0.85rem 1rem', textAlign: 'right' }}>
                       {(() => {
-                        if (!baseMetrics || !ftMetrics) return '-';
+                        if (!baseMetrics || !ftMetrics || baseMetrics.isSkipped || ftMetrics.isSkipped) return '-';
                         const diff = calculateDiff(ftMetrics.precision, baseMetrics.precision);
                         return (
                           <span style={{
@@ -1093,14 +1129,14 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                       ⚡ Recall (Czułość / Wykrywalność)
                     </td>
                     <td style={{ padding: '0.85rem 1rem', fontFamily: 'monospace', fontSize: '0.95rem', color: '#38bdf8', fontWeight: 700 }}>
-                      {baseMetrics ? `${baseMetrics.recall.toFixed(1)}%` : '-'}
+                      {baseMetrics && !baseMetrics.isSkipped ? `${baseMetrics.recall.toFixed(1)}%` : 'Pominięto'}
                     </td>
                     <td style={{ padding: '0.85rem 1rem', fontFamily: 'monospace', fontSize: '0.95rem', color: '#c084fc', fontWeight: 700 }}>
-                      {ftMetrics ? `${ftMetrics.recall.toFixed(1)}%` : '-'}
+                      {ftMetrics && !ftMetrics.isSkipped ? `${ftMetrics.recall.toFixed(1)}%` : 'Pominięto'}
                     </td>
                     <td style={{ padding: '0.85rem 1rem', textAlign: 'right' }}>
                       {(() => {
-                        if (!baseMetrics || !ftMetrics) return '-';
+                        if (!baseMetrics || !ftMetrics || baseMetrics.isSkipped || ftMetrics.isSkipped) return '-';
                         const diff = calculateDiff(ftMetrics.recall, baseMetrics.recall);
                         return (
                           <span style={{
@@ -1124,14 +1160,14 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                       📊 F1-Score (Średnia Harmoniacka Precision & Recall)
                     </td>
                     <td style={{ padding: '0.85rem 1rem', fontFamily: 'monospace', fontSize: '0.95rem', color: '#38bdf8', fontWeight: 700 }}>
-                      {baseMetrics ? `${baseMetrics.f1Score.toFixed(1)}%` : '-'}
+                      {baseMetrics && !baseMetrics.isSkipped ? `${baseMetrics.f1Score.toFixed(1)}%` : 'Pominięto'}
                     </td>
                     <td style={{ padding: '0.85rem 1rem', fontFamily: 'monospace', fontSize: '0.95rem', color: '#c084fc', fontWeight: 700 }}>
-                      {ftMetrics ? `${ftMetrics.f1Score.toFixed(1)}%` : '-'}
+                      {ftMetrics && !ftMetrics.isSkipped ? `${ftMetrics.f1Score.toFixed(1)}%` : 'Pominięto'}
                     </td>
                     <td style={{ padding: '0.85rem 1rem', textAlign: 'right' }}>
                       {(() => {
-                        if (!baseMetrics || !ftMetrics) return '-';
+                        if (!baseMetrics || !ftMetrics || baseMetrics.isSkipped || ftMetrics.isSkipped) return '-';
                         const diff = calculateDiff(ftMetrics.f1Score, baseMetrics.f1Score);
                         return (
                           <span style={{
@@ -1155,14 +1191,14 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                       📋 Format Compliance / Syntax Valid (%)
                     </td>
                     <td style={{ padding: '0.85rem 1rem', fontFamily: 'monospace', fontSize: '0.95rem', color: '#38bdf8', fontWeight: 700 }}>
-                      {baseMetrics ? `${baseMetrics.formatAdherenceRate.toFixed(1)}%` : '-'}
+                      {baseMetrics && !baseMetrics.isSkipped ? `${baseMetrics.formatAdherenceRate.toFixed(1)}%` : 'Pominięto'}
                     </td>
                     <td style={{ padding: '0.85rem 1rem', fontFamily: 'monospace', fontSize: '0.95rem', color: '#c084fc', fontWeight: 700 }}>
-                      {ftMetrics ? `${ftMetrics.formatAdherenceRate.toFixed(1)}%` : '-'}
+                      {ftMetrics && !ftMetrics.isSkipped ? `${ftMetrics.formatAdherenceRate.toFixed(1)}%` : 'Pominięto'}
                     </td>
                     <td style={{ padding: '0.85rem 1rem', textAlign: 'right' }}>
                       {(() => {
-                        if (!baseMetrics || !ftMetrics) return '-';
+                        if (!baseMetrics || !ftMetrics || baseMetrics.isSkipped || ftMetrics.isSkipped) return '-';
                         const diff = calculateDiff(ftMetrics.formatAdherenceRate, baseMetrics.formatAdherenceRate);
                         return (
                           <span style={{
@@ -1186,14 +1222,14 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                       ⏱️ Średnia Latencja / Execution Time (ms)
                     </td>
                     <td style={{ padding: '0.85rem 1rem', fontFamily: 'monospace', fontSize: '0.95rem', color: '#38bdf8', fontWeight: 700 }}>
-                      {baseMetrics ? `${baseMetrics.averageLatencyMs.toFixed(0)} ms` : '-'}
+                      {baseMetrics && !baseMetrics.isSkipped ? `${baseMetrics.averageLatencyMs.toFixed(0)} ms` : 'Pominięto'}
                     </td>
                     <td style={{ padding: '0.85rem 1rem', fontFamily: 'monospace', fontSize: '0.95rem', color: '#c084fc', fontWeight: 700 }}>
-                      {ftMetrics ? `${ftMetrics.averageLatencyMs.toFixed(0)} ms` : '-'}
+                      {ftMetrics && !ftMetrics.isSkipped ? `${ftMetrics.averageLatencyMs.toFixed(0)} ms` : 'Pominięto'}
                     </td>
                     <td style={{ padding: '0.85rem 1rem', textAlign: 'right' }}>
                       {(() => {
-                        if (!baseMetrics || !ftMetrics) return '-';
+                        if (!baseMetrics || !ftMetrics || baseMetrics.isSkipped || ftMetrics.isSkipped) return '-';
                         const diff = calculateDiff(ftMetrics.averageLatencyMs, baseMetrics.averageLatencyMs, true);
                         return (
                           <span style={{
@@ -1229,25 +1265,25 @@ export const EvaluationBenchmarkPage: React.FC = () => {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', textAlign: 'center' }}>
                 <div style={{ background: 'rgba(34, 197, 94, 0.15)', border: '1px solid rgba(34, 197, 94, 0.3)', padding: '1rem', borderRadius: '10px' }}>
                   <div style={{ fontSize: '0.725rem', color: '#4ade80', fontWeight: 700, textTransform: 'uppercase' }}>True Positives (TP)</div>
-                  <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#ffffff', marginTop: '0.2rem' }}>{baseMetrics?.truePositives ?? 0}</div>
+                  <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#ffffff', marginTop: '0.2rem' }}>{baseMetrics && !baseMetrics.isSkipped ? baseMetrics.truePositives : 'N/A'}</div>
                   <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '2px' }}>Prawidłowo Wykryty Atak</div>
                 </div>
 
                 <div style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', padding: '1rem', borderRadius: '10px' }}>
                   <div style={{ fontSize: '0.725rem', color: '#f87171', fontWeight: 700, textTransform: 'uppercase' }}>False Positives (FP)</div>
-                  <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#ffffff', marginTop: '0.2rem' }}>{baseMetrics?.falsePositives ?? 0}</div>
+                  <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#ffffff', marginTop: '0.2rem' }}>{baseMetrics && !baseMetrics.isSkipped ? baseMetrics.falsePositives : 'N/A'}</div>
                   <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '2px' }}>Błędny Alarm (Fałszywe Zagrożenie)</div>
                 </div>
 
                 <div style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', padding: '1rem', borderRadius: '10px' }}>
                   <div style={{ fontSize: '0.725rem', color: '#f87171', fontWeight: 700, textTransform: 'uppercase' }}>False Negatives (FN)</div>
-                  <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#ffffff', marginTop: '0.2rem' }}>{baseMetrics?.falseNegatives ?? 0}</div>
+                  <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#ffffff', marginTop: '0.2rem' }}>{baseMetrics && !baseMetrics.isSkipped ? baseMetrics.falseNegatives : 'N/A'}</div>
                   <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '2px' }}>Przegapiony Atak</div>
                 </div>
 
                 <div style={{ background: 'rgba(34, 197, 94, 0.15)', border: '1px solid rgba(34, 197, 94, 0.3)', padding: '1rem', borderRadius: '10px' }}>
                   <div style={{ fontSize: '0.725rem', color: '#4ade80', fontWeight: 700, textTransform: 'uppercase' }}>True Negatives (TN)</div>
-                  <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#ffffff', marginTop: '0.2rem' }}>{baseMetrics?.trueNegatives ?? 0}</div>
+                  <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#ffffff', marginTop: '0.2rem' }}>{baseMetrics && !baseMetrics.isSkipped ? baseMetrics.trueNegatives : 'N/A'}</div>
                   <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '2px' }}>Poprawny Ruch Prawidłowy</div>
                 </div>
               </div>
@@ -1265,25 +1301,25 @@ export const EvaluationBenchmarkPage: React.FC = () => {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', textAlign: 'center' }}>
                 <div style={{ background: 'rgba(34, 197, 94, 0.2)', border: '1px solid rgba(34, 197, 94, 0.4)', padding: '1rem', borderRadius: '10px' }}>
                   <div style={{ fontSize: '0.725rem', color: '#4ade80', fontWeight: 700, textTransform: 'uppercase' }}>True Positives (TP)</div>
-                  <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#ffffff', marginTop: '0.2rem' }}>{ftMetrics?.truePositives ?? 0}</div>
+                  <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#ffffff', marginTop: '0.2rem' }}>{ftMetrics && !ftMetrics.isSkipped ? ftMetrics.truePositives : 'N/A'}</div>
                   <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '2px' }}>Prawidłowo Wykryty Atak</div>
                 </div>
 
                 <div style={{ background: 'rgba(239, 68, 68, 0.2)', border: '1px solid rgba(239, 68, 68, 0.4)', padding: '1rem', borderRadius: '10px' }}>
                   <div style={{ fontSize: '0.725rem', color: '#f87171', fontWeight: 700, textTransform: 'uppercase' }}>False Positives (FP)</div>
-                  <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#ffffff', marginTop: '0.2rem' }}>{ftMetrics?.falsePositives ?? 0}</div>
+                  <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#ffffff', marginTop: '0.2rem' }}>{ftMetrics && !ftMetrics.isSkipped ? ftMetrics.falsePositives : 'N/A'}</div>
                   <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '2px' }}>Błędny Alarm (Fałszywe Zagrożenie)</div>
                 </div>
 
                 <div style={{ background: 'rgba(239, 68, 68, 0.2)', border: '1px solid rgba(239, 68, 68, 0.4)', padding: '1rem', borderRadius: '10px' }}>
                   <div style={{ fontSize: '0.725rem', color: '#f87171', fontWeight: 700, textTransform: 'uppercase' }}>False Negatives (FN)</div>
-                  <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#ffffff', marginTop: '0.2rem' }}>{ftMetrics?.falseNegatives ?? 0}</div>
+                  <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#ffffff', marginTop: '0.2rem' }}>{ftMetrics && !ftMetrics.isSkipped ? ftMetrics.falseNegatives : 'N/A'}</div>
                   <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '2px' }}>Przegapiony Atak</div>
                 </div>
 
                 <div style={{ background: 'rgba(34, 197, 94, 0.2)', border: '1px solid rgba(34, 197, 94, 0.4)', padding: '1rem', borderRadius: '10px' }}>
                   <div style={{ fontSize: '0.725rem', color: '#4ade80', fontWeight: 700, textTransform: 'uppercase' }}>True Negatives (TN)</div>
-                  <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#ffffff', marginTop: '0.2rem' }}>{ftMetrics?.trueNegatives ?? 0}</div>
+                  <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#ffffff', marginTop: '0.2rem' }}>{ftMetrics && !ftMetrics.isSkipped ? ftMetrics.trueNegatives : 'N/A'}</div>
                   <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '2px' }}>Poprawny Ruch Prawidłowy</div>
                 </div>
               </div>
@@ -1304,46 +1340,19 @@ export const EvaluationBenchmarkPage: React.FC = () => {
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <button
                   onClick={() => setFilterMode('ALL')}
-                  style={{
-                    padding: '0.3rem 0.75rem',
-                    borderRadius: '6px',
-                    fontSize: '0.775rem',
-                    fontWeight: 600,
-                    background: filterMode === 'ALL' ? 'rgba(139, 92, 246, 0.3)' : 'rgba(15, 23, 42, 0.6)',
-                    color: filterMode === 'ALL' ? '#c084fc' : '#94a3b8',
-                    border: '1px solid var(--border-color)',
-                    cursor: 'pointer'
-                  }}
+                  className={`benchmark-filter-btn ${filterMode === 'ALL' ? 'benchmark-filter-all-active' : 'benchmark-filter-inactive'}`}
                 >
                   Wszystkie ({report.itemResults.length})
                 </button>
                 <button
                   onClick={() => setFilterMode('MISMATCHED')}
-                  style={{
-                    padding: '0.3rem 0.75rem',
-                    borderRadius: '6px',
-                    fontSize: '0.775rem',
-                    fontWeight: 600,
-                    background: filterMode === 'MISMATCHED' ? 'rgba(239, 68, 68, 0.3)' : 'rgba(15, 23, 42, 0.6)',
-                    color: filterMode === 'MISMATCHED' ? '#f87171' : '#94a3b8',
-                    border: '1px solid var(--border-color)',
-                    cursor: 'pointer'
-                  }}
+                  className={`benchmark-filter-btn ${filterMode === 'MISMATCHED' ? 'benchmark-filter-mismatched-active' : 'benchmark-filter-inactive'}`}
                 >
                   Tylko Rozbieżne / Błędy
                 </button>
                 <button
                   onClick={() => setFilterMode('CORRECT')}
-                  style={{
-                    padding: '0.3rem 0.75rem',
-                    borderRadius: '6px',
-                    fontSize: '0.775rem',
-                    fontWeight: 600,
-                    background: filterMode === 'CORRECT' ? 'rgba(34, 197, 94, 0.3)' : 'rgba(15, 23, 42, 0.6)',
-                    color: filterMode === 'CORRECT' ? '#4ade80' : '#94a3b8',
-                    border: '1px solid var(--border-color)',
-                    cursor: 'pointer'
-                  }}
+                  className={`benchmark-filter-btn ${filterMode === 'CORRECT' ? 'benchmark-filter-correct-active' : 'benchmark-filter-inactive'}`}
                 >
                   Tylko 100% Zgodne
                 </button>
@@ -1351,15 +1360,15 @@ export const EvaluationBenchmarkPage: React.FC = () => {
             </div>
 
             <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.8rem' }}>
+              <table className="benchmark-table">
                 <thead>
-                  <tr style={{ background: 'rgba(15, 23, 42, 0.8)', borderBottom: '1px solid var(--border-color)', color: '#94a3b8' }}>
-                    <th style={{ padding: '0.75rem 0.85rem' }}>ID</th>
-                    <th style={{ padding: '0.75rem 0.85rem' }}>ALERT & KATEGORIA</th>
-                    <th style={{ padding: '0.75rem 0.85rem' }}>GROUND TRUTH</th>
-                    <th style={{ padding: '0.75rem 0.85rem' }}>MODEL BAZOWY</th>
-                    <th style={{ padding: '0.75rem 0.85rem' }}>MODEL FINE-TUNED</th>
-                    <th style={{ padding: '0.75rem 0.85rem', textAlign: 'right' }}>AKCJA</th>
+                  <tr className="benchmark-table-th">
+                    <th className="benchmark-table-td">ID</th>
+                    <th className="benchmark-table-td">ALERT & KATEGORIA</th>
+                    <th className="benchmark-table-td">GROUND TRUTH</th>
+                    <th className="benchmark-table-td">MODEL BAZOWY</th>
+                    <th className="benchmark-table-td">MODEL FINE-TUNED</th>
+                    <th className="benchmark-table-td" style={{ textAlign: 'right' }}>AKCJA</th>
                   </tr>
                 </thead>
                 <tbody>

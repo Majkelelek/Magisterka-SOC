@@ -1,0 +1,117 @@
+/* styles/Header.css */
+
+.soc-header-title-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.soc-header-title {
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  font-size: 0.95rem;
+}
+
+.status-badge-online {
+  background: rgba(34, 197, 94, 0.15);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  color: #4ade80;
+}
+
+.status-badge-offline {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #f87171;
+}
+
+.status-badge-checking {
+  background: rgba(148, 163, 184, 0.15);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  color: #94a3b8;
+}
+
+.status-badge-db-online {
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  color: #38bdf8;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.soc-user-session-box {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.soc-user-session-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.soc-user-meta {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.soc-logo-clickable {
+  cursor: pointer;
+}
+
+.pulse-dot.checking {
+  background: #94a3b8;
+}
+
+.pulse-dot.online {
+  background: #22c55e;
+  box-shadow: 0 0 8px #22c55e;
+}
+
+.pulse-dot.offline {
+  background: #ef4444;
+  box-shadow: 0 0 8px #ef4444;
+}
+
+.soc-tab-label-benchmark {
+  color: #a855f7;
+  font-weight: 700;
+}
+
+.soc-tab-label-questions {
+  color: #38bdf8;
+}
+
+.soc-tab-label-users {
+  color: #c084fc;
+}
+
+.soc-tab-users-btn {
+  border-left: 1px solid var(--border-color);
+}
+
+.soc-username-strong {
+  color: #ffffff;
+}
+
+.soc-user-role-badge {
+  margin-left: 6px;
+  font-size: 0.725rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.soc-user-role-badge.admin {
+  color: #c084fc;
+}
+
+.soc-btn-logout-small {
+  padding: 0.35rem 0.65rem;
+  font-size: 0.775rem;
+}
+

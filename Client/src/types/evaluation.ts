@@ -14,6 +14,9 @@ export interface ModelEvaluationMetrics {
   correctActionCount: number;
   validSyntaxCount: number;
   totalRecordsTested?: number;
+  classAccuracy?: number;
+  actionAccuracy?: number;
+  isSkipped?: boolean;
 }
 
 export interface IndividualModelResponse {
