@@ -13,6 +13,7 @@ export interface ModelEvaluationMetrics {
   correctClassCount: number;
   correctActionCount: number;
   validSyntaxCount: number;
+  totalRecordsTested?: number;
 }
 
 export interface IndividualModelResponse {

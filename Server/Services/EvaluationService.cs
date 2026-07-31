@@ -235,7 +235,41 @@ public class EvaluationService
         return resultItems;
     }
 
-    public async Task<EvaluationReport> RunBenchmarkAsync(int recordCount = 24, string mode = "both", string ollamaModel = "llama3.2", int samplesPerCategory = 2)
+    public async Task<List<EvaluationReport>> RunBenchmarkBatchAsync(
+        int recordCount = 24,
+        string mode = "both",
+        string ollamaModel = "llama3.2",
+        int samplesPerCategory = 2,
+        int iterations = 1)
+    {
+        if (iterations <= 0) iterations = 1;
+        var reports = new List<EvaluationReport>();
+
+        for (int i = 1; i <= iterations; i++)
+        {
+            Console.WriteLine($"\n=======================================================");
+            Console.WriteLine($"[BENCHMARK BATCH] Rozpoczynanie próby {i}/{iterations} ({recordCount} pytań, Model: '{ollamaModel}')...");
+            Console.WriteLine($"=======================================================\n");
+
+            var report = await RunBenchmarkAsync(recordCount, mode, ollamaModel, samplesPerCategory, iterationIndex: i, totalIterations: iterations);
+            reports.Add(report);
+
+            if (i < iterations)
+            {
+                await Task.Delay(500);
+            }
+        }
+
+        return reports;
+    }
+
+    public async Task<EvaluationReport> RunBenchmarkAsync(
+        int recordCount = 24,
+        string mode = "both",
+        string ollamaModel = "llama3.2",
+        int samplesPerCategory = 2,
+        int iterationIndex = 0,
+        int totalIterations = 1)
     {
         if (string.IsNullOrWhiteSpace(ollamaModel)) ollamaModel = "llama3.2";
         if (samplesPerCategory <= 0) samplesPerCategory = 2;
@@ -262,8 +296,9 @@ public class EvaluationService
         if (isUsingPerfDataset)
         {
             var testSet = perfItems;
+            var iterTag = iterationIndex > 0 ? $" | Próba: {iterationIndex}/{totalIterations}" : "";
             Console.WriteLine($"\n=======================================================");
-            Console.WriteLine($"[BENCHMARK STARTED] Rekordów: {testSet.Count} (12 kategorii x {samplesPerCategory} próbki) | Środowisko: {mode} | Ollama Model: '{ollamaModel}'");
+            Console.WriteLine($"[BENCHMARK STARTED] Rekordów: {testSet.Count} (12 kategorii x {samplesPerCategory} próbki){iterTag} | Środowisko: {mode} | Ollama Model: '{ollamaModel}'");
             Console.WriteLine($"=======================================================\n");
 
             for (int i = 0; i < testSet.Count; i++)
@@ -450,9 +485,10 @@ public class EvaluationService
         var baseMetrics = CalculateModelMetrics(baseMetricsName, itemResults.Select(r => (r.BaseModelResponse, r.GroundTruthIsThreat, r.GroundTruthAction)).ToList(), runBase);
         var ftMetrics = CalculateModelMetrics(ftMetricsName, itemResults.Select(r => (r.FineTunedModelResponse, r.GroundTruthIsThreat, r.GroundTruthAction)).ToList(), runFt);
 
+        var reportIdSuffix = iterationIndex > 0 ? $"P{iterationIndex}" : Guid.NewGuid().ToString().Substring(0, 4);
         var report = new EvaluationReport
         {
-            ReportId = $"EVAL-{DateTime.UtcNow:yyyyMMdd-HHmmss}",
+            ReportId = $"EVAL-{DateTime.UtcNow:yyyyMMdd-HHmmss}-{reportIdSuffix}",
             Timestamp = DateTime.UtcNow,
             TotalRecordsTested = itemResults.Count,
             BaseModelMetrics = baseMetrics,
@@ -631,15 +667,7 @@ Surowe Logi Zdarzenia:
 
                     bool isThreat = !predictedClass.Equals("BENIGN", StringComparison.OrdinalIgnoreCase);
                     
-                    bool isJsonClassCorrect = false;
-                    if (!string.IsNullOrEmpty(groundTruthCategory))
-                    {
-                        isJsonClassCorrect = predictedClass.Equals(groundTruthCategory, StringComparison.OrdinalIgnoreCase);
-                    }
-                    else
-                    {
-                        isJsonClassCorrect = (isThreat == groundTruthIsThreat);
-                    }
+                    bool isJsonClassCorrect = (isThreat == groundTruthIsThreat);
 
                     bool isActionCorrect = IsActionMatching(predictedAction, groundTruthAction);
                     bool isFormatValid = !string.IsNullOrEmpty(predictedClass) && !string.IsNullOrEmpty(predictedAction);
@@ -788,11 +816,15 @@ Surowe Logi Zdarzenia:
                 TruePositives = 0,
                 FalsePositives = 0,
                 TrueNegatives = 0,
-                FalseNegatives = 0
+                FalseNegatives = 0,
+                CorrectClassCount = 0,
+                CorrectActionCount = 0,
+                ValidSyntaxCount = 0
             };
         }
 
         int tp = 0, fp = 0, tn = 0, fn = 0;
+        int correctClassCount = 0;
         int correctActionCount = 0;
         int validSyntaxCount = 0;
         long totalLatency = 0;
@@ -801,15 +833,20 @@ Surowe Logi Zdarzenia:
         {
             bool predicted = item.resp.PredictedIsThreat;
             bool actual = item.gtIsThreat;
+            bool isClassOK = item.resp.IsClassCorrect;
+            bool isActionOK = item.resp.IsActionCorrect;
+            bool isFullOK = isClassOK && isActionOK;
 
-            if (actual && predicted) tp++;
-            else if (!actual && predicted) fp++;
-            else if (!actual && !predicted) tn++;
-            else if (actual && !predicted) fn++;
-
-            if (item.resp.IsActionCorrect) correctActionCount++;
+            if (isClassOK) correctClassCount++;
+            if (isActionOK) correctActionCount++;
             if (item.resp.IsFormatValid) validSyntaxCount++;
             totalLatency += item.resp.LatencyMs;
+
+            // Strict Full SOC Decision: A decision is a True Positive/Negative ONLY if both Class AND Action are correct
+            if (actual && predicted && isFullOK) tp++;
+            else if (!actual && !predicted && isFullOK) tn++;
+            else if (!actual && (predicted || !isFullOK)) fp++;
+            else if (actual && (!predicted || !isFullOK)) fn++;
         }
 
         double accuracy = (double)(tp + tn) / total * 100.0;
@@ -832,7 +869,7 @@ Surowe Logi Zdarzenia:
             FalsePositives = fp,
             TrueNegatives = tn,
             FalseNegatives = fn,
-            CorrectClassCount = tp + tn,
+            CorrectClassCount = correctClassCount,
             CorrectActionCount = correctActionCount,
             ValidSyntaxCount = validSyntaxCount
         };

@@ -23,26 +23,33 @@ public class EvaluationController : ControllerBase
         [FromQuery] int count = 24,
         [FromQuery] string mode = "both",
         [FromQuery] string ollamaModel = "llama3.2",
-        [FromQuery] int samplesPerCategory = 2)
+        [FromQuery] int samplesPerCategory = 2,
+        [FromQuery] int iterations = 1)
     {
         try
         {
             if (count <= 0) count = 24;
             if (samplesPerCategory <= 0) samplesPerCategory = 2;
-            var report = await _evaluationService.RunBenchmarkAsync(count, mode, ollamaModel, samplesPerCategory);
+            if (iterations <= 0) iterations = 1;
+
+            var reports = await _evaluationService.RunBenchmarkBatchAsync(count, mode, ollamaModel, samplesPerCategory, iterations);
+            var latestReport = reports.LastOrDefault();
             
-            var msg = mode switch
-            {
-                "base" => $"Pomyślnie przeprowadzono test Modelu Bazowego (Ollama '{ollamaModel}') dla {report.TotalRecordsTested} rekordów.",
-                "ft" => $"Pomyślnie przeprowadzono test Modelu Wyfinetuningowanego (Azure OpenAI FT) dla {report.TotalRecordsTested} rekordów.",
-                _ => $"Pomyślnie przeprowadzono pełny benchmark porównawczy dla {report.TotalRecordsTested} rekordów."
-            };
+            var msg = iterations > 1 
+                ? $"Pomyślnie przeprowadzono {reports.Count} prób(y) testowych dla modelu '{ollamaModel}' (łącznie {reports.Count * count} pytania)."
+                : mode switch
+                {
+                    "base" => $"Pomyślnie przeprowadzono test Modelu Bazowego (Ollama '{ollamaModel}') dla {latestReport?.TotalRecordsTested} rekordów.",
+                    "ft" => $"Pomyślnie przeprowadzono test Modelu Wyfinetuningowanego (Azure OpenAI FT) dla {latestReport?.TotalRecordsTested} rekordów.",
+                    _ => $"Pomyślnie przeprowadzono pełny benchmark porównawczy dla {latestReport?.TotalRecordsTested} rekordów."
+                };
 
             return Ok(new
             {
                 success = true,
                 message = msg,
-                report
+                report = latestReport,
+                reports
             });
         }
         catch (Exception ex)

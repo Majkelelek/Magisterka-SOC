@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Play, BarChart2, CheckCircle2, XCircle, Clock, Zap, Shield, Sparkles, RefreshCw, AlertTriangle, Layers, ChevronDown, ChevronUp, FileText, Cpu, Cloud, Download, FileSpreadsheet, Filter, Trash2 } from 'lucide-react';
-import type { EvaluationReport } from '../types/evaluation';
+import type { EvaluationReport, EvaluationItemResult, ModelEvaluationMetrics } from '../types/evaluation';
 import { runModelEvaluation, getLatestEvaluationReport, getEvaluationHistory, fetchOllamaModels, deleteEvaluationReport } from '../services/api';
 
 export const EvaluationBenchmarkPage: React.FC = () => {
@@ -11,7 +11,8 @@ export const EvaluationBenchmarkPage: React.FC = () => {
 
   const [loading, setLoading] = useState<boolean>(true);
   const [running, setRunning] = useState<boolean>(false);
-  const [recordCount, setRecordCount] = useState<number>(20);
+  const [recordCount, setRecordCount] = useState<number>(24);
+  const [iterations, setIterations] = useState<number>(1);
   const [statusMsg, setStatusMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
   const [filterMode, setFilterMode] = useState<'ALL' | 'MISMATCHED' | 'CORRECT'>('ALL');
@@ -63,24 +64,31 @@ export const EvaluationBenchmarkPage: React.FC = () => {
     setStatusMsg(null);
 
     const modeText = mode === 'base'
-      ? `Ollama (${selectedOllamaModel})`
+      ? `Ollama (${selectedOllamaModel}) - ${iterations} ${iterations === 1 ? 'próba' : 'próby'}`
       : mode === 'ft'
-        ? 'Azure OpenAI FT'
-        : `Ollama + Azure OpenAI FT`;
+        ? `Azure OpenAI FT - ${iterations} ${iterations === 1 ? 'próba' : 'próby'}`
+        : `Ollama + Azure OpenAI FT - ${iterations} ${iterations === 1 ? 'próba' : 'próby'}`;
     setActiveModeText(modeText);
 
     const timerInterval = setInterval(() => {
       setElapsedSeconds(prev => prev + 1);
     }, 1000);
 
-    const res = await runModelEvaluation(recordCount, mode, selectedOllamaModel);
+    const res = await runModelEvaluation(recordCount, mode, selectedOllamaModel, 2, iterations);
     clearInterval(timerInterval);
 
     setRunning(false);
     if (res.success && res.report) {
       setReport(res.report);
       setSelectedBaseReportId(res.report.reportId);
-      setHistoricalReports(prev => [res.report!, ...prev.filter(r => r.reportId !== res.report!.reportId)]);
+      
+      const newReports = res.reports || [res.report];
+      setHistoricalReports(prev => {
+        const existingMap = new Map(prev.map(r => [r.reportId, r]));
+        newReports.forEach(r => existingMap.set(r.reportId, r));
+        return Array.from(existingMap.values()).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      });
+
       setStatusMsg({ text: res.message, type: 'success' });
     } else {
       setStatusMsg({ text: res.message, type: 'error' });
@@ -98,6 +106,66 @@ export const EvaluationBenchmarkPage: React.FC = () => {
     return { text: `${sign}${pct}%`, isPositive };
   };
 
+  const computeStrictMetrics = (rawMetrics: ModelEvaluationMetrics | undefined, itemResults: EvaluationItemResult[] | undefined, isBaseModel: boolean) => {
+    if (!rawMetrics) return undefined;
+    if (!itemResults || itemResults.length === 0) {
+      const totalTested = (rawMetrics.truePositives + rawMetrics.falsePositives + rawMetrics.trueNegatives + rawMetrics.falseNegatives) || 1;
+      const classAcc = rawMetrics.correctClassCount ? (rawMetrics.correctClassCount / totalTested) * 100 : rawMetrics.accuracy;
+      const actAcc = rawMetrics.correctActionCount ? (rawMetrics.correctActionCount / totalTested) * 100 : rawMetrics.accuracy;
+      return { ...rawMetrics, classAccuracy: classAcc, actionAccuracy: actAcc };
+    }
+
+    const total = itemResults.length;
+    let tp = 0, fp = 0, tn = 0, fn = 0;
+    let correctClassCount = 0;
+    let correctActionCount = 0;
+    let validSyntaxCount = 0;
+    let totalLatency = 0;
+
+    itemResults.forEach(item => {
+      const resp = isBaseModel ? item.baseModelResponse : item.fineTunedModelResponse;
+      const actual = item.groundTruthIsThreat;
+      const predicted = resp.predictedIsThreat;
+      const isClassOK = (actual === predicted);
+      const isActionOK = resp.isActionCorrect;
+      const isFullOK = isClassOK && isActionOK;
+
+      if (isClassOK) correctClassCount++;
+      if (isActionOK) correctActionCount++;
+      if (resp.isFormatValid) validSyntaxCount++;
+      totalLatency += resp.latencyMs;
+
+      // Strict Full SOC Decision: A decision is a True Positive/Negative ONLY if both Class AND Action are correct
+      if (actual && predicted && isFullOK) tp++;
+      else if (!actual && !predicted && isFullOK) tn++;
+      else if (!actual && (predicted || !isFullOK)) fp++;
+      else if (actual && (!predicted || !isFullOK)) fn++;
+    });
+
+    const accuracy = (tp + tn) / total * 100.0;
+    const precision = (tp + fp) > 0 ? (tp / (tp + fp)) * 100.0 : 100.0;
+    const recall = (tp + fn) > 0 ? (tp / (tp + fn)) * 100.0 : 100.0;
+    const f1Score = (precision + recall) > 0 ? 2 * (precision * recall) / (precision + recall) : 0.0;
+    const classAccuracy = (correctClassCount / total) * 100.0;
+    const actionAccuracy = (correctActionCount / total) * 100.0;
+
+    return {
+      ...rawMetrics,
+      accuracy,
+      precision,
+      recall,
+      f1Score,
+      truePositives: tp,
+      falsePositives: fp,
+      trueNegatives: tn,
+      falseNegatives: fn,
+      correctClassCount,
+      correctActionCount,
+      classAccuracy,
+      actionAccuracy
+    };
+  };
+
   // Model filtering & historical reports logic
   const uniqueModelNames = Array.from(
     new Set(historicalReports.map(r => r.baseModelMetrics?.modelName).filter(Boolean))
@@ -108,8 +176,8 @@ export const EvaluationBenchmarkPage: React.FC = () => {
     : historicalReports.filter(r => r.baseModelMetrics?.modelName.toLowerCase() === selectedModelFilter.toLowerCase());
 
   const selectedBaseReport = historicalReports.find(r => r.reportId === selectedBaseReportId) || report;
-  const baseMetrics = selectedBaseReport?.baseModelMetrics || report?.baseModelMetrics;
-  const ftMetrics = report?.fineTunedModelMetrics;
+  const baseMetrics = computeStrictMetrics(selectedBaseReport?.baseModelMetrics || report?.baseModelMetrics, selectedBaseReport?.itemResults || report?.itemResults, true);
+  const ftMetrics = computeStrictMetrics(report?.fineTunedModelMetrics, report?.itemResults, false);
 
   const handleExportToExcel = () => {
     const reportsToExport = selectedModelFilter === 'ALL'
@@ -193,6 +261,39 @@ export const EvaluationBenchmarkPage: React.FC = () => {
     }
   };
 
+  const handleDeleteAllFilteredReports = async () => {
+    const targets = selectedModelFilter === 'ALL'
+      ? historicalReports
+      : historicalReports.filter(r => r.baseModelMetrics?.modelName.toLowerCase() === selectedModelFilter.toLowerCase());
+
+    if (targets.length === 0) {
+      alert('Brak prób do usunięcia w aktualnym filtrze.');
+      return;
+    }
+
+    const filterName = selectedModelFilter === 'ALL' ? 'wszystkie próby' : `wszystkie próby dla modelu ${selectedModelFilter}`;
+    if (!window.confirm(`Czy na pewno chcesz usunąć ${targets.length} prób (${filterName})? Operacja jest nieodwracalna.`)) {
+      return;
+    }
+
+    let deletedCount = 0;
+    for (const r of targets) {
+      const res = await deleteEvaluationReport(r.reportId);
+      if (res.success) deletedCount++;
+    }
+
+    setStatusMsg({ text: `Pomyślnie usunięto ${deletedCount} prób z bazy danych.`, type: 'success' });
+    const remaining = historicalReports.filter(r => !targets.some(t => t.reportId === r.reportId));
+    setHistoricalReports(remaining);
+    if (remaining.length > 0) {
+      setReport(remaining[0]);
+      setSelectedBaseReportId(remaining[0].reportId);
+    } else {
+      setReport(null);
+      setSelectedBaseReportId('');
+    }
+  };
+
   const filteredItems = (report?.itemResults || []).filter(item => {
     const bResp = (selectedBaseReport?.itemResults.find(r => r.alertId === item.alertId) || item).baseModelResponse;
     const fResp = item.fineTunedModelResponse;
@@ -200,7 +301,7 @@ export const EvaluationBenchmarkPage: React.FC = () => {
       return !bResp.isClassCorrect || !fResp.isClassCorrect || !bResp.isActionCorrect || !fResp.isActionCorrect;
     }
     if (filterMode === 'CORRECT') {
-      return bResp.isClassCorrect && fResp.isClassCorrect;
+      return bResp.isClassCorrect && bResp.isActionCorrect && fResp.isClassCorrect && fResp.isActionCorrect;
     }
     return true;
   });
@@ -256,10 +357,36 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                     outline: 'none'
                   }}
                 >
-                  <option value={10} style={{ background: '#0f172a' }}>10 alertów</option>
-                  <option value={20} style={{ background: '#0f172a' }}>20 alertów</option>
-                  <option value={50} style={{ background: '#0f172a' }}>50 alertów</option>
-                  <option value={75} style={{ background: '#0f172a' }}>75 alertów (Całość)</option>
+                  <option value={24} style={{ background: '#0f172a' }}>24 alerty (12 kategorii x2)</option>
+                  <option value={12} style={{ background: '#0f172a' }}>12 alertów (12 kategorii x1)</option>
+                  <option value={36} style={{ background: '#0f172a' }}>36 alertów (12 kategorii x3)</option>
+                  <option value={48} style={{ background: '#0f172a' }}>48 alertów (12 kategorii x4)</option>
+                </select>
+              </div>
+
+              {/* Iterations / Repeat Count Selector */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(15, 23, 42, 0.8)', padding: '0.4rem 0.75rem', borderRadius: '8px', border: '1px solid rgba(192, 132, 252, 0.4)' }}>
+                <Layers size={14} color="#c084fc" />
+                <span style={{ fontSize: '0.8rem', color: '#c084fc', fontWeight: 600 }}>Liczba Prób (Seria):</span>
+                <select
+                  value={iterations}
+                  onChange={e => setIterations(Number(e.target.value))}
+                  disabled={running}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: '#ffffff',
+                    fontWeight: 700,
+                    fontSize: '0.85rem',
+                    cursor: 'pointer',
+                    outline: 'none'
+                  }}
+                >
+                  <option value={1} style={{ background: '#0f172a' }}>1 próba (24 pytania)</option>
+                  <option value={2} style={{ background: '#0f172a' }}>2 próby (48 pytań)</option>
+                  <option value={3} style={{ background: '#0f172a' }}>3 próby (72 pytania)</option>
+                  <option value={5} style={{ background: '#0f172a' }}>5 prób (120 pytań)</option>
+                  <option value={10} style={{ background: '#0f172a' }}>10 prób (240 pytań)</option>
                 </select>
               </div>
 
@@ -604,7 +731,32 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                     }}
                   >
                     <Trash2 size={15} />
-                    Usuń próbę
+                    Usuń tę próbę
+                  </button>
+                )}
+
+                {/* Delete All Filtered Reports Button */}
+                {filteredHistoricalReports.length > 0 && (
+                  <button
+                    onClick={handleDeleteAllFilteredReports}
+                    title="Usuń wszystkie próby w aktualnie wybranym filtrze"
+                    style={{
+                      background: 'rgba(220, 38, 38, 0.25)',
+                      color: '#fca5a5',
+                      border: '1px solid rgba(239, 68, 68, 0.5)',
+                      borderRadius: '8px',
+                      padding: '0.5rem 0.85rem',
+                      fontWeight: 800,
+                      fontSize: '0.8rem',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    <Trash2 size={15} />
+                    Usuń Próby z Filtra ({filteredHistoricalReports.length})
                   </button>
                 )}
               </div>
@@ -645,9 +797,73 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody>
+                    {/* Summary Row for Averages Across All Runs of Selected Model */}
+                    {(() => {
+                      if (!filteredHistoricalReports || filteredHistoricalReports.length === 0) return null;
+
+                      let sumAcc = 0, sumPrec = 0, sumRec = 0, sumF1 = 0, sumLat = 0;
+                      filteredHistoricalReports.forEach(h => {
+                        const bm = computeStrictMetrics(h.baseModelMetrics, h.itemResults, true) || h.baseModelMetrics;
+                        sumAcc += bm.accuracy || 0;
+                        sumPrec += bm.precision || 0;
+                        sumRec += bm.recall || 0;
+                        sumF1 += bm.f1Score || 0;
+                        sumLat += bm.averageLatencyMs || 0;
+                      });
+
+                      const cnt = filteredHistoricalReports.length;
+                      const avgAcc = sumAcc / cnt;
+                      const avgPrec = sumPrec / cnt;
+                      const avgRec = sumRec / cnt;
+                      const avgF1 = sumF1 / cnt;
+                      const avgLat = sumLat / cnt;
+
+                      return (
+                        <tr
+                          style={{
+                            background: 'linear-gradient(90deg, rgba(56, 189, 248, 0.22) 0%, rgba(139, 92, 246, 0.22) 100%)',
+                            borderBottom: '2px solid #38bdf8',
+                            boxShadow: '0 2px 10px rgba(56, 189, 248, 0.15)'
+                          }}
+                        >
+                          <td style={{ padding: '0.65rem 0.75rem', fontWeight: 900, color: '#ffffff', fontSize: '0.775rem' }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#38bdf8', color: '#0f172a', padding: '0.15rem 0.5rem', borderRadius: '4px', fontWeight: 800 }}>
+                              <BarChart2 size={12} /> ŚREDNIA ({cnt})
+                            </span>
+                          </td>
+                          <td style={{ padding: '0.65rem 0.75rem', fontWeight: 800, color: '#38bdf8' }}>
+                            Średnia ze wszystkich prób
+                          </td>
+                          <td style={{ padding: '0.65rem 0.75rem', color: '#94a3b8', fontSize: '0.725rem', fontWeight: 600 }}>
+                            Średnia z {cnt} testów
+                          </td>
+                          <td style={{ padding: '0.65rem 0.75rem', fontWeight: 900, color: avgAcc >= 80 ? '#4ade80' : '#facc15', fontSize: '0.85rem' }}>
+                            {avgAcc.toFixed(1)}%
+                          </td>
+                          <td style={{ padding: '0.65rem 0.75rem', fontWeight: 800, color: '#e2e8f0', fontSize: '0.85rem' }}>
+                            {avgPrec.toFixed(1)}%
+                          </td>
+                          <td style={{ padding: '0.65rem 0.75rem', fontWeight: 800, color: '#e2e8f0', fontSize: '0.85rem' }}>
+                            {avgRec.toFixed(1)}%
+                          </td>
+                          <td style={{ padding: '0.65rem 0.75rem', fontWeight: 900, color: '#c084fc', fontSize: '0.85rem' }}>
+                            {avgF1.toFixed(1)}%
+                          </td>
+                          <td style={{ padding: '0.65rem 0.75rem', fontWeight: 800, color: '#38bdf8', fontSize: '0.85rem' }}>
+                            {avgLat.toFixed(0)} ms
+                          </td>
+                          <td style={{ padding: '0.65rem 0.75rem', textAlign: 'right' }}>
+                            <span style={{ fontSize: '0.7rem', fontWeight: 800, padding: '0.2rem 0.55rem', borderRadius: '4px', background: 'rgba(56, 189, 248, 0.25)', color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.4)' }}>
+                              Zbiorczy Wynik Modelu
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })()}
+
                     {filteredHistoricalReports.map((h, idx) => {
                       const isSelected = h.reportId === selectedBaseReportId;
-                      const bm = h.baseModelMetrics;
+                      const bm = computeStrictMetrics(h.baseModelMetrics, h.itemResults, true) || h.baseModelMetrics;
                       return (
                         <tr
                           key={h.reportId}
@@ -747,10 +963,10 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {/* Accuracy */}
+                  {/* Full SOC Accuracy (100% OK) */}
                   <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
                     <td style={{ padding: '0.85rem 1rem', fontWeight: 700, color: '#ffffff' }}>
-                      🎯 Accuracy (Dokładność klasyfikacji)
+                      🎯 Pełna Dokładność SOC (100% OK: Klasa + Akcja)
                     </td>
                     <td style={{ padding: '0.85rem 1rem', fontFamily: 'monospace', fontSize: '0.95rem', color: '#38bdf8', fontWeight: 700 }}>
                       {baseMetrics ? `${baseMetrics.accuracy.toFixed(1)}%` : '-'}
@@ -762,6 +978,68 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                       {(() => {
                         if (!baseMetrics || !ftMetrics) return '-';
                         const diff = calculateDiff(ftMetrics.accuracy, baseMetrics.accuracy);
+                        return (
+                          <span style={{
+                            padding: '0.2rem 0.65rem',
+                            borderRadius: '6px',
+                            fontWeight: 800,
+                            fontSize: '0.8rem',
+                            background: diff.isPositive ? 'rgba(34, 197, 94, 0.18)' : 'rgba(239, 68, 68, 0.18)',
+                            color: diff.isPositive ? '#4ade80' : '#f87171'
+                          }}>
+                            {diff.text}
+                          </span>
+                        );
+                      })()}
+                    </td>
+                  </tr>
+
+                  {/* Class Accuracy */}
+                  <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                    <td style={{ padding: '0.85rem 1rem', fontWeight: 700, color: '#ffffff' }}>
+                      🏷️ Zgodność Klasyfikacji (Trafienie Kategori/Typu Ruchu)
+                    </td>
+                    <td style={{ padding: '0.85rem 1rem', fontFamily: 'monospace', fontSize: '0.95rem', color: '#38bdf8', fontWeight: 700 }}>
+                      {baseMetrics && baseMetrics.classAccuracy !== undefined ? `${baseMetrics.classAccuracy.toFixed(1)}%` : '-'}
+                    </td>
+                    <td style={{ padding: '0.85rem 1rem', fontFamily: 'monospace', fontSize: '0.95rem', color: '#c084fc', fontWeight: 700 }}>
+                      {ftMetrics && ftMetrics.classAccuracy !== undefined ? `${ftMetrics.classAccuracy.toFixed(1)}%` : '-'}
+                    </td>
+                    <td style={{ padding: '0.85rem 1rem', textAlign: 'right' }}>
+                      {(() => {
+                        if (!baseMetrics || !ftMetrics || baseMetrics.classAccuracy === undefined || ftMetrics.classAccuracy === undefined) return '-';
+                        const diff = calculateDiff(ftMetrics.classAccuracy, baseMetrics.classAccuracy);
+                        return (
+                          <span style={{
+                            padding: '0.2rem 0.65rem',
+                            borderRadius: '6px',
+                            fontWeight: 800,
+                            fontSize: '0.8rem',
+                            background: diff.isPositive ? 'rgba(34, 197, 94, 0.18)' : 'rgba(239, 68, 68, 0.18)',
+                            color: diff.isPositive ? '#4ade80' : '#f87171'
+                          }}>
+                            {diff.text}
+                          </span>
+                        );
+                      })()}
+                    </td>
+                  </tr>
+
+                  {/* Action Accuracy */}
+                  <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                    <td style={{ padding: '0.85rem 1rem', fontWeight: 700, color: '#ffffff' }}>
+                      ⚙️ Zgodność Rekomendacji Akcji (Isolation / Escalation / Dismiss)
+                    </td>
+                    <td style={{ padding: '0.85rem 1rem', fontFamily: 'monospace', fontSize: '0.95rem', color: '#38bdf8', fontWeight: 700 }}>
+                      {baseMetrics && baseMetrics.actionAccuracy !== undefined ? `${baseMetrics.actionAccuracy.toFixed(1)}%` : '-'}
+                    </td>
+                    <td style={{ padding: '0.85rem 1rem', fontFamily: 'monospace', fontSize: '0.95rem', color: '#c084fc', fontWeight: 700 }}>
+                      {ftMetrics && ftMetrics.actionAccuracy !== undefined ? `${ftMetrics.actionAccuracy.toFixed(1)}%` : '-'}
+                    </td>
+                    <td style={{ padding: '0.85rem 1rem', textAlign: 'right' }}>
+                      {(() => {
+                        if (!baseMetrics || !ftMetrics || baseMetrics.actionAccuracy === undefined || ftMetrics.actionAccuracy === undefined) return '-';
+                        const diff = calculateDiff(ftMetrics.actionAccuracy, baseMetrics.actionAccuracy);
                         return (
                           <span style={{
                             padding: '0.2rem 0.65rem',
@@ -1133,11 +1411,11 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                                   borderRadius: '6px',
                                   fontSize: '0.75rem',
                                   fontWeight: 800,
-                                  background: baseResp.isClassCorrect ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)',
-                                  color: baseResp.isClassCorrect ? '#4ade80' : '#f87171',
-                                  border: baseResp.isClassCorrect ? '1px solid rgba(34, 197, 94, 0.35)' : '1px solid rgba(239, 68, 68, 0.35)'
+                                  background: (item.groundTruthIsThreat === baseResp.predictedIsThreat) ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                                  color: (item.groundTruthIsThreat === baseResp.predictedIsThreat) ? '#4ade80' : '#f87171',
+                                  border: (item.groundTruthIsThreat === baseResp.predictedIsThreat) ? '1px solid rgba(34, 197, 94, 0.35)' : '1px solid rgba(239, 68, 68, 0.35)'
                                 }}>
-                                  {baseResp.isClassCorrect ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
+                                  {(item.groundTruthIsThreat === baseResp.predictedIsThreat) ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
                                   {baseResp.predictedIsThreat ? 'Atak' : 'Ruch Prawidłowy'}
                                 </span>
                                 <span style={{
@@ -1145,14 +1423,36 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                                   fontWeight: 800,
                                   padding: '1px 5px',
                                   borderRadius: '3px',
-                                  background: baseResp.isClassCorrect ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                                  color: baseResp.isClassCorrect ? '#4ade80' : '#f87171'
+                                  background: ((item.groundTruthIsThreat === baseResp.predictedIsThreat) && baseResp.isActionCorrect)
+                                    ? 'rgba(34, 197, 94, 0.2)'
+                                    : ((item.groundTruthIsThreat === baseResp.predictedIsThreat) && !baseResp.isActionCorrect)
+                                      ? 'rgba(234, 179, 8, 0.25)'
+                                      : 'rgba(239, 68, 68, 0.2)',
+                                  color: ((item.groundTruthIsThreat === baseResp.predictedIsThreat) && baseResp.isActionCorrect)
+                                    ? '#4ade80'
+                                    : ((item.groundTruthIsThreat === baseResp.predictedIsThreat) && !baseResp.isActionCorrect)
+                                      ? '#facc15'
+                                      : '#f87171',
+                                  border: ((item.groundTruthIsThreat === baseResp.predictedIsThreat) && baseResp.isActionCorrect)
+                                    ? '1px solid rgba(34, 197, 94, 0.4)'
+                                    : ((item.groundTruthIsThreat === baseResp.predictedIsThreat) && !baseResp.isActionCorrect)
+                                      ? '1px solid rgba(234, 179, 8, 0.4)'
+                                      : '1px solid rgba(239, 68, 68, 0.4)'
                                 }}>
-                                  {baseResp.isClassCorrect ? 'OK' : 'BŁĄD'}
+                                  {((item.groundTruthIsThreat === baseResp.predictedIsThreat) && baseResp.isActionCorrect)
+                                    ? '100% OK'
+                                    : ((item.groundTruthIsThreat === baseResp.predictedIsThreat) && !baseResp.isActionCorrect)
+                                      ? '50% (Błąd Akcji)'
+                                      : '0% (BŁĄD Klasyfikacji)'}
                                 </span>
                               </div>
                               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.7rem', color: '#64748b' }}>
-                                <span>Akcja: <strong style={{ color: '#cbd5e1' }}>{baseResp.predictedAction}</strong></span>
+                                <span>
+                                  Akcja: <strong style={{ color: baseResp.isActionCorrect ? '#4ade80' : '#f87171' }}>{baseResp.predictedAction}</strong>
+                                  {!baseResp.isActionCorrect && (
+                                    <span style={{ color: '#f87171', fontSize: '0.65rem', marginLeft: '4px', fontWeight: 600 }}>(≠ {item.groundTruthAction})</span>
+                                  )}
+                                </span>
                                 <span style={{ color: '#38bdf8', display: 'inline-flex', alignItems: 'center', gap: '3px', fontWeight: 600 }}>
                                   <Clock size={10} /> {baseResp.latencyMs} ms
                                 </span>
@@ -1172,11 +1472,11 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                                   borderRadius: '6px',
                                   fontSize: '0.75rem',
                                   fontWeight: 800,
-                                  background: ftResp.isClassCorrect ? 'rgba(139, 92, 246, 0.25)' : 'rgba(239, 68, 68, 0.2)',
-                                  color: ftResp.isClassCorrect ? '#c084fc' : '#f87171',
-                                  border: ftResp.isClassCorrect ? '1px solid rgba(139, 92, 246, 0.4)' : '1px solid rgba(239, 68, 68, 0.35)'
+                                  background: (item.groundTruthIsThreat === ftResp.predictedIsThreat) ? 'rgba(139, 92, 246, 0.25)' : 'rgba(239, 68, 68, 0.2)',
+                                  color: (item.groundTruthIsThreat === ftResp.predictedIsThreat) ? '#c084fc' : '#f87171',
+                                  border: (item.groundTruthIsThreat === ftResp.predictedIsThreat) ? '1px solid rgba(139, 92, 246, 0.4)' : '1px solid rgba(239, 68, 68, 0.35)'
                                 }}>
-                                  {ftResp.isClassCorrect ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
+                                  {(item.groundTruthIsThreat === ftResp.predictedIsThreat) ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
                                   {ftResp.predictedIsThreat ? 'Atak' : 'Ruch Prawidłowy'}
                                 </span>
                                 <span style={{
@@ -1184,14 +1484,36 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                                   fontWeight: 800,
                                   padding: '1px 5px',
                                   borderRadius: '3px',
-                                  background: ftResp.isClassCorrect ? 'rgba(139, 92, 246, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                                  color: ftResp.isClassCorrect ? '#c084fc' : '#f87171'
+                                  background: ((item.groundTruthIsThreat === ftResp.predictedIsThreat) && ftResp.isActionCorrect)
+                                    ? 'rgba(139, 92, 246, 0.25)'
+                                    : ((item.groundTruthIsThreat === ftResp.predictedIsThreat) && !ftResp.isActionCorrect)
+                                      ? 'rgba(234, 179, 8, 0.25)'
+                                      : 'rgba(239, 68, 68, 0.2)',
+                                  color: ((item.groundTruthIsThreat === ftResp.predictedIsThreat) && ftResp.isActionCorrect)
+                                    ? '#c084fc'
+                                    : ((item.groundTruthIsThreat === ftResp.predictedIsThreat) && !ftResp.isActionCorrect)
+                                      ? '#facc15'
+                                      : '#f87171',
+                                  border: ((item.groundTruthIsThreat === ftResp.predictedIsThreat) && ftResp.isActionCorrect)
+                                    ? '1px solid rgba(139, 92, 246, 0.4)'
+                                    : ((item.groundTruthIsThreat === ftResp.predictedIsThreat) && !ftResp.isActionCorrect)
+                                      ? '1px solid rgba(234, 179, 8, 0.4)'
+                                      : '1px solid rgba(239, 68, 68, 0.4)'
                                 }}>
-                                  {ftResp.isClassCorrect ? 'OK' : 'BŁĄD'}
+                                  {((item.groundTruthIsThreat === ftResp.predictedIsThreat) && ftResp.isActionCorrect)
+                                    ? '100% OK'
+                                    : ((item.groundTruthIsThreat === ftResp.predictedIsThreat) && !ftResp.isActionCorrect)
+                                      ? '50% (Błąd Akcji)'
+                                      : '0% (BŁĄD Klasyfikacji)'}
                                 </span>
                               </div>
                               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.7rem', color: '#64748b' }}>
-                                <span>Akcja: <strong style={{ color: '#cbd5e1' }}>{ftResp.predictedAction}</strong></span>
+                                <span>
+                                  Akcja: <strong style={{ color: ftResp.isActionCorrect ? '#c084fc' : '#f87171' }}>{ftResp.predictedAction}</strong>
+                                  {!ftResp.isActionCorrect && (
+                                    <span style={{ color: '#f87171', fontSize: '0.65rem', marginLeft: '4px', fontWeight: 600 }}>(≠ {item.groundTruthAction})</span>
+                                  )}
+                                </span>
                                 <span style={{ color: '#c084fc', display: 'inline-flex', alignItems: 'center', gap: '3px', fontWeight: 600 }}>
                                   <Zap size={10} /> {ftResp.latencyMs} ms
                                 </span>

@@ -427,19 +427,21 @@ export async function fetchOllamaModels(): Promise<{ success: boolean; models: s
 }
 
 export async function runModelEvaluation(
-  count: number = 20,
+  count: number = 24,
   mode: 'both' | 'base' | 'ft' = 'both',
-  ollamaModel: string = 'llama3.2'
-): Promise<{ success: boolean; message: string; report?: EvaluationReport }> {
+  ollamaModel: string = 'llama3.2',
+  samplesPerCategory: number = 2,
+  iterations: number = 1
+): Promise<{ success: boolean; message: string; report?: EvaluationReport; reports?: EvaluationReport[] }> {
   try {
-    const res = await fetch(`${API_BASE_URL}/evaluation/run?count=${count}&mode=${mode}&ollamaModel=${encodeURIComponent(ollamaModel)}`, {
+    const res = await fetch(`${API_BASE_URL}/evaluation/run?count=${count}&mode=${mode}&ollamaModel=${encodeURIComponent(ollamaModel)}&samplesPerCategory=${samplesPerCategory}&iterations=${iterations}`, {
       method: 'POST',
       headers: getAuthHeaders()
     });
     checkResponseStatus(res);
     const data = await res.json();
     if (!res.ok) return { success: false, message: data.message || 'Błąd podczas wykonywania ewaluacji.' };
-    return { success: true, message: data.message, report: data.report };
+    return { success: true, message: data.message, report: data.report, reports: data.reports };
   } catch (err: any) {
     return { success: false, message: err.message || 'Nie udało się połączyć z serwerem.' };
   }
