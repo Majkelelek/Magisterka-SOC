@@ -82,7 +82,7 @@ export const EvaluationBenchmarkPage: React.FC = () => {
     if (res.success && res.report) {
       setReport(res.report);
       setSelectedBaseReportId(res.report.reportId);
-      
+
       const newReports = res.reports || [res.report];
       setHistoricalReports(prev => {
         const existingMap = new Map(prev.map(r => [r.reportId, r]));
@@ -122,9 +122,9 @@ export const EvaluationBenchmarkPage: React.FC = () => {
     // Check if the model execution was skipped
     const isSkipped = itemResults && itemResults.length > 0
       ? itemResults.every(item => {
-          const resp = isBaseModel ? item.baseModelResponse : item.fineTunedModelResponse;
-          return resp.predictedAction === 'Pominięte' || resp.extractedText === '[Test pominięty]';
-        })
+        const resp = isBaseModel ? item.baseModelResponse : item.fineTunedModelResponse;
+        return resp.predictedAction === 'Pominięte' || resp.extractedText === '[Test pominięty]';
+      })
       : (rawMetrics.modelName.includes('Pominięty') || (rawMetrics.accuracy === 0 && rawMetrics.averageLatencyMs === 0));
 
     if (isSkipped) {
@@ -227,13 +227,13 @@ export const EvaluationBenchmarkPage: React.FC = () => {
   const filteredHistoricalReports = selectedModelFilter === 'ALL'
     ? historicalReports
     : historicalReports.filter(r => {
-        const bm = r.baseModelMetrics?.modelName || '';
-        const isBmSkipped = bm.includes('Pominięty') || (r.baseModelMetrics?.accuracy === 0 && r.baseModelMetrics?.averageLatencyMs === 0);
-        if (selectedModelFilter === 'Tylko Azure OpenAI FT') {
-          return isBmSkipped;
-        }
-        return bm.toLowerCase().includes(selectedModelFilter.toLowerCase());
-      });
+      const bm = r.baseModelMetrics?.modelName || '';
+      const isBmSkipped = bm.includes('Pominięty') || (r.baseModelMetrics?.accuracy === 0 && r.baseModelMetrics?.averageLatencyMs === 0);
+      if (selectedModelFilter === 'Tylko Azure OpenAI FT') {
+        return isBmSkipped;
+      }
+      return bm.toLowerCase().includes(selectedModelFilter.toLowerCase());
+    });
 
   const [selectedFtReportId, setSelectedFtReportId] = useState<string>('');
 
@@ -259,13 +259,16 @@ export const EvaluationBenchmarkPage: React.FC = () => {
 
     // SECTION 1: MODEL RUNS SUMMARY TABLE
     csv += `=== PODSUMOWANIE PRÓB BENCHMARKOWYCH MODELU (${selectedModelFilter === 'ALL' ? 'WSZYSTKIE MODELE' : selectedModelFilter.toUpperCase()}) ===\n`;
-    csv += 'Lp;ID Raportu;Data i Czas Raportu;Model Bazowy (Ollama);Testowanych Rekordow;Accuracy (%);Precision (%);Recall (%);F1-Score (%);Format Compliance (%);Srednia Latencja (ms);True Positives (TP);False Positives (FP);False Negatives (FN);True Negatives (TN);Fine-Tuned Model;Fine-Tuned Accuracy (%);Fine-Tuned F1-Score (%)\n';
+    csv += 'Lp;ID Raportu;Data i Czas Raportu;Model Bazowy (Ollama);Testowanych Rekordow;Accuracy (%);Precision (%);Recall (%);F1-Score (%);Format Compliance (%);Srednia Latencja (ms);True Positives (TP);False Positives (FP);False Negatives (FN);True Negatives (TN);Fine-Tuned Model;Fine-Tuned Accuracy (%);Fine-Tuned Precision (%);Fine-Tuned Recall (%);Fine-Tuned F1-Score (%);Fine-Tuned Format Compliance (%);Fine-Tuned Srednia Latencja (ms);Fine-Tuned TP;Fine-Tuned FP;Fine-Tuned FN;Fine-Tuned TN\n';
 
     reportsToExport.forEach((r, idx) => {
       const bm = r.baseModelMetrics;
       const ftm = r.fineTunedModelMetrics;
       const dateStr = new Date(r.timestamp).toLocaleString('pl-PL');
-      csv += `${idx + 1};"${r.reportId}";"${dateStr}";"${bm.modelName}";${r.totalRecordsTested};${bm.accuracy.toFixed(2)};${bm.precision.toFixed(2)};${bm.recall.toFixed(2)};${bm.f1Score.toFixed(2)};${bm.formatAdherenceRate.toFixed(2)};${bm.averageLatencyMs.toFixed(0)};${bm.truePositives};${bm.falsePositives};${bm.falseNegatives};${bm.trueNegatives};"${ftm.modelName}";${ftm.accuracy.toFixed(2)};${ftm.f1Score.toFixed(2)}\n`;
+
+      csv += `${idx + 1};"${r.reportId}";"${dateStr}";"${bm.modelName}";${r.totalRecordsTested};` +
+        `${bm.accuracy.toFixed(2).replace('.', ',')};${bm.precision.toFixed(2).replace('.', ',')};${bm.recall.toFixed(2).replace('.', ',')};${bm.f1Score.toFixed(2).replace('.', ',')};${bm.formatAdherenceRate.toFixed(2).replace('.', ',')};${bm.averageLatencyMs.toFixed(0)};${bm.truePositives};${bm.falsePositives};${bm.falseNegatives};${bm.trueNegatives};` +
+        `"${ftm.modelName}";${ftm.accuracy.toFixed(2).replace('.', ',')};${ftm.precision.toFixed(2).replace('.', ',')};${ftm.recall.toFixed(2).replace('.', ',')};${ftm.f1Score.toFixed(2).replace('.', ',')};${ftm.formatAdherenceRate.toFixed(2).replace('.', ',')};${ftm.averageLatencyMs.toFixed(0)};${ftm.truePositives};${ftm.falsePositives};${ftm.falseNegatives};${ftm.trueNegatives}\n`;
     });
 
     csv += '\n=== SZCZEGÓŁOWE PREDYKCJE REKORDÓW WE WSZYSTKICH PRÓBACH ===\n';
@@ -577,11 +580,11 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                       const matching = newFilter === 'ALL'
                         ? historicalReports
                         : historicalReports.filter(r => {
-                            const bm = r.baseModelMetrics?.modelName || '';
-                            const isBmSkipped = bm.includes('Pominięty') || (r.baseModelMetrics?.accuracy === 0 && r.baseModelMetrics?.averageLatencyMs === 0);
-                            if (newFilter === 'Tylko Azure OpenAI FT') return isBmSkipped;
-                            return bm.toLowerCase().includes(newFilter.toLowerCase());
-                          });
+                          const bm = r.baseModelMetrics?.modelName || '';
+                          const isBmSkipped = bm.includes('Pominięty') || (r.baseModelMetrics?.accuracy === 0 && r.baseModelMetrics?.averageLatencyMs === 0);
+                          if (newFilter === 'Tylko Azure OpenAI FT') return isBmSkipped;
+                          return bm.toLowerCase().includes(newFilter.toLowerCase());
+                        });
                       if (matching.length > 0) {
                         setSelectedBaseReportId(matching[0].reportId);
                       }
@@ -618,10 +621,10 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                       const bm = computeStrictMetrics(h.baseModelMetrics, h.itemResults, true) || h.baseModelMetrics;
                       const ftm = computeStrictMetrics(h.fineTunedModelMetrics, h.itemResults, false) || h.fineTunedModelMetrics;
                       const timeStr = new Date(h.timestamp).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-                      const summaryStr = ftm.isSkipped 
-                        ? `Ollama (${bm.accuracy.toFixed(1)}% Acc)` 
-                        : bm.isSkipped 
-                          ? `Azure FT (${ftm.accuracy.toFixed(1)}% Acc)` 
+                      const summaryStr = ftm.isSkipped
+                        ? `Ollama (${bm.accuracy.toFixed(1)}% Acc)`
+                        : bm.isSkipped
+                          ? `Azure FT (${ftm.accuracy.toFixed(1)}% Acc)`
                           : `Ollama (${bm.accuracy.toFixed(1)}%) vs Azure FT (${ftm.accuracy.toFixed(1)}%)`;
                       return (
                         <option key={h.reportId} value={h.reportId} style={{ background: '#0f172a', color: '#ffffff' }}>
@@ -698,7 +701,7 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                       <th className="benchmark-runs-th">TRYB / TESTOWANY MODEL</th>
                       <th className="benchmark-runs-th green">DOKŁADNOŚĆ (ACCURACY)</th>
                       <th className="benchmark-runs-th purple">F1-SCORE</th>
-                      <th className="benchmark-runs-th blue">ŚREDNIA LATENCJA</th>
+                      <th className="benchmark-runs-th blue">ŚREDNIE OPÓŹNIENIE (ms)</th>
                       <th className="benchmark-runs-th right">AKCJA</th>
                     </tr>
                   </thead>
@@ -714,7 +717,7 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                       filteredHistoricalReports.forEach(h => {
                         const bm = computeStrictMetrics(h.baseModelMetrics, h.itemResults, true) || h.baseModelMetrics;
                         const ftm = computeStrictMetrics(h.fineTunedModelMetrics, h.itemResults, false) || h.fineTunedModelMetrics;
-                        
+
                         if (bm && !bm.isSkipped && (bm.accuracy > 0 || bm.averageLatencyMs > 0)) {
                           sumBaseAcc += bm.accuracy || 0;
                           sumBaseF1 += bm.f1Score || 0;
@@ -760,17 +763,17 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                             </span>
                           </td>
                           <td style={{ padding: '0.65rem 0.75rem', fontWeight: 900, color: '#4ade80', fontSize: '0.85rem' }}>
-                            {validFtCnt > 0 && validBaseCnt > 0 
+                            {validFtCnt > 0 && validBaseCnt > 0
                               ? `Ollama: ${avgBaseAcc.toFixed(1)}% | Azure: ${avgFtAcc.toFixed(1)}%`
                               : validFtCnt > 0 ? `Azure: ${avgFtAcc.toFixed(1)}%` : `Ollama: ${avgBaseAcc.toFixed(1)}%`}
                           </td>
                           <td style={{ padding: '0.65rem 0.75rem', fontWeight: 900, color: '#c084fc', fontSize: '0.85rem' }}>
-                            {validFtCnt > 0 && validBaseCnt > 0 
+                            {validFtCnt > 0 && validBaseCnt > 0
                               ? `Ollama: ${avgBaseF1.toFixed(1)}% | Azure: ${avgFtF1.toFixed(1)}%`
                               : validFtCnt > 0 ? `Azure: ${avgFtF1.toFixed(1)}%` : `Ollama: ${avgBaseF1.toFixed(1)}%`}
                           </td>
                           <td style={{ padding: '0.65rem 0.75rem', fontWeight: 800, color: '#38bdf8', fontSize: '0.85rem' }}>
-                            {validFtCnt > 0 && validBaseCnt > 0 
+                            {validFtCnt > 0 && validBaseCnt > 0
                               ? `Ollama: ${avgBaseLat.toFixed(0)} ms | Azure: ${avgFtLat.toFixed(0)} ms`
                               : validFtCnt > 0 ? `Azure: ${avgFtLat.toFixed(0)} ms` : `Ollama: ${avgBaseLat.toFixed(0)} ms`}
                           </td>
@@ -791,9 +794,9 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                       const isBaseActive = bm && !bm.isSkipped && (bm.accuracy > 0 || bm.averageLatencyMs > 0);
                       const isFtActive = ftm && !ftm.isSkipped && (ftm.accuracy > 0 || ftm.averageLatencyMs > 0);
 
-                        const modeBadge = isBaseActive && isFtActive
-                          ? <span className="benchmark-mode-badge both">Ollama + Azure FT</span>
-                          : isFtActive
+                      const modeBadge = isBaseActive && isFtActive
+                        ? <span className="benchmark-mode-badge both">Ollama + Azure FT</span>
+                        : isFtActive
                           ? <span className="benchmark-mode-badge ft-only">⚡ Tylko Azure OpenAI FT</span>
                           : <span className="benchmark-mode-badge base-only">🦙 Ollama ({(bm?.modelName || 'Ollama').replace('Model Bazowy (Ollama: ', '').replace(')', '')})</span>;
 
@@ -1383,11 +1386,10 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                                         {(item.groundTruthIsThreat === baseResp.predictedIsThreat) ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
                                         {baseResp.predictedIsThreat ? 'Atak' : 'Ruch Prawidłowy'}
                                       </span>
-                                      <span className={`benchmark-inspection-agreement-badge ${
-                                        (item.groundTruthIsThreat === baseResp.predictedIsThreat) && isBaseActionOK ? 'base-ok-action-ok'
+                                      <span className={`benchmark-inspection-agreement-badge ${(item.groundTruthIsThreat === baseResp.predictedIsThreat) && isBaseActionOK ? 'base-ok-action-ok'
                                         : (item.groundTruthIsThreat === baseResp.predictedIsThreat) && !isBaseActionOK ? 'base-ok-action-err'
-                                        : 'base-err-class'
-                                      }`}>
+                                          : 'base-err-class'
+                                        }`}>
                                         {((item.groundTruthIsThreat === baseResp.predictedIsThreat) && isBaseActionOK)
                                           ? '100% OK'
                                           : ((item.groundTruthIsThreat === baseResp.predictedIsThreat) && !isBaseActionOK)
@@ -1417,11 +1419,10 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                                         {(item.groundTruthIsThreat === ftResp.predictedIsThreat) ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
                                         {ftResp.predictedIsThreat ? 'Atak' : 'Ruch Prawidłowy'}
                                       </span>
-                                      <span className={`benchmark-inspection-agreement-badge ${
-                                        (item.groundTruthIsThreat === ftResp.predictedIsThreat) && isFtActionOK ? 'ft-ok-action-ok'
+                                      <span className={`benchmark-inspection-agreement-badge ${(item.groundTruthIsThreat === ftResp.predictedIsThreat) && isFtActionOK ? 'ft-ok-action-ok'
                                         : (item.groundTruthIsThreat === ftResp.predictedIsThreat) && !isFtActionOK ? 'ft-ok-action-err'
-                                        : 'ft-err-class'
-                                      }`}>
+                                          : 'ft-err-class'
+                                        }`}>
                                         {((item.groundTruthIsThreat === ftResp.predictedIsThreat) && isFtActionOK)
                                           ? '100% OK'
                                           : ((item.groundTruthIsThreat === ftResp.predictedIsThreat) && !isFtActionOK)
