@@ -373,55 +373,35 @@ export const EvaluationBenchmarkPage: React.FC = () => {
   });
 
   return (
-    <div style={{ paddingBottom: '3rem' }}>
+    <div className="benchmark-hero-header">
       {/* Header Section */}
-      <div style={{
-        background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(7, 10, 18, 0.98))',
-        border: '1px solid rgba(139, 92, 246, 0.35)',
-        borderRadius: '14px',
-        padding: '1.5rem 1.75rem',
-        marginBottom: '1.5rem',
-        boxShadow: '0 10px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(139, 92, 246, 0.15)'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+      <div className="benchmark-hero-card">
+        <div className="benchmark-hero-flex-between">
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div style={{
-                background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.25), rgba(99, 102, 241, 0.25))',
-                padding: '8px 12px',
-                borderRadius: '10px',
-                border: '1px solid rgba(139, 92, 246, 0.5)'
-              }}>
+            <div className="benchmark-hero-left-title-row">
+              <div className="benchmark-logo-box">
                 <BarChart2 size={24} color="#c084fc" />
               </div>
-              <h1 style={{ fontSize: '1.6rem', fontWeight: 800, color: '#ffffff', margin: 0 }}>
+              <h1 className="benchmark-hero-main-title">
                 Model Benchmark & Evaluation
               </h1>
             </div>
-            <p style={{ color: '#94a3b8', fontSize: '0.85rem', marginTop: '0.4rem', marginBottom: 0 }}>
+            <p className="benchmark-hero-desc">
               Naukowa ewaluacja i porównanie wyników klasyfikacji incydentów SOC (<strong>Model Bazowy: Lokalna Ollama</strong> vs <strong>Model Wyfinetuningowany: Azure OpenAI FT</strong>).
             </p>
           </div>
 
           {/* Controls */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-end' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          <div className="benchmark-hero-controls">
+            <div className="benchmark-hero-controls-top">
               {/* Record Count Selector */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(15, 23, 42, 0.8)', padding: '0.4rem 0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 600 }}>Rekordy:</span>
+              <div className="benchmark-select-wrapper">
+                <span className="benchmark-select-label">Rekordy:</span>
                 <select
                   value={recordCount}
                   onChange={e => setRecordCount(Number(e.target.value))}
                   disabled={running}
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    color: '#ffffff',
-                    fontWeight: 700,
-                    fontSize: '0.85rem',
-                    cursor: 'pointer',
-                    outline: 'none'
-                  }}
+                  className="benchmark-select-inner"
                 >
                   <option value={24} style={{ background: '#0f172a' }}>24 alerty (12 kategorii x2)</option>
                   <option value={12} style={{ background: '#0f172a' }}>12 alertów (12 kategorii x1)</option>
@@ -431,22 +411,14 @@ export const EvaluationBenchmarkPage: React.FC = () => {
               </div>
 
               {/* Iterations / Repeat Count Selector */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(15, 23, 42, 0.8)', padding: '0.4rem 0.75rem', borderRadius: '8px', border: '1px solid rgba(192, 132, 252, 0.4)' }}>
+              <div className="benchmark-select-wrapper-purple">
                 <Layers size={14} color="#c084fc" />
-                <span style={{ fontSize: '0.8rem', color: '#c084fc', fontWeight: 600 }}>Liczba Prób (Seria):</span>
+                <span className="benchmark-select-label-purple">Liczba Prób (Seria):</span>
                 <select
                   value={iterations}
                   onChange={e => setIterations(Number(e.target.value))}
                   disabled={running}
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    color: '#ffffff',
-                    fontWeight: 700,
-                    fontSize: '0.85rem',
-                    cursor: 'pointer',
-                    outline: 'none'
-                  }}
+                  className="benchmark-select-inner"
                 >
                   <option value={1} style={{ background: '#0f172a' }}>1 próba (24 pytania)</option>
                   <option value={2} style={{ background: '#0f172a' }}>2 próby (48 pytań)</option>
@@ -457,23 +429,15 @@ export const EvaluationBenchmarkPage: React.FC = () => {
               </div>
 
               {/* Ollama Model Selector */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(15, 23, 42, 0.8)', padding: '0.4rem 0.75rem', borderRadius: '8px', border: '1px solid rgba(56, 189, 248, 0.3)' }}>
+              <div className="benchmark-select-wrapper-blue">
                 <Cpu size={14} color="#38bdf8" />
-                <span style={{ fontSize: '0.8rem', color: '#38bdf8', fontWeight: 600 }}>Model Ollama:</span>
+                <span className="benchmark-select-label-blue">Model Ollama:</span>
                 {availableOllamaModels.length > 0 ? (
                   <select
                     value={selectedOllamaModel}
                     onChange={e => setSelectedOllamaModel(e.target.value)}
                     disabled={running}
-                    style={{
-                      background: 'transparent',
-                      border: 'none',
-                      color: '#4ade80',
-                      fontWeight: 700,
-                      fontSize: '0.85rem',
-                      cursor: 'pointer',
-                      outline: 'none'
-                    }}
+                    className="benchmark-select-inner-green"
                   >
                     {availableOllamaModels.map(m => (
                       <option key={m} value={m} style={{ background: '#0f172a', color: '#ffffff' }}>
@@ -488,51 +452,23 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                     onChange={e => setSelectedOllamaModel(e.target.value)}
                     disabled={running}
                     placeholder="np. llama3.2"
-                    style={{
-                      background: 'transparent',
-                      border: 'none',
-                      color: '#ffffff',
-                      fontWeight: 700,
-                      fontSize: '0.85rem',
-                      width: '100px',
-                      outline: 'none'
-                    }}
+                    className="benchmark-input-text"
                   />
                 )}
-                <span style={{
-                  fontSize: '0.7rem',
-                  padding: '2px 6px',
-                  borderRadius: '4px',
-                  background: isOllamaOnline ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)',
-                  color: isOllamaOnline ? '#4ade80' : '#f87171',
-                  fontWeight: 700
-                }}>
+                <span className={`benchmark-status-badge ${isOllamaOnline ? 'online' : 'offline'}`}>
                   {isOllamaOnline ? 'ONLINE' : 'OFFLINE'}
                 </span>
               </div>
             </div>
 
             {/* 3 Separate Execution Buttons */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <div className="benchmark-hero-buttons-row">
               {/* Button 1: Base Only */}
               <button
                 onClick={() => handleStartBenchmark('base')}
                 disabled={running}
                 title="Wysyła zapytania WYŁĄCZNIE do lokalnej instancji Ollamy (brak opłat Azure)"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  background: 'rgba(56, 189, 248, 0.15)',
-                  border: '1px solid rgba(56, 189, 248, 0.4)',
-                  color: '#38bdf8',
-                  borderRadius: '8px',
-                  padding: '0.45rem 0.9rem',
-                  fontSize: '0.8rem',
-                  fontWeight: 700,
-                  cursor: running ? 'not-allowed' : 'pointer',
-                  opacity: running ? 0.6 : 1
-                }}
+                className="benchmark-btn-cpu"
               >
                 <Cpu size={14} /> Testuj Tylko Ollamę
               </button>
@@ -542,20 +478,7 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                 onClick={() => handleStartBenchmark('ft')}
                 disabled={running}
                 title="Wysyła zapytania WYŁĄCZNIE do dostrojonego modelu w Azure OpenAI"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  background: 'rgba(192, 132, 252, 0.15)',
-                  border: '1px solid rgba(192, 132, 252, 0.4)',
-                  color: '#c084fc',
-                  borderRadius: '8px',
-                  padding: '0.45rem 0.9rem',
-                  fontSize: '0.8rem',
-                  fontWeight: 700,
-                  cursor: running ? 'not-allowed' : 'pointer',
-                  opacity: running ? 0.6 : 1
-                }}
+                className="benchmark-btn-cloud"
               >
                 <Cloud size={14} /> Testuj Tylko Azure FT
               </button>
@@ -565,21 +488,7 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                 onClick={() => handleStartBenchmark('both')}
                 disabled={running}
                 title="Uruchamia pełny test porównawczy równolegle dla obu modeli"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
-                  color: '#ffffff',
-                  border: 'none',
-                  borderRadius: '8px',
-                  padding: '0.5rem 1.1rem',
-                  fontSize: '0.825rem',
-                  fontWeight: 800,
-                  cursor: running ? 'not-allowed' : 'pointer',
-                  boxShadow: '0 4px 14px rgba(139, 92, 246, 0.4)',
-                  opacity: running ? 0.6 : 1
-                }}
+                className="benchmark-btn-both"
               >
                 {running ? (
                   <>
@@ -597,24 +506,17 @@ export const EvaluationBenchmarkPage: React.FC = () => {
 
         {/* Live Execution Status */}
         {running && (
-          <div style={{
-            marginTop: '1.25rem',
-            background: 'rgba(15, 23, 42, 0.85)',
-            border: '1px solid rgba(139, 92, 246, 0.4)',
-            borderRadius: '10px',
-            padding: '1rem 1.25rem',
-            boxShadow: '0 4px 15px rgba(0, 0, 0, 0.3)'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#c084fc', fontWeight: 700, fontSize: '0.9rem' }}>
+          <div className="benchmark-live-status-box">
+            <div className="benchmark-live-status-inner">
+              <div className="benchmark-live-status-left">
                 <RefreshCw size={16} className="animate-spin" />
                 <span>Wykonywanie ewaluacji AI dla {recordCount} rekordów [{activeModeText}]</span>
               </div>
-              <div style={{ color: '#38bdf8', fontWeight: 700, fontSize: '0.85rem' }}>
+              <div className="benchmark-live-status-elapsed">
                 Czas trwania: {elapsedSeconds}s
               </div>
             </div>
-            <p style={{ color: '#94a3b8', fontSize: '0.825rem', margin: 0 }}>
+            <p className="benchmark-live-status-hint">
               💡 Rekordy są testowane sekwencyjnie. Podgląd każdego zapychanego i odbieranego rekordu w czasie rzeczywistym możesz śledzić na żywo w konsoli serwera .NET!
             </p>
           </div>
@@ -622,30 +524,21 @@ export const EvaluationBenchmarkPage: React.FC = () => {
       </div>
 
       {statusMsg && (
-        <div style={{
-          padding: '0.85rem 1.25rem',
-          borderRadius: '8px',
-          marginBottom: '1.5rem',
-          background: statusMsg.type === 'success' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-          border: statusMsg.type === 'success' ? '1px solid rgba(34, 197, 94, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)',
-          color: statusMsg.type === 'success' ? '#4ade80' : '#f87171',
-          fontSize: '0.875rem',
-          fontWeight: 600
-        }}>
+        <div className={`benchmark-status-msg ${statusMsg.type === 'success' ? 'success' : 'error'}`}>
           {statusMsg.text}
         </div>
       )}
 
       {loading ? (
-        <div className="soc-card" style={{ padding: '4rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-          <RefreshCw size={36} className="animate-spin" style={{ margin: '0 auto 1rem auto', color: '#8b5cf6' }} />
-          <p style={{ fontSize: '0.9rem' }}>Wczytywanie wyników ewaluacji z bazy danych...</p>
+        <div className="soc-card benchmark-empty-card">
+          <RefreshCw size={36} className="animate-spin benchmark-empty-icon" />
+          <p>Wczytywanie wyników ewaluacji z bazy danych...</p>
         </div>
       ) : !report ? (
-        <div className="soc-card" style={{ padding: '4rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-          <Sparkles size={40} style={{ margin: '0 auto 1rem auto', color: '#8b5cf6' }} />
-          <h3 style={{ color: '#ffffff', margin: '0 0 0.5rem 0' }}>Brak Wykonanego Raportu Benchmarku</h3>
-          <p style={{ fontSize: '0.875rem', maxWidth: '480px', margin: '0 auto 1.5rem auto' }}>
+        <div className="soc-card benchmark-empty-card">
+          <Sparkles size={40} className="benchmark-empty-icon" />
+          <h3 className="benchmark-empty-title">Brak Wykonanego Raportu Benchmarku</h3>
+          <p className="benchmark-empty-desc">
             Kliknij przycisk <strong>"Uruchom Benchmark"</strong> powyżej, aby przeprowadzić automatyczną ewaluację modeli ML i obliczyć metryki Accuracy, Precision, Recall oraz Latencję.
           </p>
         </div>
@@ -653,41 +546,29 @@ export const EvaluationBenchmarkPage: React.FC = () => {
         <>
           {/* Historical Model Selector & Export Banner */}
           {historicalReports.length > 0 && (
-            <div style={{
-              background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.95))',
-              border: '1px solid rgba(56, 189, 248, 0.4)',
-              borderRadius: '12px',
-              padding: '1rem 1.25rem',
-              marginBottom: '1.5rem',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              flexWrap: 'wrap',
-              gap: '1rem',
-              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{ background: 'rgba(56, 189, 248, 0.15)', padding: '0.6rem', borderRadius: '8px', border: '1px solid rgba(56, 189, 248, 0.3)' }}>
+            <div className="benchmark-history-banner">
+              <div className="benchmark-history-inner">
+                <div className="benchmark-history-icon-wrapper">
                   <Cpu size={22} color="#38bdf8" />
                 </div>
                 <div>
-                  <div style={{ color: '#ffffff', fontWeight: 800, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div className="benchmark-history-title-badge">
                     Zarządzanie i Porównanie Prób Modeli
-                    <span style={{ fontSize: '0.725rem', background: 'rgba(56, 189, 248, 0.2)', color: '#38bdf8', padding: '2px 8px', borderRadius: '12px', fontWeight: 700 }}>
+                    <span className="benchmark-history-badge">
                       Historia: {filteredHistoricalReports.length} prób
                     </span>
                   </div>
-                  <div style={{ color: '#94a3b8', fontSize: '0.8rem', marginTop: '2px' }}>
+                  <div className="benchmark-history-desc-muted">
                     Filtruj powtórzone próby dla danego modelu lokalnego i wyeksportuj pełne zestawienie do pliku Excel.
                   </div>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+              <div className="benchmark-history-right-controls">
                 {/* Model Filter */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <div className="benchmark-history-filter-row">
                   <Filter size={14} color="#94a3b8" />
-                  <span style={{ fontSize: '0.775rem', color: '#94a3b8', fontWeight: 600 }}>Model:</span>
+                  <span className="benchmark-history-filter-label">Model:</span>
                   <select
                     value={selectedModelFilter}
                     onChange={(e) => {
@@ -705,17 +586,7 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                         setSelectedBaseReportId(matching[0].reportId);
                       }
                     }}
-                    style={{
-                      background: '#0f172a',
-                      color: '#ffffff',
-                      border: '1px solid rgba(255, 255, 255, 0.2)',
-                      borderRadius: '6px',
-                      padding: '0.4rem 0.65rem',
-                      fontSize: '0.8rem',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      outline: 'none'
-                    }}
+                    className="benchmark-history-select"
                   >
                     <option value="ALL">Wszystkie Modele ({historicalReports.length})</option>
                     {modelCategories.map(cat => {
@@ -735,24 +606,13 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                 </div>
 
                 {/* Specific Run Dropdown */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <div className="benchmark-history-filter-row">
                   <Clock size={14} color="#38bdf8" />
-                  <span style={{ fontSize: '0.775rem', color: '#38bdf8', fontWeight: 700 }}>Próba do Podglądu:</span>
+                  <span className="benchmark-history-run-label">Próba do Podglądu:</span>
                   <select
                     value={selectedBaseReportId}
                     onChange={(e) => setSelectedBaseReportId(e.target.value)}
-                    style={{
-                      background: '#0f172a',
-                      color: '#38bdf8',
-                      border: '1px solid #38bdf8',
-                      borderRadius: '6px',
-                      padding: '0.4rem 0.75rem',
-                      fontWeight: 800,
-                      fontSize: '0.8rem',
-                      cursor: 'pointer',
-                      outline: 'none',
-                      boxShadow: '0 0 8px rgba(56, 189, 248, 0.2)'
-                    }}
+                    className="benchmark-history-select blue"
                   >
                     {filteredHistoricalReports.map((h, idx) => {
                       const bm = computeStrictMetrics(h.baseModelMetrics, h.itemResults, true) || h.baseModelMetrics;
@@ -776,21 +636,7 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                 <button
                   onClick={handleExportToExcel}
                   title="Pobierz plik CSV otwieralny bezpośrednio w programie Excel"
-                  style={{
-                    background: 'linear-gradient(135deg, #10b981, #059669)',
-                    color: '#ffffff',
-                    border: 'none',
-                    borderRadius: '8px',
-                    padding: '0.5rem 1rem',
-                    fontWeight: 800,
-                    fontSize: '0.8rem',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
-                    transition: 'all 0.2s'
-                  }}
+                  className="benchmark-btn-export"
                 >
                   <FileSpreadsheet size={16} />
                   Eksportuj do Excela (.csv)
@@ -801,20 +647,7 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                   <button
                     onClick={() => handleDeleteReport(selectedBaseReportId)}
                     title="Usuń obecnie wybraną próbę z bazy danych"
-                    style={{
-                      background: 'rgba(239, 68, 68, 0.15)',
-                      color: '#f87171',
-                      border: '1px solid rgba(239, 68, 68, 0.35)',
-                      borderRadius: '8px',
-                      padding: '0.5rem 0.85rem',
-                      fontWeight: 800,
-                      fontSize: '0.8rem',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      transition: 'all 0.2s'
-                    }}
+                    className="benchmark-btn-delete"
                   >
                     <Trash2 size={15} />
                     Usuń tę próbę
@@ -826,20 +659,7 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                   <button
                     onClick={handleDeleteAllFilteredReports}
                     title="Usuń wszystkie próby w aktualnie wybranym filtrze"
-                    style={{
-                      background: 'rgba(220, 38, 38, 0.25)',
-                      color: '#fca5a5',
-                      border: '1px solid rgba(239, 68, 68, 0.5)',
-                      borderRadius: '8px',
-                      padding: '0.5rem 0.85rem',
-                      fontWeight: 800,
-                      fontSize: '0.8rem',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      transition: 'all 0.2s'
-                    }}
+                    className="benchmark-btn-delete-all"
                   >
                     <Trash2 size={15} />
                     Usuń Próby z Filtra ({filteredHistoricalReports.length})
@@ -853,33 +673,33 @@ export const EvaluationBenchmarkPage: React.FC = () => {
 
           {/* Model Multiple Runs History Table (shown when filtered model has > 1 run) */}
           {filteredHistoricalReports.length > 1 && (
-            <div className="soc-card" style={{ padding: '1.25rem', marginBottom: '1.5rem', background: 'rgba(15, 23, 42, 0.6)', border: '1px solid rgba(56, 189, 248, 0.25)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div className="soc-card benchmark-runs-table-wrapper">
+              <div className="benchmark-runs-header">
+                <div className="benchmark-runs-title-group">
                   <Layers size={16} color="#38bdf8" />
-                  <h4 style={{ margin: 0, fontSize: '0.9rem', color: '#ffffff', fontWeight: 800 }}>
-                    Zestawienie Wszystkich Prób dla Modelu: <span style={{ color: '#38bdf8' }}>{selectedModelFilter === 'ALL' ? 'Wszystkie Modele' : selectedModelFilter}</span> ({filteredHistoricalReports.length} wykonane testy)
+                  <h4 className="benchmark-runs-title-text">
+                    Zestawienie Wszystkich Prób dla Modelu: <span className="benchmark-runs-title-accent">{selectedModelFilter === 'ALL' ? 'Wszystkie Modele' : selectedModelFilter}</span> ({filteredHistoricalReports.length} wykonane testy)
                   </h4>
                 </div>
                 <button
                   onClick={handleExportToExcel}
-                  style={{ background: 'transparent', border: 'none', color: '#10b981', fontSize: '0.775rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                  className="benchmark-table-btn-export"
                 >
                   <Download size={13} /> Pobierz arkusz dla wszystkich prób
                 </button>
               </div>
 
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.775rem', textAlign: 'left' }}>
+              <div className="benchmark-table-overflow">
+                <table className="benchmark-runs-table">
                   <thead>
-                    <tr style={{ background: 'rgba(30, 41, 59, 0.8)', color: '#94a3b8', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
-                      <th style={{ padding: '0.6rem 0.75rem' }}>PRÓBA #</th>
-                      <th style={{ padding: '0.6rem 0.75rem' }}>DATA I CZAS</th>
-                      <th style={{ padding: '0.6rem 0.75rem' }}>TRYB / TESTOWANY MODEL</th>
-                      <th style={{ padding: '0.6rem 0.75rem', color: '#4ade80' }}>DOKŁADNOŚĆ (ACCURACY)</th>
-                      <th style={{ padding: '0.6rem 0.75rem', color: '#c084fc' }}>F1-SCORE</th>
-                      <th style={{ padding: '0.6rem 0.75rem', color: '#38bdf8' }}>ŚREDNIA LATENCJA</th>
-                      <th style={{ padding: '0.6rem 0.75rem', textAlign: 'right' }}>AKCJA</th>
+                    <tr className="benchmark-runs-thead-tr">
+                      <th className="benchmark-runs-th">PRÓBA #</th>
+                      <th className="benchmark-runs-th">DATA I CZAS</th>
+                      <th className="benchmark-runs-th">TRYB / TESTOWANY MODEL</th>
+                      <th className="benchmark-runs-th green">DOKŁADNOŚĆ (ACCURACY)</th>
+                      <th className="benchmark-runs-th purple">F1-SCORE</th>
+                      <th className="benchmark-runs-th blue">ŚREDNIA LATENCJA</th>
+                      <th className="benchmark-runs-th right">AKCJA</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -971,27 +791,11 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                       const isBaseActive = bm && !bm.isSkipped && (bm.accuracy > 0 || bm.averageLatencyMs > 0);
                       const isFtActive = ftm && !ftm.isSkipped && (ftm.accuracy > 0 || ftm.averageLatencyMs > 0);
 
-                      let modeBadge = null;
-                      if (isBaseActive && isFtActive) {
-                        modeBadge = (
-                          <span style={{ padding: '0.25rem 0.6rem', borderRadius: '6px', background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(192, 132, 252, 0.2))', border: '1px solid rgba(192, 132, 252, 0.4)', color: '#ffffff', fontWeight: 800, fontSize: '0.725rem' }}>
-                            Ollama + Azure FT
-                          </span>
-                        );
-                      } else if (isFtActive) {
-                        modeBadge = (
-                          <span style={{ padding: '0.25rem 0.6rem', borderRadius: '6px', background: 'rgba(192, 132, 252, 0.18)', border: '1px solid rgba(192, 132, 252, 0.4)', color: '#c084fc', fontWeight: 800, fontSize: '0.725rem' }}>
-                            ⚡ Tylko Azure OpenAI FT
-                          </span>
-                        );
-                      } else {
-                        const cleanName = (bm?.modelName || 'Ollama').replace('Model Bazowy (Ollama: ', '').replace(')', '');
-                        modeBadge = (
-                          <span style={{ padding: '0.25rem 0.6rem', borderRadius: '6px', background: 'rgba(56, 189, 248, 0.18)', border: '1px solid rgba(56, 189, 248, 0.4)', color: '#38bdf8', fontWeight: 800, fontSize: '0.725rem' }}>
-                            🦙 Ollama ({cleanName})
-                          </span>
-                        );
-                      }
+                        const modeBadge = isBaseActive && isFtActive
+                          ? <span className="benchmark-mode-badge both">Ollama + Azure FT</span>
+                          : isFtActive
+                          ? <span className="benchmark-mode-badge ft-only">⚡ Tylko Azure OpenAI FT</span>
+                          : <span className="benchmark-mode-badge base-only">🦙 Ollama ({(bm?.modelName || 'Ollama').replace('Model Bazowy (Ollama: ', '').replace(')', '')})</span>;
 
                       return (
                         <tr
@@ -1021,7 +825,7 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                               <span>Ollama: {bm.accuracy.toFixed(1)}%</span>
                             )}
                           </td>
-                          <td style={{ padding: '0.65rem 0.75rem', fontWeight: 800, color: '#c084fc' }}>
+                          <td className="benchmark-runs-td purple-bold">
                             {isBaseActive && isFtActive ? (
                               <span>Ollama: {bm.f1Score.toFixed(1)}% | Azure: {ftm.f1Score.toFixed(1)}%</span>
                             ) : isFtActive ? (
@@ -1030,7 +834,7 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                               <span>Ollama: {bm.f1Score.toFixed(1)}%</span>
                             )}
                           </td>
-                          <td style={{ padding: '0.65rem 0.75rem', fontWeight: 700, color: '#38bdf8' }}>
+                          <td className="benchmark-runs-td blue-bold">
                             {isBaseActive && isFtActive ? (
                               <span>Ollama: {bm.averageLatencyMs.toFixed(0)} ms | Azure: {ftm.averageLatencyMs.toFixed(0)} ms</span>
                             ) : isFtActive ? (
@@ -1039,23 +843,18 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                               <span>Ollama: {bm.averageLatencyMs.toFixed(0)} ms</span>
                             )}
                           </td>
-                          <td style={{ padding: '0.65rem 0.75rem', textAlign: 'right' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
+                          <td className="benchmark-runs-td right">
+                            <div className="benchmark-runs-action-cell">
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   if (isBaseActive) setSelectedBaseReportId(h.reportId);
                                   if (isFtActive) setSelectedFtReportId(h.reportId);
                                 }}
+                                className="benchmark-table-btn-show"
                                 style={{
                                   background: isSelected ? '#38bdf8' : 'rgba(255,255,255,0.1)',
                                   color: isSelected ? '#0f172a' : '#ffffff',
-                                  border: 'none',
-                                  borderRadius: '4px',
-                                  padding: '0.25rem 0.5rem',
-                                  fontSize: '0.7rem',
-                                  fontWeight: 800,
-                                  cursor: 'pointer'
                                 }}
                               >
                                 {isSelected ? 'Aktywny' : 'Pokaż'}
@@ -1432,92 +1231,86 @@ export const EvaluationBenchmarkPage: React.FC = () => {
           </div>
 
           {/* Section 2: Confusion Matrix Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '1.5rem', marginBottom: '1.5rem' }}>
+          <div className="benchmark-cm-grid">
             {/* Base Model Confusion Matrix */}
-            <div className="soc-card" style={{ padding: '1.25rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '0.65rem' }}>
+            <div className="soc-card benchmark-cm-card">
+              <div className="benchmark-cm-header">
                 <Shield size={16} color="#60a5fa" />
-                <h4 style={{ fontSize: '0.95rem', fontWeight: 800, color: '#38bdf8', margin: 0 }}>
+                <h4 className="benchmark-cm-title blue">
                   Confusion Matrix: {baseMetrics?.modelName || 'Model Bazowy'}
                 </h4>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', textAlign: 'center' }}>
-                <div style={{ background: 'rgba(34, 197, 94, 0.15)', border: '1px solid rgba(34, 197, 94, 0.3)', padding: '1rem', borderRadius: '10px' }}>
-                  <div style={{ fontSize: '0.725rem', color: '#4ade80', fontWeight: 700, textTransform: 'uppercase' }}>True Positives (TP)</div>
-                  <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#ffffff', marginTop: '0.2rem' }}>{baseMetrics && !baseMetrics.isSkipped ? baseMetrics.truePositives : 'N/A'}</div>
-                  <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '2px' }}>Prawidłowo Wykryty Atak</div>
+              <div className="benchmark-cm-cells-grid">
+                <div className="benchmark-cm-cell base-tp">
+                  <div className="benchmark-cm-label green">True Positives (TP)</div>
+                  <div className="benchmark-cm-value">{baseMetrics && !baseMetrics.isSkipped ? baseMetrics.truePositives : 'N/A'}</div>
+                  <div className="benchmark-cm-desc">Prawidłowo Wykryty Atak</div>
                 </div>
-
-                <div style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', padding: '1rem', borderRadius: '10px' }}>
-                  <div style={{ fontSize: '0.725rem', color: '#f87171', fontWeight: 700, textTransform: 'uppercase' }}>False Positives (FP)</div>
-                  <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#ffffff', marginTop: '0.2rem' }}>{baseMetrics && !baseMetrics.isSkipped ? baseMetrics.falsePositives : 'N/A'}</div>
-                  <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '2px' }}>Błędny Alarm (Fałszywe Zagrożenie)</div>
+                <div className="benchmark-cm-cell base-fp">
+                  <div className="benchmark-cm-label red">False Positives (FP)</div>
+                  <div className="benchmark-cm-value">{baseMetrics && !baseMetrics.isSkipped ? baseMetrics.falsePositives : 'N/A'}</div>
+                  <div className="benchmark-cm-desc">Błędny Alarm (Fałszywe Zagrożenie)</div>
                 </div>
-
-                <div style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', padding: '1rem', borderRadius: '10px' }}>
-                  <div style={{ fontSize: '0.725rem', color: '#f87171', fontWeight: 700, textTransform: 'uppercase' }}>False Negatives (FN)</div>
-                  <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#ffffff', marginTop: '0.2rem' }}>{baseMetrics && !baseMetrics.isSkipped ? baseMetrics.falseNegatives : 'N/A'}</div>
-                  <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '2px' }}>Przegapiony Atak</div>
+                <div className="benchmark-cm-cell base-fn">
+                  <div className="benchmark-cm-label red">False Negatives (FN)</div>
+                  <div className="benchmark-cm-value">{baseMetrics && !baseMetrics.isSkipped ? baseMetrics.falseNegatives : 'N/A'}</div>
+                  <div className="benchmark-cm-desc">Przegapiony Atak</div>
                 </div>
-
-                <div style={{ background: 'rgba(34, 197, 94, 0.15)', border: '1px solid rgba(34, 197, 94, 0.3)', padding: '1rem', borderRadius: '10px' }}>
-                  <div style={{ fontSize: '0.725rem', color: '#4ade80', fontWeight: 700, textTransform: 'uppercase' }}>True Negatives (TN)</div>
-                  <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#ffffff', marginTop: '0.2rem' }}>{baseMetrics && !baseMetrics.isSkipped ? baseMetrics.trueNegatives : 'N/A'}</div>
-                  <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '2px' }}>Poprawny Ruch Prawidłowy</div>
+                <div className="benchmark-cm-cell base-tn">
+                  <div className="benchmark-cm-label green">True Negatives (TN)</div>
+                  <div className="benchmark-cm-value">{baseMetrics && !baseMetrics.isSkipped ? baseMetrics.trueNegatives : 'N/A'}</div>
+                  <div className="benchmark-cm-desc">Poprawny Ruch Prawidłowy</div>
                 </div>
               </div>
             </div>
 
             {/* Fine-Tuned Model Confusion Matrix */}
-            <div className="soc-card" style={{ padding: '1.25rem', border: '1px solid rgba(139, 92, 246, 0.35)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '0.65rem' }}>
+            <div className="soc-card benchmark-cm-card border-purple">
+              <div className="benchmark-cm-header">
                 <Sparkles size={16} color="#c084fc" />
-                <h4 style={{ fontSize: '0.95rem', fontWeight: 800, color: '#c084fc', margin: 0 }}>
+                <h4 className="benchmark-cm-title purple">
                   Confusion Matrix: {ftMetrics?.modelName || 'Model Fine-Tuned'}
                 </h4>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', textAlign: 'center' }}>
-                <div style={{ background: 'rgba(34, 197, 94, 0.2)', border: '1px solid rgba(34, 197, 94, 0.4)', padding: '1rem', borderRadius: '10px' }}>
-                  <div style={{ fontSize: '0.725rem', color: '#4ade80', fontWeight: 700, textTransform: 'uppercase' }}>True Positives (TP)</div>
-                  <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#ffffff', marginTop: '0.2rem' }}>{ftMetrics && !ftMetrics.isSkipped ? ftMetrics.truePositives : 'N/A'}</div>
-                  <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '2px' }}>Prawidłowo Wykryty Atak</div>
+              <div className="benchmark-cm-cells-grid">
+                <div className="benchmark-cm-cell tp-purple">
+                  <div className="benchmark-cm-label green">True Positives (TP)</div>
+                  <div className="benchmark-cm-value">{ftMetrics && !ftMetrics.isSkipped ? ftMetrics.truePositives : 'N/A'}</div>
+                  <div className="benchmark-cm-desc">Prawidłowo Wykryty Atak</div>
                 </div>
-
-                <div style={{ background: 'rgba(239, 68, 68, 0.2)', border: '1px solid rgba(239, 68, 68, 0.4)', padding: '1rem', borderRadius: '10px' }}>
-                  <div style={{ fontSize: '0.725rem', color: '#f87171', fontWeight: 700, textTransform: 'uppercase' }}>False Positives (FP)</div>
-                  <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#ffffff', marginTop: '0.2rem' }}>{ftMetrics && !ftMetrics.isSkipped ? ftMetrics.falsePositives : 'N/A'}</div>
-                  <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '2px' }}>Błędny Alarm (Fałszywe Zagrożenie)</div>
+                <div className="benchmark-cm-cell fp-purple">
+                  <div className="benchmark-cm-label red">False Positives (FP)</div>
+                  <div className="benchmark-cm-value">{ftMetrics && !ftMetrics.isSkipped ? ftMetrics.falsePositives : 'N/A'}</div>
+                  <div className="benchmark-cm-desc">Błędny Alarm (Fałszywe Zagrożenie)</div>
                 </div>
-
-                <div style={{ background: 'rgba(239, 68, 68, 0.2)', border: '1px solid rgba(239, 68, 68, 0.4)', padding: '1rem', borderRadius: '10px' }}>
-                  <div style={{ fontSize: '0.725rem', color: '#f87171', fontWeight: 700, textTransform: 'uppercase' }}>False Negatives (FN)</div>
-                  <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#ffffff', marginTop: '0.2rem' }}>{ftMetrics && !ftMetrics.isSkipped ? ftMetrics.falseNegatives : 'N/A'}</div>
-                  <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '2px' }}>Przegapiony Atak</div>
+                <div className="benchmark-cm-cell fn-purple">
+                  <div className="benchmark-cm-label red">False Negatives (FN)</div>
+                  <div className="benchmark-cm-value">{ftMetrics && !ftMetrics.isSkipped ? ftMetrics.falseNegatives : 'N/A'}</div>
+                  <div className="benchmark-cm-desc">Przegapiony Atak</div>
                 </div>
-
-                <div style={{ background: 'rgba(34, 197, 94, 0.2)', border: '1px solid rgba(34, 197, 94, 0.4)', padding: '1rem', borderRadius: '10px' }}>
-                  <div style={{ fontSize: '0.725rem', color: '#4ade80', fontWeight: 700, textTransform: 'uppercase' }}>True Negatives (TN)</div>
-                  <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#ffffff', marginTop: '0.2rem' }}>{ftMetrics && !ftMetrics.isSkipped ? ftMetrics.trueNegatives : 'N/A'}</div>
-                  <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '2px' }}>Poprawny Ruch Prawidłowy</div>
+                <div className="benchmark-cm-cell tn-purple">
+                  <div className="benchmark-cm-label green">True Negatives (TN)</div>
+                  <div className="benchmark-cm-value">{ftMetrics && !ftMetrics.isSkipped ? ftMetrics.trueNegatives : 'N/A'}</div>
+                  <div className="benchmark-cm-desc">Poprawny Ruch Prawidłowy</div>
                 </div>
               </div>
             </div>
           </div>
 
           {/* Section 3: Log Inspection Table */}
-          <div className="soc-card" style={{ padding: '1.25rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', marginBottom: '1rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div className="soc-card benchmark-cm-card">
+            <div className="benchmark-section3-header">
+              <div className="benchmark-section3-title-group">
                 <FileText size={18} color="#c084fc" />
-                <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#ffffff', margin: 0 }}>
+                <h3 className="benchmark-section3-title-text">
                   Szczegóły Zapytań I Log Inspection ({filteredItems.length} rekordów)
                 </h3>
               </div>
 
               {/* Filter Pills */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <div className="benchmark-section3-filter-row">
                 <button
                   onClick={() => setFilterMode('ALL')}
                   className={`benchmark-filter-btn ${filterMode === 'ALL' ? 'benchmark-filter-all-active' : 'benchmark-filter-inactive'}`}
@@ -1539,16 +1332,16 @@ export const EvaluationBenchmarkPage: React.FC = () => {
               </div>
             </div>
 
-            <div style={{ overflowX: 'auto' }}>
-              <table className="benchmark-table">
+            <div className="benchmark-inspection-table-overflow">
+              <table className="benchmark-inspection-table">
                 <thead>
-                  <tr className="benchmark-table-th">
-                    <th className="benchmark-table-td">ID</th>
-                    <th className="benchmark-table-td">ALERT & KATEGORIA</th>
-                    <th className="benchmark-table-td">GROUND TRUTH</th>
-                    <th className="benchmark-table-td">MODEL BAZOWY</th>
-                    <th className="benchmark-table-td">MODEL FINE-TUNED</th>
-                    <th className="benchmark-table-td" style={{ textAlign: 'right' }}>AKCJA</th>
+                  <tr className="benchmark-inspection-table-thead-tr">
+                    <th className="benchmark-inspection-table-th">ID</th>
+                    <th className="benchmark-inspection-table-th">ALERT &amp; KATEGORIA</th>
+                    <th className="benchmark-inspection-table-th">GROUND TRUTH</th>
+                    <th className="benchmark-inspection-table-th">MODEL BAZOWY</th>
+                    <th className="benchmark-inspection-table-th">MODEL FINE-TUNED</th>
+                    <th className="benchmark-inspection-table-th right">AKCJA</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1559,30 +1352,19 @@ export const EvaluationBenchmarkPage: React.FC = () => {
 
                     return (
                       <React.Fragment key={item.alertId}>
-                        <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)', transition: 'background 0.15s' }}>
-                          <td style={{ padding: '0.75rem 0.85rem', fontWeight: 700, color: '#38bdf8' }}>{item.alertId}</td>
-                          <td style={{ padding: '0.75rem 0.85rem', maxWidth: '260px' }}>
-                            <div style={{ fontWeight: 600, color: '#ffffff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {item.alertTitle}
-                            </div>
-                            <div style={{ fontSize: '0.725rem', color: '#64748b', marginTop: '2px' }}>
-                              {item.category} ({item.severity})
-                            </div>
+                        <tr className="benchmark-inspection-tr">
+                          <td className="benchmark-inspection-td-id">{item.alertId}</td>
+                          <td className="benchmark-inspection-td max-w-260">
+                            <div className="benchmark-alert-title-text">{item.alertTitle}</div>
+                            <div className="benchmark-alert-meta-text">{item.category} ({item.severity})</div>
                           </td>
-                          <td style={{ padding: '0.75rem 0.85rem' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                              <span style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '5px',
-                                fontSize: '0.75rem',
-                                fontWeight: 700,
-                                color: item.groundTruthIsThreat ? '#f87171' : '#4ade80'
-                              }}>
+                          <td className="benchmark-inspection-td">
+                            <div className="benchmark-gt-col">
+                              <span className={`benchmark-inspection-gt-badge ${item.groundTruthIsThreat ? 'threat' : 'benign'}`}>
                                 {item.groundTruthIsThreat ? <AlertTriangle size={13} color="#f87171" /> : <CheckCircle2 size={13} color="#4ade80" />}
                                 {item.groundTruthIsThreat ? 'Atak (Zagrożenie)' : 'Ruch Prawidłowy'}
                               </span>
-                              <span style={{ fontSize: '0.7rem', color: '#94a3b8', background: 'rgba(255,255,255,0.05)', padding: '1px 6px', borderRadius: '4px', width: 'fit-content' }}>
+                              <span className="benchmark-inspection-gt-action">
                                 Akcja: {item.groundTruthAction}
                               </span>
                             </div>
@@ -1594,45 +1376,18 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                             return (
                               <>
                                 {/* Base Model Result */}
-                                <td style={{ padding: '0.75rem 0.85rem' }}>
-                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                      <span style={{
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: '4px',
-                                        padding: '0.2rem 0.55rem',
-                                        borderRadius: '6px',
-                                        fontSize: '0.75rem',
-                                        fontWeight: 800,
-                                        background: (item.groundTruthIsThreat === baseResp.predictedIsThreat) ? 'rgba(56, 189, 248, 0.25)' : 'rgba(239, 68, 68, 0.2)',
-                                        color: (item.groundTruthIsThreat === baseResp.predictedIsThreat) ? '#38bdf8' : '#f87171',
-                                        border: (item.groundTruthIsThreat === baseResp.predictedIsThreat) ? '1px solid rgba(56, 189, 248, 0.4)' : '1px solid rgba(239, 68, 68, 0.35)'
-                                      }}>
+                                <td className="benchmark-inspection-td">
+                                  <div className="benchmark-model-col">
+                                    <div className="benchmark-model-col-row">
+                                      <span className={`benchmark-inspection-pred-badge ${(item.groundTruthIsThreat === baseResp.predictedIsThreat) ? 'base-ok' : 'base-err'}`}>
                                         {(item.groundTruthIsThreat === baseResp.predictedIsThreat) ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
                                         {baseResp.predictedIsThreat ? 'Atak' : 'Ruch Prawidłowy'}
                                       </span>
-                                      <span style={{
-                                        fontSize: '0.65rem',
-                                        fontWeight: 800,
-                                        padding: '1px 5px',
-                                        borderRadius: '3px',
-                                        background: ((item.groundTruthIsThreat === baseResp.predictedIsThreat) && isBaseActionOK)
-                                          ? 'rgba(56, 189, 248, 0.25)'
-                                          : ((item.groundTruthIsThreat === baseResp.predictedIsThreat) && !isBaseActionOK)
-                                            ? 'rgba(234, 179, 8, 0.25)'
-                                            : 'rgba(239, 68, 68, 0.2)',
-                                        color: ((item.groundTruthIsThreat === baseResp.predictedIsThreat) && isBaseActionOK)
-                                          ? '#38bdf8'
-                                          : ((item.groundTruthIsThreat === baseResp.predictedIsThreat) && !isBaseActionOK)
-                                            ? '#facc15'
-                                            : '#f87171',
-                                        border: ((item.groundTruthIsThreat === baseResp.predictedIsThreat) && isBaseActionOK)
-                                          ? '1px solid rgba(56, 189, 248, 0.4)'
-                                          : ((item.groundTruthIsThreat === baseResp.predictedIsThreat) && !isBaseActionOK)
-                                            ? '1px solid rgba(234, 179, 8, 0.4)'
-                                            : '1px solid rgba(239, 68, 68, 0.4)'
-                                      }}>
+                                      <span className={`benchmark-inspection-agreement-badge ${
+                                        (item.groundTruthIsThreat === baseResp.predictedIsThreat) && isBaseActionOK ? 'base-ok-action-ok'
+                                        : (item.groundTruthIsThreat === baseResp.predictedIsThreat) && !isBaseActionOK ? 'base-ok-action-err'
+                                        : 'base-err-class'
+                                      }`}>
                                         {((item.groundTruthIsThreat === baseResp.predictedIsThreat) && isBaseActionOK)
                                           ? '100% OK'
                                           : ((item.groundTruthIsThreat === baseResp.predictedIsThreat) && !isBaseActionOK)
@@ -1640,14 +1395,14 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                                             : '0% (BŁĄD Klasyfikacji)'}
                                       </span>
                                     </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.7rem', color: '#64748b' }}>
+                                    <div className="benchmark-model-meta-row">
                                       <span>
-                                        Akcja: <strong style={{ color: isBaseActionOK ? '#4ade80' : '#f87171' }}>{baseResp.predictedAction}</strong>
+                                        Akcja: <strong className={isBaseActionOK ? 'base-ok' : 'base-err'}>{baseResp.predictedAction}</strong>
                                         {!isBaseActionOK && (
-                                          <span style={{ color: '#f87171', fontSize: '0.65rem', marginLeft: '4px', fontWeight: 600 }}>(≠ {item.groundTruthAction})</span>
+                                          <span className="benchmark-inspection-meta-action action-diff">(≠ {item.groundTruthAction})</span>
                                         )}
                                       </span>
-                                      <span style={{ color: '#38bdf8', display: 'inline-flex', alignItems: 'center', gap: '3px', fontWeight: 600 }}>
+                                      <span className="benchmark-latency-base">
                                         <Clock size={10} /> {baseResp.latencyMs} ms
                                       </span>
                                     </div>
@@ -1655,45 +1410,18 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                                 </td>
 
                                 {/* Fine-Tuned Model Result */}
-                                <td style={{ padding: '0.75rem 0.85rem' }}>
-                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                      <span style={{
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: '4px',
-                                        padding: '0.2rem 0.55rem',
-                                        borderRadius: '6px',
-                                        fontSize: '0.75rem',
-                                        fontWeight: 800,
-                                        background: (item.groundTruthIsThreat === ftResp.predictedIsThreat) ? 'rgba(139, 92, 246, 0.25)' : 'rgba(239, 68, 68, 0.2)',
-                                        color: (item.groundTruthIsThreat === ftResp.predictedIsThreat) ? '#c084fc' : '#f87171',
-                                        border: (item.groundTruthIsThreat === ftResp.predictedIsThreat) ? '1px solid rgba(139, 92, 246, 0.4)' : '1px solid rgba(239, 68, 68, 0.35)'
-                                      }}>
+                                <td className="benchmark-inspection-td">
+                                  <div className="benchmark-model-col">
+                                    <div className="benchmark-model-col-row">
+                                      <span className={`benchmark-inspection-pred-badge ${(item.groundTruthIsThreat === ftResp.predictedIsThreat) ? 'ft-ok' : 'ft-err'}`}>
                                         {(item.groundTruthIsThreat === ftResp.predictedIsThreat) ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
                                         {ftResp.predictedIsThreat ? 'Atak' : 'Ruch Prawidłowy'}
                                       </span>
-                                      <span style={{
-                                        fontSize: '0.65rem',
-                                        fontWeight: 800,
-                                        padding: '1px 5px',
-                                        borderRadius: '3px',
-                                        background: ((item.groundTruthIsThreat === ftResp.predictedIsThreat) && isFtActionOK)
-                                          ? 'rgba(139, 92, 246, 0.25)'
-                                          : ((item.groundTruthIsThreat === ftResp.predictedIsThreat) && !isFtActionOK)
-                                            ? 'rgba(234, 179, 8, 0.25)'
-                                            : 'rgba(239, 68, 68, 0.2)',
-                                        color: ((item.groundTruthIsThreat === ftResp.predictedIsThreat) && isFtActionOK)
-                                          ? '#c084fc'
-                                          : ((item.groundTruthIsThreat === ftResp.predictedIsThreat) && !isFtActionOK)
-                                            ? '#facc15'
-                                            : '#f87171',
-                                        border: ((item.groundTruthIsThreat === ftResp.predictedIsThreat) && isFtActionOK)
-                                          ? '1px solid rgba(139, 92, 246, 0.4)'
-                                          : ((item.groundTruthIsThreat === ftResp.predictedIsThreat) && !isFtActionOK)
-                                            ? '1px solid rgba(234, 179, 8, 0.4)'
-                                            : '1px solid rgba(239, 68, 68, 0.4)'
-                                      }}>
+                                      <span className={`benchmark-inspection-agreement-badge ${
+                                        (item.groundTruthIsThreat === ftResp.predictedIsThreat) && isFtActionOK ? 'ft-ok-action-ok'
+                                        : (item.groundTruthIsThreat === ftResp.predictedIsThreat) && !isFtActionOK ? 'ft-ok-action-err'
+                                        : 'ft-err-class'
+                                      }`}>
                                         {((item.groundTruthIsThreat === ftResp.predictedIsThreat) && isFtActionOK)
                                           ? '100% OK'
                                           : ((item.groundTruthIsThreat === ftResp.predictedIsThreat) && !isFtActionOK)
@@ -1701,14 +1429,14 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                                             : '0% (BŁĄD Klasyfikacji)'}
                                       </span>
                                     </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.7rem', color: '#64748b' }}>
+                                    <div className="benchmark-model-meta-row">
                                       <span>
-                                        Akcja: <strong style={{ color: isFtActionOK ? '#c084fc' : '#f87171' }}>{ftResp.predictedAction}</strong>
+                                        Akcja: <strong className={isFtActionOK ? 'ft-ok' : 'ft-err'}>{ftResp.predictedAction}</strong>
                                         {!isFtActionOK && (
-                                          <span style={{ color: '#f87171', fontSize: '0.65rem', marginLeft: '4px', fontWeight: 600 }}>(≠ {item.groundTruthAction})</span>
+                                          <span className="benchmark-meta-action-diff">(≠ {item.groundTruthAction})</span>
                                         )}
                                       </span>
-                                      <span style={{ color: '#c084fc', display: 'inline-flex', alignItems: 'center', gap: '3px', fontWeight: 600 }}>
+                                      <span className="benchmark-latency-ft">
                                         <Zap size={10} /> {ftResp.latencyMs} ms
                                       </span>
                                     </div>
@@ -1718,21 +1446,10 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                             );
                           })()}
 
-                          <td style={{ padding: '0.75rem 0.85rem', textAlign: 'right' }}>
+                          <td className="benchmark-inspection-td right">
                             <button
                               onClick={() => setExpandedItemId(isExpanded ? null : item.alertId)}
-                              style={{
-                                background: 'rgba(139, 92, 246, 0.15)',
-                                border: '1px solid rgba(139, 92, 246, 0.3)',
-                                color: '#c084fc',
-                                padding: '0.25rem 0.55rem',
-                                borderRadius: '5px',
-                                fontSize: '0.725rem',
-                                cursor: 'pointer',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '4px'
-                              }}
+                              className="benchmark-inspection-btn-preview"
                             >
                               {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />} Podgląd Surowy
                             </button>
@@ -1741,21 +1458,21 @@ export const EvaluationBenchmarkPage: React.FC = () => {
 
                         {/* Expanded details row */}
                         {isExpanded && (
-                          <tr style={{ background: 'rgba(15, 23, 42, 0.6)' }}>
-                            <td colSpan={6} style={{ padding: '1rem 1.25rem' }}>
-                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', fontSize: '0.775rem' }}>
-                                <div style={{ background: 'rgba(10, 15, 26, 0.8)', padding: '0.75rem', borderRadius: '8px', border: '1px solid rgba(56, 189, 248, 0.25)' }}>
-                                  <div style={{ fontWeight: 700, color: '#38bdf8', marginBottom: '0.4rem' }}>
+                          <tr className="benchmark-inspection-expanded-tr">
+                            <td colSpan={6} className="benchmark-inspection-expanded-td">
+                              <div className="benchmark-inspection-expanded-grid">
+                                <div className="benchmark-inspection-expanded-box base">
+                                  <div className="benchmark-inspection-expanded-title base">
                                     MODEL BAZOWY ({baseMetrics?.modelName || 'LOKALNA OLLAMA'}):
                                   </div>
-                                  <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', color: '#cbd5e1', fontFamily: 'monospace', margin: 0, fontSize: '0.725rem', maxHeight: '220px', overflowY: 'auto' }}>
+                                  <pre className="benchmark-inspection-expanded-pre">
                                     {baseResp.extractedText}
                                   </pre>
                                 </div>
 
-                                <div style={{ background: 'rgba(10, 15, 26, 0.8)', padding: '0.75rem', borderRadius: '8px', border: '1px solid rgba(139, 92, 246, 0.25)' }}>
-                                  <div style={{ fontWeight: 700, color: '#c084fc', marginBottom: '0.4rem' }}>MODEL WYFINETUNINGOWANY (FT):</div>
-                                  <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', color: '#cbd5e1', fontFamily: 'monospace', margin: 0, fontSize: '0.725rem', maxHeight: '220px', overflowY: 'auto' }}>
+                                <div className="benchmark-inspection-expanded-box ft">
+                                  <div className="benchmark-inspection-expanded-title ft">MODEL WYFINETUNINGOWANY (FT):</div>
+                                  <pre className="benchmark-inspection-expanded-pre">
                                     {ftResp.extractedText}
                                   </pre>
                                 </div>

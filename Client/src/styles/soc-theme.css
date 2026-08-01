@@ -462,23 +462,10 @@ body {
 }
 
 .btn-warning {
-  background: linear-gradient(135deg, rgba(217, 119, 6, 0.35), rgba(180, 83, 9, 0.45));
-  color: #fef08a;
-  border: 1px solid rgba(245, 158, 11, 0.6);
-  font-weight: 700;
-}
-
-.btn-danger:hover {
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.45), rgba(185, 28, 28, 0.6));
-  color: #ffffff;
-  border-color: #ef4444;
-  box-shadow: 0 0 20px rgba(239, 68, 68, 0.4);
-}
-
-.btn-warning {
   background: linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(180, 83, 9, 0.35));
   color: #fde047;
   border: 1px solid rgba(245, 158, 11, 0.5);
+  font-weight: 700;
 }
 
 .btn-warning:hover {
