@@ -99,12 +99,21 @@ export const EvaluationBenchmarkPage: React.FC = () => {
   const calculateDiff = (valFt: number, valBase: number, isLatency: boolean = false) => {
     const diff = valFt - valBase;
     if (Math.abs(diff) < 0.01) return { text: '0.0%', isPositive: true };
-    const pct = isLatency
-      ? ((valBase - valFt) / valBase * 100).toFixed(1)
-      : diff.toFixed(1);
-    const isPositive = isLatency ? (valFt < valBase) : (diff > 0);
+    if (isLatency) {
+      const isPositive = valFt < valBase;
+      if (isPositive) {
+        const pctReduction = ((valBase - valFt) / valBase * 100).toFixed(1);
+        const speedup = valFt > 0 ? (valBase / valFt).toFixed(1) : '1.0';
+        return { text: `-${pctReduction}% (${speedup}x szybciej)`, isPositive: true };
+      } else {
+        const pctIncrease = ((valFt - valBase) / (valBase || 1) * 100).toFixed(1);
+        const slowdown = valBase > 0 ? (valFt / valBase).toFixed(1) : '1.0';
+        return { text: `+${pctIncrease}% (${slowdown}x wolniej)`, isPositive: false };
+      }
+    }
+    const isPositive = diff > 0;
     const sign = diff > 0 ? '+' : '';
-    return { text: `${sign}${pct}%`, isPositive };
+    return { text: `${sign}${diff.toFixed(1)}%`, isPositive };
   };
 
   const computeStrictMetrics = (rawMetrics: ModelEvaluationMetrics | undefined, itemResults: EvaluationItemResult[] | undefined, isBaseModel: boolean) => {
@@ -200,23 +209,43 @@ export const EvaluationBenchmarkPage: React.FC = () => {
     };
   };
 
-  // Model filtering & historical reports logic
-  const uniqueModelNames = Array.from(
-    new Set(historicalReports.map(r => r.baseModelMetrics?.modelName).filter(Boolean))
+  // Clean model filtering & historical reports logic
+  const modelCategories = Array.from(
+    new Set(
+      historicalReports.map(r => {
+        const bm = r.baseModelMetrics?.modelName || '';
+        if (bm.includes('Pominięty') || (r.baseModelMetrics?.accuracy === 0 && r.baseModelMetrics?.averageLatencyMs === 0)) {
+          return 'Tylko Azure OpenAI FT';
+        }
+        return bm.replace('Model Bazowy (Ollama: ', '').replace(')', '').trim();
+      }).filter(Boolean)
+    )
   );
 
   const filteredHistoricalReports = selectedModelFilter === 'ALL'
     ? historicalReports
-    : historicalReports.filter(r => r.baseModelMetrics?.modelName.toLowerCase() === selectedModelFilter.toLowerCase());
+    : historicalReports.filter(r => {
+        const bm = r.baseModelMetrics?.modelName || '';
+        const isBmSkipped = bm.includes('Pominięty') || (r.baseModelMetrics?.accuracy === 0 && r.baseModelMetrics?.averageLatencyMs === 0);
+        if (selectedModelFilter === 'Tylko Azure OpenAI FT') {
+          return isBmSkipped;
+        }
+        return bm.toLowerCase().includes(selectedModelFilter.toLowerCase());
+      });
 
-  const selectedBaseReport = historicalReports.find(r => r.reportId === selectedBaseReportId) || report;
-  const baseMetrics = computeStrictMetrics(selectedBaseReport?.baseModelMetrics || report?.baseModelMetrics, selectedBaseReport?.itemResults || report?.itemResults, true);
-  const ftMetrics = computeStrictMetrics(report?.fineTunedModelMetrics, report?.itemResults, false);
+  const [selectedFtReportId, setSelectedFtReportId] = useState<string>('');
+
+  const validBaseReports = historicalReports.filter(r => r.baseModelMetrics && !r.baseModelMetrics.modelName.includes('Pominięty') && r.baseModelMetrics.accuracy > 0);
+  const validFtReports = historicalReports.filter(r => r.fineTunedModelMetrics && !r.fineTunedModelMetrics.modelName.includes('Pominięty') && r.fineTunedModelMetrics.accuracy > 0);
+
+  const selectedBaseReport = historicalReports.find(r => r.reportId === selectedBaseReportId) || validBaseReports[0] || report;
+  const selectedFtReport = historicalReports.find(r => r.reportId === selectedFtReportId) || validFtReports[0] || report;
+
+  const baseMetrics = computeStrictMetrics(selectedBaseReport?.baseModelMetrics, selectedBaseReport?.itemResults, true);
+  const ftMetrics = computeStrictMetrics(selectedFtReport?.fineTunedModelMetrics, selectedFtReport?.itemResults, false);
 
   const handleExportToExcel = () => {
-    const reportsToExport = selectedModelFilter === 'ALL'
-      ? historicalReports
-      : historicalReports.filter(r => r.baseModelMetrics?.modelName.toLowerCase() === selectedModelFilter.toLowerCase());
+    const reportsToExport = filteredHistoricalReports;
 
     if (reportsToExport.length === 0) {
       alert('Brak raportów do wyeksportowania dla wybranego filtra!');
@@ -328,8 +357,9 @@ export const EvaluationBenchmarkPage: React.FC = () => {
     }
   };
 
-  const filteredItems = (report?.itemResults || []).filter(item => {
-    const bResp = (selectedBaseReport?.itemResults.find(r => r.alertId === item.alertId) || item).baseModelResponse;
+  const activeReportItems = selectedBaseReport?.itemResults || report?.itemResults || [];
+  const filteredItems = activeReportItems.filter(item => {
+    const bResp = item.baseModelResponse;
     const fResp = item.fineTunedModelResponse;
     if (filterMode === 'MISMATCHED') {
       return !bResp.isClassCorrect || !fResp.isClassCorrect || !bResp.isActionCorrect || !fResp.isActionCorrect;
@@ -663,7 +693,12 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                       setSelectedModelFilter(newFilter);
                       const matching = newFilter === 'ALL'
                         ? historicalReports
-                        : historicalReports.filter(h => h.baseModelMetrics?.modelName.toLowerCase() === newFilter.toLowerCase());
+                        : historicalReports.filter(r => {
+                            const bm = r.baseModelMetrics?.modelName || '';
+                            const isBmSkipped = bm.includes('Pominięty') || (r.baseModelMetrics?.accuracy === 0 && r.baseModelMetrics?.averageLatencyMs === 0);
+                            if (newFilter === 'Tylko Azure OpenAI FT') return isBmSkipped;
+                            return bm.toLowerCase().includes(newFilter.toLowerCase());
+                          });
                       if (matching.length > 0) {
                         setSelectedBaseReportId(matching[0].reportId);
                       }
@@ -681,11 +716,16 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                     }}
                   >
                     <option value="ALL">Wszystkie Modele ({historicalReports.length})</option>
-                    {uniqueModelNames.map(name => {
-                      const count = historicalReports.filter(h => h.baseModelMetrics?.modelName.toLowerCase() === name.toLowerCase()).length;
+                    {modelCategories.map(cat => {
+                      const count = historicalReports.filter(r => {
+                        const bm = r.baseModelMetrics?.modelName || '';
+                        const isBmSkipped = bm.includes('Pominięty') || (r.baseModelMetrics?.accuracy === 0 && r.baseModelMetrics?.averageLatencyMs === 0);
+                        if (cat === 'Tylko Azure OpenAI FT') return isBmSkipped;
+                        return bm.toLowerCase().includes(cat.toLowerCase());
+                      }).length;
                       return (
-                        <option key={name} value={name}>
-                          {name} ({count} {count === 1 ? 'próba' : 'prób'})
+                        <option key={cat} value={cat}>
+                          {cat} ({count} {count === 1 ? 'próba' : 'prób'})
                         </option>
                       );
                     })}
@@ -712,11 +752,21 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                       boxShadow: '0 0 8px rgba(56, 189, 248, 0.2)'
                     }}
                   >
-                    {filteredHistoricalReports.map((h, idx) => (
-                      <option key={h.reportId} value={h.reportId} style={{ background: '#0f172a', color: '#ffffff' }}>
-                        Próba #{filteredHistoricalReports.length - idx}: {h.baseModelMetrics.modelName} ({new Date(h.timestamp).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}) - {h.baseModelMetrics.accuracy}% Acc
-                      </option>
-                    ))}
+                    {filteredHistoricalReports.map((h, idx) => {
+                      const bm = computeStrictMetrics(h.baseModelMetrics, h.itemResults, true) || h.baseModelMetrics;
+                      const ftm = computeStrictMetrics(h.fineTunedModelMetrics, h.itemResults, false) || h.fineTunedModelMetrics;
+                      const timeStr = new Date(h.timestamp).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                      const summaryStr = ftm.isSkipped 
+                        ? `Ollama (${bm.accuracy.toFixed(1)}% Acc)` 
+                        : bm.isSkipped 
+                          ? `Azure FT (${ftm.accuracy.toFixed(1)}% Acc)` 
+                          : `Ollama (${bm.accuracy.toFixed(1)}%) vs Azure FT (${ftm.accuracy.toFixed(1)}%)`;
+                      return (
+                        <option key={h.reportId} value={h.reportId} style={{ background: '#0f172a', color: '#ffffff' }}>
+                          Próba #{filteredHistoricalReports.length - idx} ({timeStr}): {summaryStr}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
 
@@ -813,7 +863,7 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                   onClick={handleExportToExcel}
                   style={{ background: 'transparent', border: 'none', color: '#10b981', fontSize: '0.775rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
                 >
-                  <Download size={13} /> Pobierz arkusz dla wszystkich próbek
+                  <Download size={13} /> Pobierz arkusz dla wszystkich prób
                 </button>
               </div>
 
@@ -821,38 +871,44 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.775rem', textAlign: 'left' }}>
                   <thead>
                     <tr style={{ background: 'rgba(30, 41, 59, 0.8)', color: '#94a3b8', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
-                      <th style={{ padding: '0.5rem 0.75rem' }}>PRÓBA #</th>
-                      <th style={{ padding: '0.5rem 0.75rem' }}>MODEL BAZOWY</th>
-                      <th style={{ padding: '0.5rem 0.75rem' }}>DATA I CZAS</th>
-                      <th style={{ padding: '0.5rem 0.75rem' }}>ACCURACY</th>
-                      <th style={{ padding: '0.5rem 0.75rem' }}>PRECISION</th>
-                      <th style={{ padding: '0.5rem 0.75rem' }}>RECALL</th>
-                      <th style={{ padding: '0.5rem 0.75rem' }}>F1-SCORE</th>
-                      <th style={{ padding: '0.5rem 0.75rem' }}>LATENCJA</th>
-                      <th style={{ padding: '0.5rem 0.75rem', textAlign: 'right' }}>AKCJA</th>
+                      <th style={{ padding: '0.6rem 0.75rem' }}>PRÓBA #</th>
+                      <th style={{ padding: '0.6rem 0.75rem' }}>DATA I CZAS</th>
+                      <th style={{ padding: '0.6rem 0.75rem' }}>TRYB / TESTOWANY MODEL</th>
+                      <th style={{ padding: '0.6rem 0.75rem', color: '#4ade80' }}>DOKŁADNOŚĆ (ACCURACY)</th>
+                      <th style={{ padding: '0.6rem 0.75rem', color: '#c084fc' }}>F1-SCORE</th>
+                      <th style={{ padding: '0.6rem 0.75rem', color: '#38bdf8' }}>ŚREDNIA LATENCJA</th>
+                      <th style={{ padding: '0.6rem 0.75rem', textAlign: 'right' }}>AKCJA</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {/* Summary Row for Averages Across All Runs of Selected Model */}
+                    {/* Summary Row for Averages Across All Runs */}
                     {(() => {
                       if (!filteredHistoricalReports || filteredHistoricalReports.length === 0) return null;
 
-                      let sumAcc = 0, sumPrec = 0, sumRec = 0, sumF1 = 0, sumLat = 0;
+                      let sumBaseAcc = 0, sumFtAcc = 0, sumFtF1 = 0, sumFtLat = 0;
+                      let validBaseCnt = 0, validFtCnt = 0;
+
                       filteredHistoricalReports.forEach(h => {
                         const bm = computeStrictMetrics(h.baseModelMetrics, h.itemResults, true) || h.baseModelMetrics;
-                        sumAcc += bm.accuracy || 0;
-                        sumPrec += bm.precision || 0;
-                        sumRec += bm.recall || 0;
-                        sumF1 += bm.f1Score || 0;
-                        sumLat += bm.averageLatencyMs || 0;
+                        const ftm = computeStrictMetrics(h.fineTunedModelMetrics, h.itemResults, false) || h.fineTunedModelMetrics;
+                        
+                        if (bm && !bm.isSkipped && bm.accuracy > 0) {
+                          sumBaseAcc += bm.accuracy || 0;
+                          validBaseCnt++;
+                        }
+                        if (ftm && !ftm.isSkipped && ftm.accuracy > 0) {
+                          sumFtAcc += ftm.accuracy || 0;
+                          sumFtF1 += ftm.f1Score || 0;
+                          sumFtLat += ftm.averageLatencyMs || 0;
+                          validFtCnt++;
+                        }
                       });
 
                       const cnt = filteredHistoricalReports.length;
-                      const avgAcc = sumAcc / cnt;
-                      const avgPrec = sumPrec / cnt;
-                      const avgRec = sumRec / cnt;
-                      const avgF1 = sumF1 / cnt;
-                      const avgLat = sumLat / cnt;
+                      const avgBaseAcc = validBaseCnt > 0 ? sumBaseAcc / validBaseCnt : 0;
+                      const avgFtAcc = validFtCnt > 0 ? sumFtAcc / validFtCnt : 0;
+                      const avgFtF1 = validFtCnt > 0 ? sumFtF1 / validFtCnt : 0;
+                      const avgFtLat = validFtCnt > 0 ? sumFtLat / validFtCnt : 0;
 
                       return (
                         <tr
@@ -867,30 +923,28 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                               <BarChart2 size={12} /> ŚREDNIA ({cnt})
                             </span>
                           </td>
-                          <td style={{ padding: '0.65rem 0.75rem', fontWeight: 800, color: '#38bdf8' }}>
-                            Średnia ze wszystkich prób
-                          </td>
                           <td style={{ padding: '0.65rem 0.75rem', color: '#94a3b8', fontSize: '0.725rem', fontWeight: 600 }}>
-                            Średnia z {cnt} testów
+                            Średnia z {cnt} prób
                           </td>
-                          <td style={{ padding: '0.65rem 0.75rem', fontWeight: 900, color: avgAcc >= 80 ? '#4ade80' : '#facc15', fontSize: '0.85rem' }}>
-                            {avgAcc.toFixed(1)}%
+                          <td style={{ padding: '0.65rem 0.75rem', fontWeight: 800, color: '#ffffff' }}>
+                            <span style={{ padding: '0.2rem 0.5rem', borderRadius: '4px', background: 'rgba(255, 255, 255, 0.1)', fontSize: '0.725rem' }}>
+                              Zbiorczy Podgląd
+                            </span>
                           </td>
-                          <td style={{ padding: '0.65rem 0.75rem', fontWeight: 800, color: '#e2e8f0', fontSize: '0.85rem' }}>
-                            {avgPrec.toFixed(1)}%
-                          </td>
-                          <td style={{ padding: '0.65rem 0.75rem', fontWeight: 800, color: '#e2e8f0', fontSize: '0.85rem' }}>
-                            {avgRec.toFixed(1)}%
+                          <td style={{ padding: '0.65rem 0.75rem', fontWeight: 900, color: '#4ade80', fontSize: '0.85rem' }}>
+                            {validFtCnt > 0 && validBaseCnt > 0 
+                              ? `Ollama: ${avgBaseAcc.toFixed(1)}% | Azure: ${avgFtAcc.toFixed(1)}%`
+                              : validFtCnt > 0 ? `Azure FT: ${avgFtAcc.toFixed(1)}%` : `Ollama: ${avgBaseAcc.toFixed(1)}%`}
                           </td>
                           <td style={{ padding: '0.65rem 0.75rem', fontWeight: 900, color: '#c084fc', fontSize: '0.85rem' }}>
-                            {avgF1.toFixed(1)}%
+                            {validFtCnt > 0 ? `${avgFtF1.toFixed(1)}%` : '-'}
                           </td>
                           <td style={{ padding: '0.65rem 0.75rem', fontWeight: 800, color: '#38bdf8', fontSize: '0.85rem' }}>
-                            {avgLat.toFixed(0)} ms
+                            {validFtCnt > 0 ? `${avgFtLat.toFixed(0)} ms` : '-'}
                           </td>
                           <td style={{ padding: '0.65rem 0.75rem', textAlign: 'right' }}>
                             <span style={{ fontSize: '0.7rem', fontWeight: 800, padding: '0.2rem 0.55rem', borderRadius: '4px', background: 'rgba(56, 189, 248, 0.25)', color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.4)' }}>
-                              Zbiorczy Wynik Modelu
+                              Podsumowanie
                             </span>
                           </td>
                         </tr>
@@ -898,12 +952,42 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                     })()}
 
                     {filteredHistoricalReports.map((h, idx) => {
-                      const isSelected = h.reportId === selectedBaseReportId;
+                      const isSelected = h.reportId === selectedBaseReportId || h.reportId === selectedFtReportId;
                       const bm = computeStrictMetrics(h.baseModelMetrics, h.itemResults, true) || h.baseModelMetrics;
+                      const ftm = computeStrictMetrics(h.fineTunedModelMetrics, h.itemResults, false) || h.fineTunedModelMetrics;
+
+                      const isBaseActive = bm && !bm.isSkipped && (bm.accuracy > 0 || bm.averageLatencyMs > 0);
+                      const isFtActive = ftm && !ftm.isSkipped && (ftm.accuracy > 0 || ftm.averageLatencyMs > 0);
+
+                      let modeBadge = null;
+                      if (isBaseActive && isFtActive) {
+                        modeBadge = (
+                          <span style={{ padding: '0.25rem 0.6rem', borderRadius: '6px', background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(192, 132, 252, 0.2))', border: '1px solid rgba(192, 132, 252, 0.4)', color: '#ffffff', fontWeight: 800, fontSize: '0.725rem' }}>
+                            Ollama + Azure FT
+                          </span>
+                        );
+                      } else if (isFtActive) {
+                        modeBadge = (
+                          <span style={{ padding: '0.25rem 0.6rem', borderRadius: '6px', background: 'rgba(192, 132, 252, 0.18)', border: '1px solid rgba(192, 132, 252, 0.4)', color: '#c084fc', fontWeight: 800, fontSize: '0.725rem' }}>
+                            ⚡ Tylko Azure OpenAI FT
+                          </span>
+                        );
+                      } else {
+                        const cleanName = (bm?.modelName || 'Ollama').replace('Model Bazowy (Ollama: ', '').replace(')', '');
+                        modeBadge = (
+                          <span style={{ padding: '0.25rem 0.6rem', borderRadius: '6px', background: 'rgba(56, 189, 248, 0.18)', border: '1px solid rgba(56, 189, 248, 0.4)', color: '#38bdf8', fontWeight: 800, fontSize: '0.725rem' }}>
+                            🦙 Ollama ({cleanName})
+                          </span>
+                        );
+                      }
+
                       return (
                         <tr
                           key={h.reportId}
-                          onClick={() => setSelectedBaseReportId(h.reportId)}
+                          onClick={() => {
+                            if (isBaseActive) setSelectedBaseReportId(h.reportId);
+                            if (isFtActive) setSelectedFtReportId(h.reportId);
+                          }}
                           style={{
                             borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
                             background: isSelected ? 'rgba(56, 189, 248, 0.12)' : 'transparent',
@@ -911,22 +995,33 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                             transition: 'background 0.15s'
                           }}
                         >
-                          <td style={{ padding: '0.5rem 0.75rem', fontWeight: 800, color: isSelected ? '#38bdf8' : '#ffffff' }}>
+                          <td style={{ padding: '0.65rem 0.75rem', fontWeight: 800, color: isSelected ? '#38bdf8' : '#ffffff' }}>
                             #{filteredHistoricalReports.length - idx} {isSelected && '(Wybrany)'}
                           </td>
-                          <td style={{ padding: '0.5rem 0.75rem', fontWeight: 700, color: '#38bdf8' }}>{bm.modelName}</td>
-                          <td style={{ padding: '0.5rem 0.75rem', color: '#94a3b8' }}>{new Date(h.timestamp).toLocaleString('pl-PL')}</td>
-                          <td style={{ padding: '0.5rem 0.75rem', fontWeight: 700, color: bm.accuracy >= 80 ? '#4ade80' : '#f87171' }}>{bm.accuracy.toFixed(1)}%</td>
-                          <td style={{ padding: '0.5rem 0.75rem', color: '#cbd5e1' }}>{bm.precision.toFixed(1)}%</td>
-                          <td style={{ padding: '0.5rem 0.75rem', color: '#cbd5e1' }}>{bm.recall.toFixed(1)}%</td>
-                          <td style={{ padding: '0.5rem 0.75rem', fontWeight: 700, color: '#c084fc' }}>{bm.f1Score.toFixed(1)}%</td>
-                          <td style={{ padding: '0.5rem 0.75rem', color: '#38bdf8' }}>{bm.averageLatencyMs.toFixed(0)} ms</td>
-                          <td style={{ padding: '0.5rem 0.75rem', textAlign: 'right' }}>
+                          <td style={{ padding: '0.65rem 0.75rem', color: '#94a3b8' }}>{new Date(h.timestamp).toLocaleString('pl-PL')}</td>
+                          <td style={{ padding: '0.65rem 0.75rem' }}>{modeBadge}</td>
+                          <td style={{ padding: '0.65rem 0.75rem', fontWeight: 800, color: '#4ade80' }}>
+                            {isBaseActive && isFtActive ? (
+                              <span>Ollama: {bm.accuracy.toFixed(1)}% | Azure: {ftm.accuracy.toFixed(1)}%</span>
+                            ) : isFtActive ? (
+                              <span>{ftm.accuracy.toFixed(1)}%</span>
+                            ) : (
+                              <span>{bm.accuracy.toFixed(1)}%</span>
+                            )}
+                          </td>
+                          <td style={{ padding: '0.65rem 0.75rem', fontWeight: 800, color: '#c084fc' }}>
+                            {isFtActive ? `${ftm.f1Score.toFixed(1)}%` : (isBaseActive ? `${bm.f1Score.toFixed(1)}%` : '-')}
+                          </td>
+                          <td style={{ padding: '0.65rem 0.75rem', fontWeight: 700, color: '#38bdf8' }}>
+                            {isFtActive ? `${ftm.averageLatencyMs.toFixed(0)} ms` : (isBaseActive ? `${bm.averageLatencyMs.toFixed(0)} ms` : '-')}
+                          </td>
+                          <td style={{ padding: '0.65rem 0.75rem', textAlign: 'right' }}>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  setSelectedBaseReportId(h.reportId);
+                                  if (isBaseActive) setSelectedBaseReportId(h.reportId);
+                                  if (isFtActive) setSelectedFtReportId(h.reportId);
                                 }}
                                 style={{
                                   background: isSelected ? '#38bdf8' : 'rgba(255,255,255,0.1)',
@@ -992,10 +1087,71 @@ export const EvaluationBenchmarkPage: React.FC = () => {
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
                 <thead>
                   <tr style={{ background: 'rgba(15, 23, 42, 0.9)', borderBottom: '1px solid var(--border-color)', color: '#94a3b8' }}>
-                    <th style={{ padding: '0.85rem 1rem' }}>METRYKA NAUKOWA</th>
-                    <th style={{ padding: '0.85rem 1rem', color: '#38bdf8' }}>{baseMetrics ? baseMetrics.modelName.toUpperCase() : 'MODEL BAZOWY'}</th>
-                    <th style={{ padding: '0.85rem 1rem', color: '#c084fc' }}>{ftMetrics ? ftMetrics.modelName.toUpperCase() : 'MODEL FINE-TUNED'}</th>
-                    <th style={{ padding: '0.85rem 1rem', textAlign: 'right' }}>RÓŻNICA / ZYSK (%)</th>
+                    <th style={{ padding: '0.85rem 1rem', width: '32%' }}>METRYKA NAUKOWA</th>
+                    <th style={{ padding: '0.85rem 1rem', color: '#38bdf8', width: '28%' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <span style={{ fontSize: '0.725rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#38bdf8', fontWeight: 800 }}>
+                          MODEL BAZOWY (OLLAMA)
+                        </span>
+                        <select
+                          value={selectedBaseReportId || selectedBaseReport?.reportId}
+                          onChange={(e) => setSelectedBaseReportId(e.target.value)}
+                          style={{
+                            background: '#0f172a',
+                            color: '#38bdf8',
+                            border: '1px solid rgba(56, 189, 248, 0.5)',
+                            borderRadius: '6px',
+                            padding: '0.35rem 0.5rem',
+                            fontSize: '0.775rem',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            outline: 'none'
+                          }}
+                        >
+                          {(validBaseReports.length > 0 ? validBaseReports : historicalReports).map((r) => {
+                            const bm = computeStrictMetrics(r.baseModelMetrics, r.itemResults, true);
+                            const name = (bm?.modelName || 'Ollama').replace('Model Bazowy (Ollama: ', '').replace(')', '');
+                            return (
+                              <option key={r.reportId} value={r.reportId}>
+                                {name} ({bm?.accuracy.toFixed(1)}% Acc) - {new Date(r.timestamp).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </div>
+                    </th>
+                    <th style={{ padding: '0.85rem 1rem', color: '#c084fc', width: '28%' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <span style={{ fontSize: '0.725rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#c084fc', fontWeight: 800 }}>
+                          MODEL FINE-TUNED (AZURE)
+                        </span>
+                        <select
+                          value={selectedFtReportId || selectedFtReport?.reportId}
+                          onChange={(e) => setSelectedFtReportId(e.target.value)}
+                          style={{
+                            background: '#0f172a',
+                            color: '#c084fc',
+                            border: '1px solid rgba(192, 132, 252, 0.5)',
+                            borderRadius: '6px',
+                            padding: '0.35rem 0.5rem',
+                            fontSize: '0.775rem',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            outline: 'none'
+                          }}
+                        >
+                          {(validFtReports.length > 0 ? validFtReports : historicalReports).map((r) => {
+                            const ftm = computeStrictMetrics(r.fineTunedModelMetrics, r.itemResults, false);
+                            return (
+                              <option key={r.reportId} value={r.reportId}>
+                                Azure FT ({ftm?.accuracy.toFixed(1)}% Acc) - {new Date(r.timestamp).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </div>
+                    </th>
+                    <th style={{ padding: '0.85rem 1rem', textAlign: 'right', width: '12%' }}>RÓŻNICA / ZYSK (%)</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1240,7 +1396,7 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                             background: diff.isPositive ? 'rgba(34, 197, 94, 0.18)' : 'rgba(239, 68, 68, 0.18)',
                             color: diff.isPositive ? '#4ade80' : '#f87171'
                           }}>
-                            {diff.text} (Szybciej)
+                            {diff.text}
                           </span>
                         );
                       })()}
@@ -1375,7 +1531,7 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                   {filteredItems.map(item => {
                     const isExpanded = expandedItemId === item.alertId;
                     const baseResp = (selectedBaseReport?.itemResults.find(r => r.alertId === item.alertId) || item).baseModelResponse;
-                    const ftResp = item.fineTunedModelResponse;
+                    const ftResp = (selectedFtReport?.itemResults.find(r => r.alertId === item.alertId) || item).fineTunedModelResponse;
 
                     return (
                       <React.Fragment key={item.alertId}>
@@ -1560,14 +1716,14 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                                   <div style={{ fontWeight: 700, color: '#38bdf8', marginBottom: '0.4rem' }}>
                                     MODEL BAZOWY ({baseMetrics?.modelName || 'LOKALNA OLLAMA'}):
                                   </div>
-                                  <pre style={{ whiteSpace: 'pre-wrap', color: '#cbd5e1', fontFamily: 'monospace', margin: 0, fontSize: '0.725rem' }}>
+                                  <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', color: '#cbd5e1', fontFamily: 'monospace', margin: 0, fontSize: '0.725rem', maxHeight: '220px', overflowY: 'auto' }}>
                                     {baseResp.extractedText}
                                   </pre>
                                 </div>
 
                                 <div style={{ background: 'rgba(10, 15, 26, 0.8)', padding: '0.75rem', borderRadius: '8px', border: '1px solid rgba(139, 92, 246, 0.25)' }}>
                                   <div style={{ fontWeight: 700, color: '#c084fc', marginBottom: '0.4rem' }}>MODEL WYFINETUNINGOWANY (FT):</div>
-                                  <pre style={{ whiteSpace: 'pre-wrap', color: '#cbd5e1', fontFamily: 'monospace', margin: 0, fontSize: '0.725rem' }}>
+                                  <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', color: '#cbd5e1', fontFamily: 'monospace', margin: 0, fontSize: '0.725rem', maxHeight: '220px', overflowY: 'auto' }}>
                                     {ftResp.extractedText}
                                   </pre>
                                 </div>

@@ -12,9 +12,9 @@ public class AiProcessResult
 
 public class AiService
 {
-    private static readonly SemaphoreSlim _rateLimiter = new(4, 4);
+    private static readonly SemaphoreSlim _rateLimiter = new(1, 1);
     private static DateTime _lastRequestTime = DateTime.MinValue;
-    private static readonly TimeSpan MinRequestInterval = TimeSpan.FromMilliseconds(300);
+    private static readonly TimeSpan MinRequestInterval = TimeSpan.FromMilliseconds(1500);
 
     private readonly HttpClient _httpClient;
     private readonly AlertStore _alertStore;
@@ -64,24 +64,7 @@ public class AiService
 
                 var alertContext = GetAlertContext(alertId);
 
-                var systemMessage = @"Jesteś zaawansowanym asystentem SOC Sentinel. Twoim zadaniem jest przeanalizowanie przepływu sieciowego (NetFlow) i klasyfikacja zdarzenia oraz podanie rekomendowanej akcji (Isolation, Escalation, Dismiss).
-
-ODPOWIADAJ ZAWSZE WYŁĄCZNIE W PONIŻSZYM FORMATZE:
-
-Wynik analizy:
-<Atak | Fałszywy alarm>
-
-Ocena ryzyka:
-<Niskie | Średnie | Wysokie | Krytyczne>
-
-Uzasadnienie:
-<krótkie uzasadnienie odnoszące się do danych alertu>
-
-Rekomendowana akcja:
-<Isolation | Escalation | Dismiss>
-
-PEWNOŚĆ AI:
-<XX%>";
+                var systemMessage = @"Jesteś zaawansowanym asystentem SOC Sentinel. Twoim zadaniem jest przeanalizowanie przepływu sieciowego (NetFlow) i klasyfikacja zdarzenia oraz podanie rekomendowanej akcji (Isolation, Escalation, Dismiss).";
                 var userContent = $"{alertContext}\n\n[PYTANIE OPERATORA SOC]\n{prompt}";
 
                 // Struktura zgodna z wymaganiami Azure OpenAI Responses API (/v1/responses)
@@ -97,7 +80,7 @@ PEWNOŚĆ AI:
                 };
 
                 int maxRetries = 6;
-                int delayMs = 800;
+                int delayMs = 1500;
 
                 for (int attempt = 0; attempt <= maxRetries; attempt++)
                 {
@@ -117,7 +100,7 @@ PEWNOŚĆ AI:
                         {
                             Console.WriteLine($"[AiService] Status {(int)response.StatusCode} Rate Limit / Occupied. Próba {attempt + 1}/{maxRetries}. Ponawiam za {delayMs}ms...");
                             await Task.Delay(delayMs);
-                            delayMs += 800;
+                            delayMs += 1500;
                             continue;
                         }
 

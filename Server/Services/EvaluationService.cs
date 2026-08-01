@@ -281,7 +281,7 @@ public class EvaluationService
         bool runBase = mode != "ft";
         bool runFt = mode != "base";
 
-        const string promptMessage = "Przeanalizuj ten alert SOC. Określ czy to atak czy fałszywy alarm, podaj uzasadnienie, rekomendowaną akcję reakcji oraz wskaźnik pewności AI w % (np. PEWNOŚĆ AI: 95%).";
+        const string promptMessage = "Przeanalizuj poniższy przepływ sieciowy:";
 
         // Wstępna weryfikacja połączenia z Ollamą jeśli wybrano test bazowy
         if (runBase)
@@ -388,6 +388,11 @@ public class EvaluationService
                     BaseModelResponse = baseEval,
                     FineTunedModelResponse = ftEval
                 });
+
+                if (i < testSet.Count - 1)
+                {
+                    await Task.Delay(2500);
+                }
             }
 
             Console.WriteLine($"\n=======================================================");
@@ -480,7 +485,8 @@ public class EvaluationService
 
         // Kalkulacja metryk dla obu modeli
         var baseMetricsName = runBase ? $"Model Bazowy (Ollama: {ollamaModel})" : $"Model Bazowy (Ollama: {ollamaModel} - Pominięty)";
-        var ftMetricsName = runFt ? "Model Wyfinetuningowany (gpt-4o-mini-ft)" : "Model Wyfinetuningowany (Azure FT - Pominięty)";
+        var ftModelDeploy = Environment.GetEnvironmentVariable("AZURE_AI_MODEL") ?? "gpt-4o-mini-ft";
+        var ftMetricsName = runFt ? $"Model Wyfinetuningowany ({ftModelDeploy})" : $"Model Wyfinetuningowany ({ftModelDeploy} - Pominięty)";
 
         var baseMetrics = CalculateModelMetrics(baseMetricsName, itemResults.Select(r => (r.BaseModelResponse, r.GroundTruthIsThreat, r.GroundTruthAction)).ToList(), runBase);
         var ftMetrics = CalculateModelMetrics(ftMetricsName, itemResults.Select(r => (r.FineTunedModelResponse, r.GroundTruthIsThreat, r.GroundTruthAction)).ToList(), runFt);
@@ -545,11 +551,12 @@ public class EvaluationService
 
         var systemPrompt = customSystemPrompt ?? @"Jesteś zaawansowanym asystentem SOC Sentinel. Twoim zadaniem jest przeanalizowanie przepływu sieciowego (NetFlow) i klasyfikacja zdarzenia oraz podanie rekomendowanej akcji (Isolation, Escalation, Dismiss).";
 
-        var fullUserContent = customSystemPrompt != null ? userMessage : $"{userMessage}\n\n[PYTANIE OPERATORA SOC]\n{defaultPrompt}";
+        var fullUserContent = customSystemPrompt != null ? userMessage : $"{defaultPrompt}\n{userMessage}";
 
         var chatRequestBody = new
         {
             model = modelName,
+            temperature = 0.0,
             messages = new object[]
             {
                 new { role = "system", content = systemPrompt },
@@ -701,8 +708,8 @@ Surowe Logi Zdarzenia:
         var predictedIsThreat = !isFalseAlarm;
         var isTextClassCorrect = (predictedIsThreat == groundTruthIsThreat);
 
-        var hasWynik = outputText.Contains("Wynik analizy", StringComparison.OrdinalIgnoreCase) || outputText.Contains("Class", StringComparison.OrdinalIgnoreCase);
-        var hasOcena = outputText.Contains("Ocena ryzyka", StringComparison.OrdinalIgnoreCase) || outputText.Contains("Reason", StringComparison.OrdinalIgnoreCase);
+        var hasWynik = outputText.Contains("Wykryta klasa", StringComparison.OrdinalIgnoreCase);
+        var hasOcena = outputText.Contains("Rekomendowana akcja", StringComparison.OrdinalIgnoreCase);
         var isFormatValidText = hasWynik && hasOcena;
 
         var predictedActionText = ExtractPredictedAction(outputText);
@@ -724,33 +731,33 @@ Surowe Logi Zdarzenia:
 
     public static string NormalizeCanonicalAction(string? rawAction, string? category = null)
     {
-        var act = (rawAction ?? "").Trim().ToLowerInvariant();
-        if (act.Equals("isolation", StringComparison.OrdinalIgnoreCase)) return "Isolation";
-        if (act.Equals("escalation", StringComparison.OrdinalIgnoreCase)) return "Escalation";
-        if (act.Equals("dismiss", StringComparison.OrdinalIgnoreCase)) return "Dismiss";
-
+        var act = (rawAction ?? "").Trim();
         var cat = (category ?? "").ToUpperInvariant();
 
-        if (cat.Contains("BENIGN") || act.Contains("dismiss") || act.Contains("odrzu") || act.Contains("false") || act.Contains("fałszywy"))
-        {
-            return "Dismiss";
-        }
+        if (act.Equals("isolation", StringComparison.OrdinalIgnoreCase) && string.IsNullOrEmpty(category)) return "Isolation";
+        if (act.Equals("escalation", StringComparison.OrdinalIgnoreCase) && string.IsNullOrEmpty(category)) return "Escalation";
+        if (act.Equals("dismiss", StringComparison.OrdinalIgnoreCase) && string.IsNullOrEmpty(category)) return "Dismiss";
 
-        if (cat.Contains("DOS") || cat.Contains("DDOS") || cat.Contains("PATATOR") || cat.Contains("BRUTE FORCE") || cat.Contains("BOT") || cat.Contains("PORTSCAN") || cat.Contains("SCAN") ||
-            act.Contains("isolate") || act.Contains("isolation") || act.Contains("blok"))
-        {
-            return "Isolation";
-        }
-
-        if (cat.Contains("SQL") || cat.Contains("XSS") || cat.Contains("INFILTRATION") || cat.Contains("EXPLOIT") ||
-            act.Contains("escalat") || act.Contains("tier") || act.Contains("eskal"))
+        if (cat.Contains("SLOWLORIS"))
         {
             return "Escalation";
         }
 
-        if (act.Contains("isolate") || act.Contains("isolation") || act.Contains("blok")) return "Isolation";
-        if (act.Contains("escalat") || act.Contains("tier") || act.Contains("eskal")) return "Escalation";
-        if (act.Contains("dismiss") || act.Contains("odrzu") || act.Contains("false")) return "Dismiss";
+        if (cat.Contains("DOS") || cat.Contains("DDOS") || cat.Contains("BOT") || cat.Contains("PORTSCAN") || cat.Contains("SCAN") ||
+            cat.Contains("PATATOR") || cat.Contains("BRUTE") || cat.Contains("SLOWHTTPTEST"))
+        {
+            return "Isolation";
+        }
+
+        if (cat.Contains("SQL") || cat.Contains("XSS") || cat.Contains("INFILTRATION") || cat.Contains("EXPLOIT"))
+        {
+            return "Escalation";
+        }
+
+        var actUpper = act.ToUpperInvariant();
+        if (actUpper.Contains("ISOLATE") || actUpper.Contains("ISOLATION") || actUpper.Contains("BLOK")) return "Isolation";
+        if (actUpper.Contains("ESCALAT") || actUpper.Contains("TIER") || actUpper.Contains("ESKAL")) return "Escalation";
+        if (actUpper.Contains("DISMISS") || actUpper.Contains("ODRZU") || actUpper.Contains("FALSE")) return "Dismiss";
 
         return "Escalation";
     }
