@@ -167,7 +167,9 @@ export const EvaluationBenchmarkPage: React.FC = () => {
       const actual = item.groundTruthIsThreat;
       const predicted = resp.predictedIsThreat;
       const isClassOK = (actual === predicted);
-      const isActionOK = resp.isActionCorrect;
+      const isActionOK = resp.isActionCorrect || (
+        resp.predictedAction.trim().toLowerCase() === (item.groundTruthAction || '').trim().toLowerCase()
+      );
       const isFullOK = isClassOK && isActionOK;
 
       if (isClassOK) correctClassCount++;
@@ -885,18 +887,21 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                     {(() => {
                       if (!filteredHistoricalReports || filteredHistoricalReports.length === 0) return null;
 
-                      let sumBaseAcc = 0, sumFtAcc = 0, sumFtF1 = 0, sumFtLat = 0;
+                      let sumBaseAcc = 0, sumBaseF1 = 0, sumBaseLat = 0;
+                      let sumFtAcc = 0, sumFtF1 = 0, sumFtLat = 0;
                       let validBaseCnt = 0, validFtCnt = 0;
 
                       filteredHistoricalReports.forEach(h => {
                         const bm = computeStrictMetrics(h.baseModelMetrics, h.itemResults, true) || h.baseModelMetrics;
                         const ftm = computeStrictMetrics(h.fineTunedModelMetrics, h.itemResults, false) || h.fineTunedModelMetrics;
                         
-                        if (bm && !bm.isSkipped && bm.accuracy > 0) {
+                        if (bm && !bm.isSkipped && (bm.accuracy > 0 || bm.averageLatencyMs > 0)) {
                           sumBaseAcc += bm.accuracy || 0;
+                          sumBaseF1 += bm.f1Score || 0;
+                          sumBaseLat += bm.averageLatencyMs || 0;
                           validBaseCnt++;
                         }
-                        if (ftm && !ftm.isSkipped && ftm.accuracy > 0) {
+                        if (ftm && !ftm.isSkipped && (ftm.accuracy > 0 || ftm.averageLatencyMs > 0)) {
                           sumFtAcc += ftm.accuracy || 0;
                           sumFtF1 += ftm.f1Score || 0;
                           sumFtLat += ftm.averageLatencyMs || 0;
@@ -906,6 +911,9 @@ export const EvaluationBenchmarkPage: React.FC = () => {
 
                       const cnt = filteredHistoricalReports.length;
                       const avgBaseAcc = validBaseCnt > 0 ? sumBaseAcc / validBaseCnt : 0;
+                      const avgBaseF1 = validBaseCnt > 0 ? sumBaseF1 / validBaseCnt : 0;
+                      const avgBaseLat = validBaseCnt > 0 ? sumBaseLat / validBaseCnt : 0;
+
                       const avgFtAcc = validFtCnt > 0 ? sumFtAcc / validFtCnt : 0;
                       const avgFtF1 = validFtCnt > 0 ? sumFtF1 / validFtCnt : 0;
                       const avgFtLat = validFtCnt > 0 ? sumFtLat / validFtCnt : 0;
@@ -934,13 +942,17 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                           <td style={{ padding: '0.65rem 0.75rem', fontWeight: 900, color: '#4ade80', fontSize: '0.85rem' }}>
                             {validFtCnt > 0 && validBaseCnt > 0 
                               ? `Ollama: ${avgBaseAcc.toFixed(1)}% | Azure: ${avgFtAcc.toFixed(1)}%`
-                              : validFtCnt > 0 ? `Azure FT: ${avgFtAcc.toFixed(1)}%` : `Ollama: ${avgBaseAcc.toFixed(1)}%`}
+                              : validFtCnt > 0 ? `Azure: ${avgFtAcc.toFixed(1)}%` : `Ollama: ${avgBaseAcc.toFixed(1)}%`}
                           </td>
                           <td style={{ padding: '0.65rem 0.75rem', fontWeight: 900, color: '#c084fc', fontSize: '0.85rem' }}>
-                            {validFtCnt > 0 ? `${avgFtF1.toFixed(1)}%` : '-'}
+                            {validFtCnt > 0 && validBaseCnt > 0 
+                              ? `Ollama: ${avgBaseF1.toFixed(1)}% | Azure: ${avgFtF1.toFixed(1)}%`
+                              : validFtCnt > 0 ? `Azure: ${avgFtF1.toFixed(1)}%` : `Ollama: ${avgBaseF1.toFixed(1)}%`}
                           </td>
                           <td style={{ padding: '0.65rem 0.75rem', fontWeight: 800, color: '#38bdf8', fontSize: '0.85rem' }}>
-                            {validFtCnt > 0 ? `${avgFtLat.toFixed(0)} ms` : '-'}
+                            {validFtCnt > 0 && validBaseCnt > 0 
+                              ? `Ollama: ${avgBaseLat.toFixed(0)} ms | Azure: ${avgFtLat.toFixed(0)} ms`
+                              : validFtCnt > 0 ? `Azure: ${avgFtLat.toFixed(0)} ms` : `Ollama: ${avgBaseLat.toFixed(0)} ms`}
                           </td>
                           <td style={{ padding: '0.65rem 0.75rem', textAlign: 'right' }}>
                             <span style={{ fontSize: '0.7rem', fontWeight: 800, padding: '0.2rem 0.55rem', borderRadius: '4px', background: 'rgba(56, 189, 248, 0.25)', color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.4)' }}>
@@ -1004,16 +1016,28 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                             {isBaseActive && isFtActive ? (
                               <span>Ollama: {bm.accuracy.toFixed(1)}% | Azure: {ftm.accuracy.toFixed(1)}%</span>
                             ) : isFtActive ? (
-                              <span>{ftm.accuracy.toFixed(1)}%</span>
+                              <span>Azure: {ftm.accuracy.toFixed(1)}%</span>
                             ) : (
-                              <span>{bm.accuracy.toFixed(1)}%</span>
+                              <span>Ollama: {bm.accuracy.toFixed(1)}%</span>
                             )}
                           </td>
                           <td style={{ padding: '0.65rem 0.75rem', fontWeight: 800, color: '#c084fc' }}>
-                            {isFtActive ? `${ftm.f1Score.toFixed(1)}%` : (isBaseActive ? `${bm.f1Score.toFixed(1)}%` : '-')}
+                            {isBaseActive && isFtActive ? (
+                              <span>Ollama: {bm.f1Score.toFixed(1)}% | Azure: {ftm.f1Score.toFixed(1)}%</span>
+                            ) : isFtActive ? (
+                              <span>Azure: {ftm.f1Score.toFixed(1)}%</span>
+                            ) : (
+                              <span>Ollama: {bm.f1Score.toFixed(1)}%</span>
+                            )}
                           </td>
                           <td style={{ padding: '0.65rem 0.75rem', fontWeight: 700, color: '#38bdf8' }}>
-                            {isFtActive ? `${ftm.averageLatencyMs.toFixed(0)} ms` : (isBaseActive ? `${bm.averageLatencyMs.toFixed(0)} ms` : '-')}
+                            {isBaseActive && isFtActive ? (
+                              <span>Ollama: {bm.averageLatencyMs.toFixed(0)} ms | Azure: {ftm.averageLatencyMs.toFixed(0)} ms</span>
+                            ) : isFtActive ? (
+                              <span>Azure: {ftm.averageLatencyMs.toFixed(0)} ms</span>
+                            ) : (
+                              <span>Ollama: {bm.averageLatencyMs.toFixed(0)} ms</span>
+                            )}
                           </td>
                           <td style={{ padding: '0.65rem 0.75rem', textAlign: 'right' }}>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
@@ -1563,128 +1587,136 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                               </span>
                             </div>
                           </td>
+                          {(() => {
+                            const isBaseActionOK = baseResp.isActionCorrect || (baseResp.predictedAction.trim().toLowerCase() === (item.groundTruthAction || '').trim().toLowerCase());
+                            const isFtActionOK = ftResp.isActionCorrect || (ftResp.predictedAction.trim().toLowerCase() === (item.groundTruthAction || '').trim().toLowerCase());
 
-                          {/* Base Model Result */}
-                          <td style={{ padding: '0.75rem 0.85rem' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <span style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '4px',
-                                  padding: '0.2rem 0.55rem',
-                                  borderRadius: '6px',
-                                  fontSize: '0.75rem',
-                                  fontWeight: 800,
-                                  background: (item.groundTruthIsThreat === baseResp.predictedIsThreat) ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)',
-                                  color: (item.groundTruthIsThreat === baseResp.predictedIsThreat) ? '#4ade80' : '#f87171',
-                                  border: (item.groundTruthIsThreat === baseResp.predictedIsThreat) ? '1px solid rgba(34, 197, 94, 0.35)' : '1px solid rgba(239, 68, 68, 0.35)'
-                                }}>
-                                  {(item.groundTruthIsThreat === baseResp.predictedIsThreat) ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
-                                  {baseResp.predictedIsThreat ? 'Atak' : 'Ruch Prawidłowy'}
-                                </span>
-                                <span style={{
-                                  fontSize: '0.65rem',
-                                  fontWeight: 800,
-                                  padding: '1px 5px',
-                                  borderRadius: '3px',
-                                  background: ((item.groundTruthIsThreat === baseResp.predictedIsThreat) && baseResp.isActionCorrect)
-                                    ? 'rgba(34, 197, 94, 0.2)'
-                                    : ((item.groundTruthIsThreat === baseResp.predictedIsThreat) && !baseResp.isActionCorrect)
-                                      ? 'rgba(234, 179, 8, 0.25)'
-                                      : 'rgba(239, 68, 68, 0.2)',
-                                  color: ((item.groundTruthIsThreat === baseResp.predictedIsThreat) && baseResp.isActionCorrect)
-                                    ? '#4ade80'
-                                    : ((item.groundTruthIsThreat === baseResp.predictedIsThreat) && !baseResp.isActionCorrect)
-                                      ? '#facc15'
-                                      : '#f87171',
-                                  border: ((item.groundTruthIsThreat === baseResp.predictedIsThreat) && baseResp.isActionCorrect)
-                                    ? '1px solid rgba(34, 197, 94, 0.4)'
-                                    : ((item.groundTruthIsThreat === baseResp.predictedIsThreat) && !baseResp.isActionCorrect)
-                                      ? '1px solid rgba(234, 179, 8, 0.4)'
-                                      : '1px solid rgba(239, 68, 68, 0.4)'
-                                }}>
-                                  {((item.groundTruthIsThreat === baseResp.predictedIsThreat) && baseResp.isActionCorrect)
-                                    ? '100% OK'
-                                    : ((item.groundTruthIsThreat === baseResp.predictedIsThreat) && !baseResp.isActionCorrect)
-                                      ? '50% (Błąd Akcji)'
-                                      : '0% (BŁĄD Klasyfikacji)'}
-                                </span>
-                              </div>
-                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.7rem', color: '#64748b' }}>
-                                <span>
-                                  Akcja: <strong style={{ color: baseResp.isActionCorrect ? '#4ade80' : '#f87171' }}>{baseResp.predictedAction}</strong>
-                                  {!baseResp.isActionCorrect && (
-                                    <span style={{ color: '#f87171', fontSize: '0.65rem', marginLeft: '4px', fontWeight: 600 }}>(≠ {item.groundTruthAction})</span>
-                                  )}
-                                </span>
-                                <span style={{ color: '#38bdf8', display: 'inline-flex', alignItems: 'center', gap: '3px', fontWeight: 600 }}>
-                                  <Clock size={10} /> {baseResp.latencyMs} ms
-                                </span>
-                              </div>
-                            </div>
-                          </td>
+                            return (
+                              <>
+                                {/* Base Model Result */}
+                                <td style={{ padding: '0.75rem 0.85rem' }}>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                      <span style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '4px',
+                                        padding: '0.2rem 0.55rem',
+                                        borderRadius: '6px',
+                                        fontSize: '0.75rem',
+                                        fontWeight: 800,
+                                        background: (item.groundTruthIsThreat === baseResp.predictedIsThreat) ? 'rgba(56, 189, 248, 0.25)' : 'rgba(239, 68, 68, 0.2)',
+                                        color: (item.groundTruthIsThreat === baseResp.predictedIsThreat) ? '#38bdf8' : '#f87171',
+                                        border: (item.groundTruthIsThreat === baseResp.predictedIsThreat) ? '1px solid rgba(56, 189, 248, 0.4)' : '1px solid rgba(239, 68, 68, 0.35)'
+                                      }}>
+                                        {(item.groundTruthIsThreat === baseResp.predictedIsThreat) ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
+                                        {baseResp.predictedIsThreat ? 'Atak' : 'Ruch Prawidłowy'}
+                                      </span>
+                                      <span style={{
+                                        fontSize: '0.65rem',
+                                        fontWeight: 800,
+                                        padding: '1px 5px',
+                                        borderRadius: '3px',
+                                        background: ((item.groundTruthIsThreat === baseResp.predictedIsThreat) && isBaseActionOK)
+                                          ? 'rgba(56, 189, 248, 0.25)'
+                                          : ((item.groundTruthIsThreat === baseResp.predictedIsThreat) && !isBaseActionOK)
+                                            ? 'rgba(234, 179, 8, 0.25)'
+                                            : 'rgba(239, 68, 68, 0.2)',
+                                        color: ((item.groundTruthIsThreat === baseResp.predictedIsThreat) && isBaseActionOK)
+                                          ? '#38bdf8'
+                                          : ((item.groundTruthIsThreat === baseResp.predictedIsThreat) && !isBaseActionOK)
+                                            ? '#facc15'
+                                            : '#f87171',
+                                        border: ((item.groundTruthIsThreat === baseResp.predictedIsThreat) && isBaseActionOK)
+                                          ? '1px solid rgba(56, 189, 248, 0.4)'
+                                          : ((item.groundTruthIsThreat === baseResp.predictedIsThreat) && !isBaseActionOK)
+                                            ? '1px solid rgba(234, 179, 8, 0.4)'
+                                            : '1px solid rgba(239, 68, 68, 0.4)'
+                                      }}>
+                                        {((item.groundTruthIsThreat === baseResp.predictedIsThreat) && isBaseActionOK)
+                                          ? '100% OK'
+                                          : ((item.groundTruthIsThreat === baseResp.predictedIsThreat) && !isBaseActionOK)
+                                            ? '50% (Błąd Akcji)'
+                                            : '0% (BŁĄD Klasyfikacji)'}
+                                      </span>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.7rem', color: '#64748b' }}>
+                                      <span>
+                                        Akcja: <strong style={{ color: isBaseActionOK ? '#4ade80' : '#f87171' }}>{baseResp.predictedAction}</strong>
+                                        {!isBaseActionOK && (
+                                          <span style={{ color: '#f87171', fontSize: '0.65rem', marginLeft: '4px', fontWeight: 600 }}>(≠ {item.groundTruthAction})</span>
+                                        )}
+                                      </span>
+                                      <span style={{ color: '#38bdf8', display: 'inline-flex', alignItems: 'center', gap: '3px', fontWeight: 600 }}>
+                                        <Clock size={10} /> {baseResp.latencyMs} ms
+                                      </span>
+                                    </div>
+                                  </div>
+                                </td>
 
-                          {/* Fine-Tuned Model Result */}
-                          <td style={{ padding: '0.75rem 0.85rem' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <span style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '4px',
-                                  padding: '0.2rem 0.55rem',
-                                  borderRadius: '6px',
-                                  fontSize: '0.75rem',
-                                  fontWeight: 800,
-                                  background: (item.groundTruthIsThreat === ftResp.predictedIsThreat) ? 'rgba(139, 92, 246, 0.25)' : 'rgba(239, 68, 68, 0.2)',
-                                  color: (item.groundTruthIsThreat === ftResp.predictedIsThreat) ? '#c084fc' : '#f87171',
-                                  border: (item.groundTruthIsThreat === ftResp.predictedIsThreat) ? '1px solid rgba(139, 92, 246, 0.4)' : '1px solid rgba(239, 68, 68, 0.35)'
-                                }}>
-                                  {(item.groundTruthIsThreat === ftResp.predictedIsThreat) ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
-                                  {ftResp.predictedIsThreat ? 'Atak' : 'Ruch Prawidłowy'}
-                                </span>
-                                <span style={{
-                                  fontSize: '0.65rem',
-                                  fontWeight: 800,
-                                  padding: '1px 5px',
-                                  borderRadius: '3px',
-                                  background: ((item.groundTruthIsThreat === ftResp.predictedIsThreat) && ftResp.isActionCorrect)
-                                    ? 'rgba(139, 92, 246, 0.25)'
-                                    : ((item.groundTruthIsThreat === ftResp.predictedIsThreat) && !ftResp.isActionCorrect)
-                                      ? 'rgba(234, 179, 8, 0.25)'
-                                      : 'rgba(239, 68, 68, 0.2)',
-                                  color: ((item.groundTruthIsThreat === ftResp.predictedIsThreat) && ftResp.isActionCorrect)
-                                    ? '#c084fc'
-                                    : ((item.groundTruthIsThreat === ftResp.predictedIsThreat) && !ftResp.isActionCorrect)
-                                      ? '#facc15'
-                                      : '#f87171',
-                                  border: ((item.groundTruthIsThreat === ftResp.predictedIsThreat) && ftResp.isActionCorrect)
-                                    ? '1px solid rgba(139, 92, 246, 0.4)'
-                                    : ((item.groundTruthIsThreat === ftResp.predictedIsThreat) && !ftResp.isActionCorrect)
-                                      ? '1px solid rgba(234, 179, 8, 0.4)'
-                                      : '1px solid rgba(239, 68, 68, 0.4)'
-                                }}>
-                                  {((item.groundTruthIsThreat === ftResp.predictedIsThreat) && ftResp.isActionCorrect)
-                                    ? '100% OK'
-                                    : ((item.groundTruthIsThreat === ftResp.predictedIsThreat) && !ftResp.isActionCorrect)
-                                      ? '50% (Błąd Akcji)'
-                                      : '0% (BŁĄD Klasyfikacji)'}
-                                </span>
-                              </div>
-                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.7rem', color: '#64748b' }}>
-                                <span>
-                                  Akcja: <strong style={{ color: ftResp.isActionCorrect ? '#c084fc' : '#f87171' }}>{ftResp.predictedAction}</strong>
-                                  {!ftResp.isActionCorrect && (
-                                    <span style={{ color: '#f87171', fontSize: '0.65rem', marginLeft: '4px', fontWeight: 600 }}>(≠ {item.groundTruthAction})</span>
-                                  )}
-                                </span>
-                                <span style={{ color: '#c084fc', display: 'inline-flex', alignItems: 'center', gap: '3px', fontWeight: 600 }}>
-                                  <Zap size={10} /> {ftResp.latencyMs} ms
-                                </span>
-                              </div>
-                            </div>
-                          </td>
+                                {/* Fine-Tuned Model Result */}
+                                <td style={{ padding: '0.75rem 0.85rem' }}>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                      <span style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '4px',
+                                        padding: '0.2rem 0.55rem',
+                                        borderRadius: '6px',
+                                        fontSize: '0.75rem',
+                                        fontWeight: 800,
+                                        background: (item.groundTruthIsThreat === ftResp.predictedIsThreat) ? 'rgba(139, 92, 246, 0.25)' : 'rgba(239, 68, 68, 0.2)',
+                                        color: (item.groundTruthIsThreat === ftResp.predictedIsThreat) ? '#c084fc' : '#f87171',
+                                        border: (item.groundTruthIsThreat === ftResp.predictedIsThreat) ? '1px solid rgba(139, 92, 246, 0.4)' : '1px solid rgba(239, 68, 68, 0.35)'
+                                      }}>
+                                        {(item.groundTruthIsThreat === ftResp.predictedIsThreat) ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
+                                        {ftResp.predictedIsThreat ? 'Atak' : 'Ruch Prawidłowy'}
+                                      </span>
+                                      <span style={{
+                                        fontSize: '0.65rem',
+                                        fontWeight: 800,
+                                        padding: '1px 5px',
+                                        borderRadius: '3px',
+                                        background: ((item.groundTruthIsThreat === ftResp.predictedIsThreat) && isFtActionOK)
+                                          ? 'rgba(139, 92, 246, 0.25)'
+                                          : ((item.groundTruthIsThreat === ftResp.predictedIsThreat) && !isFtActionOK)
+                                            ? 'rgba(234, 179, 8, 0.25)'
+                                            : 'rgba(239, 68, 68, 0.2)',
+                                        color: ((item.groundTruthIsThreat === ftResp.predictedIsThreat) && isFtActionOK)
+                                          ? '#c084fc'
+                                          : ((item.groundTruthIsThreat === ftResp.predictedIsThreat) && !isFtActionOK)
+                                            ? '#facc15'
+                                            : '#f87171',
+                                        border: ((item.groundTruthIsThreat === ftResp.predictedIsThreat) && isFtActionOK)
+                                          ? '1px solid rgba(139, 92, 246, 0.4)'
+                                          : ((item.groundTruthIsThreat === ftResp.predictedIsThreat) && !isFtActionOK)
+                                            ? '1px solid rgba(234, 179, 8, 0.4)'
+                                            : '1px solid rgba(239, 68, 68, 0.4)'
+                                      }}>
+                                        {((item.groundTruthIsThreat === ftResp.predictedIsThreat) && isFtActionOK)
+                                          ? '100% OK'
+                                          : ((item.groundTruthIsThreat === ftResp.predictedIsThreat) && !isFtActionOK)
+                                            ? '50% (Błąd Akcji)'
+                                            : '0% (BŁĄD Klasyfikacji)'}
+                                      </span>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.7rem', color: '#64748b' }}>
+                                      <span>
+                                        Akcja: <strong style={{ color: isFtActionOK ? '#c084fc' : '#f87171' }}>{ftResp.predictedAction}</strong>
+                                        {!isFtActionOK && (
+                                          <span style={{ color: '#f87171', fontSize: '0.65rem', marginLeft: '4px', fontWeight: 600 }}>(≠ {item.groundTruthAction})</span>
+                                        )}
+                                      </span>
+                                      <span style={{ color: '#c084fc', display: 'inline-flex', alignItems: 'center', gap: '3px', fontWeight: 600 }}>
+                                        <Zap size={10} /> {ftResp.latencyMs} ms
+                                      </span>
+                                    </div>
+                                  </div>
+                                </td>
+                              </>
+                            );
+                          })()}
 
                           <td style={{ padding: '0.75rem 0.85rem', textAlign: 'right' }}>
                             <button

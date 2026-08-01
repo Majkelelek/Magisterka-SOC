@@ -738,13 +738,8 @@ Surowe Logi Zdarzenia:
         if (act.Equals("escalation", StringComparison.OrdinalIgnoreCase) && string.IsNullOrEmpty(category)) return "Escalation";
         if (act.Equals("dismiss", StringComparison.OrdinalIgnoreCase) && string.IsNullOrEmpty(category)) return "Dismiss";
 
-        if (cat.Contains("SLOWLORIS"))
-        {
-            return "Escalation";
-        }
-
         if (cat.Contains("DOS") || cat.Contains("DDOS") || cat.Contains("BOT") || cat.Contains("PORTSCAN") || cat.Contains("SCAN") ||
-            cat.Contains("PATATOR") || cat.Contains("BRUTE") || cat.Contains("SLOWHTTPTEST"))
+            cat.Contains("PATATOR") || cat.Contains("BRUTE") || cat.Contains("SLOWLORIS") || cat.Contains("SLOWHTTPTEST"))
         {
             return "Isolation";
         }
