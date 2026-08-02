@@ -159,13 +159,14 @@ export const EvaluationBenchmarkPage: React.FC = () => {
     let tp = 0, fp = 0, tn = 0, fn = 0;
     let correctClassCount = 0;
     let correctActionCount = 0;
+    let fullCorrectCount = 0;
     let validSyntaxCount = 0;
-    let totalLatency = 0;
 
     itemResults.forEach(item => {
       const resp = isBaseModel ? item.baseModelResponse : item.fineTunedModelResponse;
       const actual = item.groundTruthIsThreat;
       const predicted = resp.predictedIsThreat;
+
       const isClassOK = (actual === predicted);
       const isActionOK = resp.isActionCorrect || (
         resp.predictedAction.trim().toLowerCase() === (item.groundTruthAction || '').trim().toLowerCase()
@@ -174,22 +175,40 @@ export const EvaluationBenchmarkPage: React.FC = () => {
 
       if (isClassOK) correctClassCount++;
       if (isActionOK) correctActionCount++;
+      if (isFullOK) fullCorrectCount++;
       if (resp.isFormatValid) validSyntaxCount++;
-      totalLatency += resp.latencyMs;
 
-      // Strict Full SOC Decision: A decision is a True Positive/Negative ONLY if both Class AND Action are correct
-      if (actual && predicted && isFullOK) tp++;
-      else if (!actual && !predicted && isFullOK) tn++;
-      else if (!actual && (predicted || !isFullOK)) fp++;
-      else if (actual && (!predicted || !isFullOK)) fn++;
+      // Poprawna matematycznie klasyfikacja binarna dla Macierzy Pomyłek
+      if (actual && predicted) tp++;
+      else if (!actual && !predicted) tn++;
+      else if (!actual && predicted) fp++;
+      else if (actual && !predicted) fn++;
     });
 
-    const accuracy = (tp + tn) / total * 100.0;
-    const precision = (tp + fp) > 0 ? (tp / (tp + fp)) * 100.0 : 100.0;
-    const recall = (tp + fn) > 0 ? (tp / (tp + fn)) * 100.0 : 100.0;
-    const f1Score = (precision + recall) > 0 ? 2 * (precision * recall) / (precision + recall) : 0.0;
-    const classAccuracy = (correctClassCount / total) * 100.0;
-    const actionAccuracy = (correctActionCount / total) * 100.0;
+    const precision = (tp + fp) > 0
+      ? (tp / (tp + fp)) * 100.0
+      : 0.0;
+
+    const recall = (tp + fn) > 0
+      ? (tp / (tp + fn)) * 100.0
+      : 0.0;
+
+    const f1Score = (precision + recall) > 0
+      ? (2 * precision * recall) / (precision + recall)
+      : 0.0;
+
+    const classAccuracy = total > 0
+      ? (correctClassCount / total) * 100.0
+      : 0.0;
+
+    const actionAccuracy = total > 0
+      ? (correctActionCount / total) * 100.0
+      : 0.0;
+
+    // Pełna dokładność SOC (100% OK = poprawna kategoria ORAZ akcja)
+    const accuracy = total > 0
+      ? (fullCorrectCount / total) * 100.0
+      : 0.0;
 
     return {
       ...rawMetrics,
@@ -204,7 +223,7 @@ export const EvaluationBenchmarkPage: React.FC = () => {
       correctClassCount,
       correctActionCount,
       validSyntaxCount,
-      formatAdherenceRate: (validSyntaxCount / total) * 100.0,
+      formatAdherenceRate: total > 0 ? (validSyntaxCount / total) * 100.0 : 0.0,
       classAccuracy,
       actionAccuracy,
       isSkipped: false
@@ -262,8 +281,8 @@ export const EvaluationBenchmarkPage: React.FC = () => {
     csv += 'Lp;ID Raportu;Data i Czas Raportu;Model Bazowy (Ollama);Testowanych Rekordow;Accuracy (%);Precision (%);Recall (%);F1-Score (%);Format Compliance (%);Srednia Latencja (ms);True Positives (TP);False Positives (FP);False Negatives (FN);True Negatives (TN);Fine-Tuned Model;Fine-Tuned Accuracy (%);Fine-Tuned Precision (%);Fine-Tuned Recall (%);Fine-Tuned F1-Score (%);Fine-Tuned Format Compliance (%);Fine-Tuned Srednia Latencja (ms);Fine-Tuned TP;Fine-Tuned FP;Fine-Tuned FN;Fine-Tuned TN\n';
 
     reportsToExport.forEach((r, idx) => {
-      const bm = r.baseModelMetrics;
-      const ftm = r.fineTunedModelMetrics;
+      const bm = computeStrictMetrics(r.baseModelMetrics, r.itemResults, true) || r.baseModelMetrics;
+      const ftm = computeStrictMetrics(r.fineTunedModelMetrics, r.itemResults, false) || r.fineTunedModelMetrics;
       const dateStr = new Date(r.timestamp).toLocaleString('pl-PL');
 
       csv += `${idx + 1};"${r.reportId}";"${dateStr}";"${bm.modelName}";${r.totalRecordsTested};` +
@@ -671,8 +690,6 @@ export const EvaluationBenchmarkPage: React.FC = () => {
               </div>
             </div>
           )}
-
-
 
           {/* Model Multiple Runs History Table (shown when filtered model has > 1 run) */}
           {filteredHistoricalReports.length > 1 && (
