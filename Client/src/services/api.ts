@@ -428,7 +428,7 @@ export async function fetchOllamaModels(): Promise<{ success: boolean; models: s
 
 export async function runModelEvaluation(
   count: number = 24,
-  mode: 'both' | 'base' | 'ft' = 'both',
+  mode: 'both' | 'base' | 'ft' | 'azure-base' = 'both',
   ollamaModel: string = 'llama3.2',
   samplesPerCategory: number = 2,
   iterations: number = 1

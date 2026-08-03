@@ -16,6 +16,7 @@ export interface ModelEvaluationMetrics {
   totalRecordsTested?: number;
   classAccuracy?: number;
   actionAccuracy?: number;
+  strictAccuracy?: number;
   isSkipped?: boolean;
 }
 

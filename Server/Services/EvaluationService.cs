@@ -279,12 +279,13 @@ public class EvaluationService
         
         var itemResults = new List<EvaluationItemResult>();
         bool runBase = mode != "ft";
-        bool runFt = mode != "base";
+        bool runFt = mode != "base" && mode != "azure-base";
+        bool isAzureBase = mode == "azure-base";
 
         const string promptMessage = "Przeanalizuj poniższy przepływ sieciowy:";
 
-        // Wstępna weryfikacja połączenia z Ollamą jeśli wybrano test bazowy
-        if (runBase)
+        // Wstępna weryfikacja połączenia z Ollamą jeśli wybrano test bazowy (tylko lokalnie)
+        if (runBase && !isAzureBase)
         {
             var pingResult = await QueryOllamaAsync("TEST", "TEST", ollamaModel);
             if (pingResult.ExtractedText.StartsWith("[Błąd Połączenia Ollama]"))
@@ -316,20 +317,31 @@ public class EvaluationService
                 IndividualModelResponse baseEval;
                 long baseLatency = 0;
 
-                // 1. EWALUACJA MODELU BAZOWEGO (Lokalna Ollama)
                 if (runBase)
                 {
-                    Console.Write($"  ├─> [Ollama: {ollamaModel}] Wysyłanie zapytania... ");
                     var baseSw = Stopwatch.StartNew();
                     AiProcessResult baseAiResult;
                     try
                     {
-                        baseAiResult = await QueryOllamaAsync(userMsg, promptMessage, ollamaModel, systemMsg);
+                        if (isAzureBase)
+                        {
+                            Console.Write($"  ├─> [Azure Base: gpt-4o-mini] Wysyłanie zapytania... ");
+                            baseAiResult = await _aiService.ProcessQueryAsync(item.Id, userMsg, "gpt-4o-mini");
+                            if (baseAiResult.ExtractedText.StartsWith("[Błąd"))
+                            {
+                                throw new InvalidOperationException($"Brak połączenia z Azure OpenAI Base: {baseAiResult.ExtractedText}");
+                            }
+                        }
+                        else
+                        {
+                            Console.Write($"  ├─> [Ollama: {ollamaModel}] Wysyłanie zapytania... ");
+                            baseAiResult = await QueryOllamaAsync(userMsg, promptMessage, ollamaModel, systemMsg);
+                        }
                     }
                     catch (Exception ex)
                     {
-                        if (mode == "base") throw new InvalidOperationException($"Błąd Ollama ({ollamaModel}): {ex.Message}");
-                        baseAiResult = new AiProcessResult { ExtractedText = $"[Błąd Ollama] {ex.Message}", RawJson = ex.Message };
+                        if (mode == "base" || mode == "azure-base") throw new InvalidOperationException($"Błąd bazowy: {ex.Message}");
+                        baseAiResult = new AiProcessResult { ExtractedText = $"[Błąd Bazowy] {ex.Message}", RawJson = ex.Message };
                     }
                     baseSw.Stop();
                     baseLatency = baseSw.ElapsedMilliseconds;
@@ -426,12 +438,23 @@ public class EvaluationService
                     AiProcessResult baseAiResult;
                     try
                     {
-                        baseAiResult = await QueryOllamaAsync(alertContext, promptMessage, ollamaModel);
+                        if (isAzureBase)
+                        {
+                            baseAiResult = await _aiService.ProcessQueryAsync(alert.Id, promptMessage, "gpt-4o-mini");
+                            if (baseAiResult.ExtractedText.StartsWith("[Błąd"))
+                            {
+                                throw new InvalidOperationException($"Brak połączenia z Azure OpenAI Base: {baseAiResult.ExtractedText}");
+                            }
+                        }
+                        else
+                        {
+                            baseAiResult = await QueryOllamaAsync(alertContext, promptMessage, ollamaModel);
+                        }
                     }
                     catch (Exception ex)
                     {
-                        if (mode == "base") throw new InvalidOperationException($"Błąd Ollama ({ollamaModel}): {ex.Message}");
-                        baseAiResult = new AiProcessResult { ExtractedText = $"[Błąd Ollama] {ex.Message}", RawJson = ex.Message };
+                        if (mode == "base" || mode == "azure-base") throw new InvalidOperationException($"Błąd bazowy: {ex.Message}");
+                        baseAiResult = new AiProcessResult { ExtractedText = $"[Błąd Bazowy] {ex.Message}", RawJson = ex.Message };
                     }
                     baseSw.Stop();
                     baseLatency = baseSw.ElapsedMilliseconds;
@@ -484,7 +507,9 @@ public class EvaluationService
         }
 
         // Kalkulacja metryk dla obu modeli
-        var baseMetricsName = runBase ? $"Model Bazowy (Ollama: {ollamaModel})" : $"Model Bazowy (Ollama: {ollamaModel} - Pominięty)";
+        var baseMetricsName = runBase 
+            ? (isAzureBase ? "Model Bazowy (Azure: gpt-4o-mini)" : $"Model Bazowy (Ollama: {ollamaModel})") 
+            : $"Model Bazowy (Ollama: {ollamaModel} - Pominięty)";
         var ftModelDeploy = Environment.GetEnvironmentVariable("AZURE_AI_MODEL") ?? "gpt-4o-mini-ft";
         var ftMetricsName = runFt ? $"Model Wyfinetuningowany ({ftModelDeploy})" : $"Model Wyfinetuningowany ({ftModelDeploy} - Pominięty)";
 
@@ -835,20 +860,19 @@ Surowe Logi Zdarzenia:
         {
             bool predicted = item.resp.PredictedIsThreat;
             bool actual = item.gtIsThreat;
-            bool isClassOK = item.resp.IsClassCorrect;
+            bool isClassOK = actual == predicted;
             bool isActionOK = item.resp.IsActionCorrect;
-            bool isFullOK = isClassOK && isActionOK;
 
             if (isClassOK) correctClassCount++;
             if (isActionOK) correctActionCount++;
             if (item.resp.IsFormatValid) validSyntaxCount++;
             totalLatency += item.resp.LatencyMs;
 
-            // Strict Full SOC Decision: A decision is a True Positive/Negative ONLY if both Class AND Action are correct
-            if (actual && predicted && isFullOK) tp++;
-            else if (!actual && !predicted && isFullOK) tn++;
-            else if (!actual && (predicted || !isFullOK)) fp++;
-            else if (actual && (!predicted || !isFullOK)) fn++;
+            // Confusion matrix uses only binary detection: Atak vs Ruch Prawidłowy.
+            if (actual && predicted) tp++;
+            else if (!actual && !predicted) tn++;
+            else if (!actual && predicted) fp++;
+            else if (actual && !predicted) fn++;
         }
 
         double accuracy = (double)(tp + tn) / total * 100.0;

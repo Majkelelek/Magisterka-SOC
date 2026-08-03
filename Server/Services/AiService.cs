@@ -25,19 +25,19 @@ public class AiService
         _alertStore = alertStore;
     }
 
-    public async Task<AiProcessResult> ProcessQueryAsync(string alertId, string prompt)
+    public async Task<AiProcessResult> ProcessQueryAsync(string alertId, string prompt, string? specificModel = null)
     {
         EnvLoader.Load();
 
-        var endpoint = Environment.GetEnvironmentVariable("AZURE_AI_ENDPOINT")
-                       ?? Environment.GetEnvironmentVariable("AZURE_OPENAI_ENDPOINT")
-                       ?? Environment.GetEnvironmentVariable("AI_ENDPOINT")
-                       ?? "https://magisterkasoc.services.ai.azure.com/openai/v1/responses";
+        bool isBaseRequest = specificModel == "gpt-4o-mini";
 
-        var apiKey = Environment.GetEnvironmentVariable("AZURE_AI_KEY")
-                     ?? Environment.GetEnvironmentVariable("AZURE_OPENAI_KEY")
-                     ?? Environment.GetEnvironmentVariable("AI_API_KEY")
-                     ?? Environment.GetEnvironmentVariable("AI_KEY");
+        var endpoint = isBaseRequest
+            ? (Environment.GetEnvironmentVariable("AZURE_BASE_ENDPOINT") ?? Environment.GetEnvironmentVariable("AZURE_AI_ENDPOINT") ?? "https://magisterkasoc.services.ai.azure.com/openai/v1/responses")
+            : (Environment.GetEnvironmentVariable("AZURE_AI_ENDPOINT") ?? Environment.GetEnvironmentVariable("AZURE_OPENAI_ENDPOINT") ?? Environment.GetEnvironmentVariable("AI_ENDPOINT") ?? "https://magisterkasoc.services.ai.azure.com/openai/v1/responses");
+
+        var apiKey = isBaseRequest
+            ? (Environment.GetEnvironmentVariable("AZURE_BASE_KEY") ?? Environment.GetEnvironmentVariable("AZURE_AI_KEY"))
+            : (Environment.GetEnvironmentVariable("AZURE_AI_KEY") ?? Environment.GetEnvironmentVariable("AZURE_OPENAI_KEY") ?? Environment.GetEnvironmentVariable("AI_API_KEY") ?? Environment.GetEnvironmentVariable("AI_KEY"));
 
         // Jeśli klucz API nie został wprowadzony lub ma domyślną wartość zastępczą
         if (string.IsNullOrWhiteSpace(apiKey) || apiKey.Equals("your_azure_ai_key_here", StringComparison.OrdinalIgnoreCase))
@@ -57,10 +57,9 @@ public class AiService
                 }
                 _lastRequestTime = DateTime.UtcNow;
 
-                var modelName = Environment.GetEnvironmentVariable("AZURE_AI_MODEL")
-                            ?? Environment.GetEnvironmentVariable("AZURE_OPENAI_DEPLOYMENT")
-                            ?? Environment.GetEnvironmentVariable("AZURE_MODEL_NAME")
-                            ?? "gpt-4o-mini-2024-07-18-SOC_1";
+                var modelName = isBaseRequest 
+                            ? (Environment.GetEnvironmentVariable("AZURE_BASE_MODEL") ?? "gpt-4o-mini")
+                            : (specificModel ?? Environment.GetEnvironmentVariable("AZURE_AI_MODEL") ?? Environment.GetEnvironmentVariable("AZURE_OPENAI_DEPLOYMENT") ?? Environment.GetEnvironmentVariable("AZURE_MODEL_NAME") ?? "gpt-4o-mini-2024-07-18-SOC_1");
 
                 var alertContext = GetAlertContext(alertId);
 

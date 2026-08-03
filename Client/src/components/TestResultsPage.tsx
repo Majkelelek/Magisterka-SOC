@@ -354,7 +354,7 @@ export const TestResultsPage: React.FC<TestResultsPageProps> = ({ userSession })
         const decisions = s.decisions || s.Decisions || [];
         totalDecisions += decisions.length;
         decisions.forEach((d: any) => {
-          const acc = checkDecisionAccuracy(d.alertId || d.AlertId, d.actionTaken || d.ActionTaken);
+          const acc = checkDecisionAccuracy(d, undefined, alertsMap);
           if (acc.isCorrect) correctDecisions += 1;
         });
 

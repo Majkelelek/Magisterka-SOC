@@ -600,23 +600,31 @@
 }
 
 .benchmark-btn-export {
-  background: linear-gradient(135deg, #10b981, #059669);
-  color: #ffffff;
-  border: none;
-  border-radius: 8px;
-  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(5, 150, 105, 0.28));
+  color: #d1fae5;
+  border: 1px solid rgba(52, 211, 153, 0.35);
+  border-radius: 999px;
+  padding: 0.55rem 1.1rem;
   font-weight: 800;
   font-size: 0.8rem;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
-  transition: all 0.2s;
+  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.18);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  min-height: 40px;
 }
 
 .benchmark-btn-export:hover {
-  filter: brightness(1.1);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(16, 185, 129, 0.26);
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.3), rgba(5, 150, 105, 0.36));
+}
+
+.benchmark-btn-export:focus-visible {
+  outline: 2px solid rgba(52, 211, 153, 0.5);
+  outline-offset: 2px;
 }
 
 .benchmark-btn-delete {
@@ -694,6 +702,37 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
+}
+
+.benchmark-metric-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 120px;
+}
+
+.benchmark-metric-stack-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 0.2rem 0.35rem;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.benchmark-metric-stack-label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.benchmark-metric-stack-value {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: inherit;
 }
 
 .benchmark-table-overflow {
@@ -860,12 +899,30 @@
 }
 
 .benchmark-table-btn-show {
-  border: none;
-  border-radius: 4px;
-  padding: 0.25rem 0.5rem;
-  font-size: 0.7rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 999px;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.75rem;
   font-weight: 800;
   cursor: pointer;
+  color: #e0f2fe;
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.16), rgba(14, 165, 233, 0.24));
+  box-shadow: 0 4px 12px rgba(56, 189, 248, 0.14);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.benchmark-table-btn-show:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(56, 189, 248, 0.2);
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.24), rgba(14, 165, 233, 0.32));
+}
+
+.benchmark-table-btn-show:focus-visible {
+  outline: 2px solid rgba(56, 189, 248, 0.45);
+  outline-offset: 2px;
 }
 
 .benchmark-table-btn-trash {
@@ -1805,6 +1862,8 @@
   margin-bottom: 1.5rem;
   background: rgba(15, 23, 42, 0.6);
   border: 1px solid rgba(56, 189, 248, 0.25);
+  overflow: visible;
+  position: relative;
 }
 
 .benchmark-runs-header {
@@ -1848,10 +1907,162 @@
   padding: 0.6rem 0.75rem;
 }
 
-.benchmark-runs-th.green  { color: #4ade80; }
-.benchmark-runs-th.purple { color: #c084fc; }
-.benchmark-runs-th.blue   { color: #38bdf8; }
-.benchmark-runs-th.right  { text-align: right; }
+.benchmark-th-with-info {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+}
+
+.benchmark-info-tooltip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  color: #cbd5e1;
+  background: rgba(15, 23, 42, 0.95);
+  cursor: help;
+  flex: 0 0 auto;
+  transition: transform 0.15s ease, border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+  padding: 0;
+  outline: none;
+  appearance: none;
+}
+
+.benchmark-info-tooltip:hover {
+  transform: translateY(-1px) scale(1.04);
+  border-color: rgba(56, 189, 248, 0.9);
+  color: #38bdf8;
+  background: rgba(8, 15, 32, 1);
+  box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.1);
+}
+
+.benchmark-info-tooltip:focus-visible {
+  box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.16);
+}
+
+.benchmark-runs-th .benchmark-th-with-info.green .benchmark-info-tooltip {
+  color: #4ade80;
+}
+
+.benchmark-runs-th .benchmark-th-with-info.green .benchmark-info-tooltip:hover {
+  color: #86efac;
+  border-color: rgba(74, 222, 128, 0.8);
+}
+
+.benchmark-runs-th .benchmark-th-with-info.purple .benchmark-info-tooltip {
+  color: #c084fc;
+}
+
+.benchmark-runs-th .benchmark-th-with-info.purple .benchmark-info-tooltip:hover {
+  color: #e9d5ff;
+  border-color: rgba(192, 132, 252, 0.8);
+}
+
+.benchmark-runs-th .benchmark-th-with-info.blue .benchmark-info-tooltip {
+  color: #38bdf8;
+}
+
+.benchmark-runs-th .benchmark-th-with-info.blue .benchmark-info-tooltip:hover {
+  color: #bae6fd;
+  border-color: rgba(56, 189, 248, 0.8);
+}
+
+.benchmark-metric-help-popover {
+  position: absolute;
+  top: 4.45rem;
+  right: 1.25rem;
+  width: min(760px, calc(100% - 2.5rem));
+  margin: 0;
+  padding: 0.95rem 1rem;
+  border-radius: 14px;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  background:
+    linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(8, 15, 32, 0.98));
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.02) inset;
+  overflow: hidden;
+  z-index: 40;
+  pointer-events: none;
+  animation: benchmarkHelpFadeIn 0.16s ease-out;
+}
+
+.benchmark-metric-help-popover::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: linear-gradient(180deg, #38bdf8, #c084fc);
+}
+
+.benchmark-metric-help-popover.green::before {
+  background: linear-gradient(180deg, #4ade80, #22c55e);
+}
+
+.benchmark-metric-help-popover.teal::before {
+  background: linear-gradient(180deg, #38bdf8, #0ea5e9);
+}
+
+.benchmark-metric-help-popover.purple::before {
+  background: linear-gradient(180deg, #c084fc, #a855f7);
+}
+
+.benchmark-metric-help-popover.blue::before {
+  background: linear-gradient(180deg, #60a5fa, #38bdf8);
+}
+
+.benchmark-metric-help-kicker {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #94a3b8;
+  font-weight: 800;
+  margin-bottom: 0.35rem;
+}
+
+.benchmark-metric-help-title {
+  color: #ffffff;
+  font-size: 0.92rem;
+  font-weight: 900;
+  margin-bottom: 0.3rem;
+}
+
+.benchmark-metric-help-body {
+  color: #cbd5e1;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+@keyframes benchmarkHelpFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.benchmark-runs-th.green {
+  color: #4ade80;
+}
+
+.benchmark-runs-th.purple {
+  color: #c084fc;
+}
+
+.benchmark-runs-th.blue {
+  color: #38bdf8;
+}
+
+.benchmark-runs-th.right {
+  text-align: right;
+}
 
 .benchmark-runs-td {
   padding: 0.65rem 0.75rem;
@@ -1882,7 +2093,9 @@
   color: #38bdf8;
 }
 
-.benchmark-runs-td.right { text-align: right; }
+.benchmark-runs-td.right {
+  text-align: right;
+}
 
 .benchmark-runs-tr {
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
@@ -1915,9 +2128,9 @@
 }
 
 .benchmark-mode-badge.base-only {
-  background: rgba(56, 189, 248, 0.18);
-  border: 1px solid rgba(56, 189, 248, 0.4);
-  color: #38bdf8;
+  background: rgba(193, 242, 15, 0.214);
+  border: 1px solid rgba(220, 206, 16, 0.4);
+  color: #f6c229;
 }
 
 /* Runs table action cell */
