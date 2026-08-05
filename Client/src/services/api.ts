@@ -1,4 +1,4 @@
-import type { Alert, TestSession, UserSession } from '../types/alert';
+import type { Alert, UserSession } from '../types/alert';
 import type { EvaluationReport } from '../types/evaluation';
 
 const API_BASE_URL = 'http://localhost:5000/api';
@@ -130,110 +130,11 @@ export async function deleteTestAlertItem(id: string): Promise<{ success: boolea
   }
 }
 
-export async function createAlert(alert: Partial<Alert>): Promise<Alert | null> {
-  try {
-    const res = await fetch(`${API_BASE_URL}/alerts`, {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify(alert)
-    });
-    if (!res.ok) throw new Error('Błąd zapisu alertu');
-    return await res.json();
-  } catch (error) {
-    console.error('Błąd tworzenia alertu:', error);
-    return null;
-  }
-}
-
-export async function updateAlertStatus(id: string, status: string): Promise<boolean> {
-  try {
-    const res = await fetch(`${API_BASE_URL}/alerts/${id}/status`, {
-      method: 'PATCH',
-      headers: getAuthHeaders(),
-      body: JSON.stringify({ status })
-    });
-    return res.ok;
-  } catch {
-    return false;
-  }
-}
-
-export async function submitTestSession(session: TestSession): Promise<boolean> {
-  try {
-    const res = await fetch(`${API_BASE_URL}/alerts/session/submit`, {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify(session)
-    });
-    return res.ok;
-  } catch {
-    return false;
-  }
-}
-
-export async function fetchTestSessions(): Promise<TestSession[]> {
-  try {
-    const res = await fetch(`${API_BASE_URL}/alerts/session`, {
-      headers: getAuthHeaders()
-    });
-    if (!res.ok) return [];
-    return await res.json();
-  } catch {
-    return [];
-  }
-}
-
-export async function deleteTestSession(sessionId: string): Promise<boolean> {
-  try {
-    const res = await fetch(`${API_BASE_URL}/alerts/session/${encodeURIComponent(sessionId)}`, {
-      method: 'DELETE',
-      headers: getAuthHeaders()
-    });
-    return res.ok;
-  } catch {
-    return false;
-  }
-}
-
-export async function deleteAllTestSessions(): Promise<boolean> {
-  try {
-    const res = await fetch(`${API_BASE_URL}/alerts/session/all`, {
-      method: 'DELETE',
-      headers: getAuthHeaders()
-    });
-    return res.ok;
-  } catch {
-    return false;
-  }
-}
+// Note: createAlert/updateAlertStatus removed — unused in current benchmark-only workflow.
 
 // ─── AI API ───────────────────────────────────────────────────
+// Note: sendAiQuery/askAiAssistant removed — unused in current benchmark-only workflow.
 
-export async function sendAiQuery(alertId: string, prompt: string): Promise<{ responseText: string; rawResponse?: string }> {
-  try {
-    const res = await fetch(`${API_BASE_URL}/ai/query`, {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify({ alertId, prompt })
-    });
-    if (!res.ok) throw new Error('Błąd połączenia z serwisem AI');
-    const data = await res.json();
-
-    console.log(`%c[AZURE OPENAI RAW RESPONSE] Alert ID: ${alertId}`, 'color: #ef4444; font-weight: bold; font-size: 12px;');
-    console.log(data.rawResponse || data.responseText);
-    console.log(`%c[AZURE OPENAI PARSED ANSWER] Alert ID: ${alertId}`, 'color: #38bdf8; font-weight: bold; font-size: 12px;');
-    console.log(data.responseText);
-
-    return { responseText: data.responseText, rawResponse: data.rawResponse };
-  } catch {
-    return { responseText: 'Błąd połączenia z modułem AI backendu.' };
-  }
-}
-
-export async function askAiAssistant(alertId: string, prompt: string): Promise<{ answer: string; rawResponse?: string }> {
-  const res = await sendAiQuery(alertId, prompt);
-  return { answer: res.responseText, rawResponse: res.rawResponse };
-}
 
 // ─── Authentication API ───────────────────────────────────────
 
@@ -383,35 +284,35 @@ export async function importAttackSamples(): Promise<{ success: boolean; message
   }
 }
 
-export async function generateSingleAiAnalysis(id: string): Promise<{ success: boolean; message: string; alert?: Alert }> {
+export async function fetchAvailableDatasets(): Promise<{ fileName: string; displayName: string; count: number }[]> {
   try {
-    const res = await fetch(`${API_BASE_URL}/alerts/${id}/generate-ai`, {
-      method: 'POST',
+    const res = await fetch(`${API_BASE_URL}/alerts/datasets`, {
       headers: getAuthHeaders()
     });
-    checkResponseStatus(res);
-    const data = await res.json();
-    if (!res.ok) return { success: false, message: data.message || 'Błąd generowania analizy AI.' };
-    return { success: true, message: data.message, alert: data.alert };
-  } catch (err: any) {
-    return { success: false, message: err.message || 'Nie udało się połączyć z serwerem.' };
+    if (!res.ok) return [];
+    return await res.json();
+  } catch (error) {
+    console.error('Błąd pobierania listy zestawów danych:', error);
+    return [];
   }
 }
 
-export async function generateAllAiAnalyses(): Promise<{ success: boolean; message: string; alerts?: Alert[] }> {
+export async function importDataset(datasetFile: string): Promise<{ success: boolean; message: string; importedCount?: number }> {
   try {
-    const res = await fetch(`${API_BASE_URL}/alerts/generate-ai-all`, {
+    const res = await fetch(`${API_BASE_URL}/alerts/import-dataset`, {
       method: 'POST',
-      headers: getAuthHeaders()
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ datasetFile })
     });
-    checkResponseStatus(res);
     const data = await res.json();
-    if (!res.ok) return { success: false, message: data.message || 'Błąd masowej generacji analiz AI.' };
-    return { success: true, message: data.message, alerts: data.alerts };
-  } catch (err: any) {
-    return { success: false, message: err.message || 'Nie udało się połączyć z serwerem.' };
+    if (!res.ok) return { success: false, message: data.message || 'Nie udało się załadować wybranego zestawu.' };
+    return { success: true, message: data.message, importedCount: data.importedCount };
+  } catch {
+    return { success: false, message: 'Błąd połączenia z serwerem podczas ładowania zestawu.' };
   }
 }
+
+// Note: generateSingleAiAnalysis/generateAllAiAnalyses removed — unused in current workflow.
 
 export async function fetchOllamaModels(): Promise<{ success: boolean; models: string[]; isOllamaOnline: boolean }> {
   try {
@@ -431,10 +332,11 @@ export async function runModelEvaluation(
   mode: 'both' | 'base' | 'ft' | 'azure-base' = 'both',
   ollamaModel: string = 'llama3.2',
   samplesPerCategory: number = 2,
-  iterations: number = 1
+  iterations: number = 1,
+  provider: string = 'openai'
 ): Promise<{ success: boolean; message: string; report?: EvaluationReport; reports?: EvaluationReport[] }> {
   try {
-    const res = await fetch(`${API_BASE_URL}/evaluation/run?count=${count}&mode=${mode}&ollamaModel=${encodeURIComponent(ollamaModel)}&samplesPerCategory=${samplesPerCategory}&iterations=${iterations}`, {
+    const res = await fetch(`${API_BASE_URL}/evaluation/run?count=${count}&mode=${mode}&ollamaModel=${encodeURIComponent(ollamaModel)}&samplesPerCategory=${samplesPerCategory}&iterations=${iterations}&provider=${encodeURIComponent(provider)}`, {
       method: 'POST',
       headers: getAuthHeaders()
     });
@@ -488,4 +390,3 @@ export async function deleteEvaluationReport(reportId: string): Promise<{ succes
     return { success: false, message: err.message || 'Błąd połączenia podczas usuwania.' };
   }
 }
-

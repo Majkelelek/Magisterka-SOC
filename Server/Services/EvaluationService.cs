@@ -240,7 +240,8 @@ public class EvaluationService
         string mode = "both",
         string ollamaModel = "llama3.2",
         int samplesPerCategory = 2,
-        int iterations = 1)
+        int iterations = 1,
+        string provider = "openai")
     {
         if (iterations <= 0) iterations = 1;
         var reports = new List<EvaluationReport>();
@@ -248,10 +249,10 @@ public class EvaluationService
         for (int i = 1; i <= iterations; i++)
         {
             Console.WriteLine($"\n=======================================================");
-            Console.WriteLine($"[BENCHMARK BATCH] Rozpoczynanie próby {i}/{iterations} ({recordCount} pytań, Model: '{ollamaModel}')...");
+            Console.WriteLine($"[BENCHMARK BATCH] Rozpoczynanie próby {i}/{iterations} ({recordCount} pytań, Provider: '{provider}', Model: '{ollamaModel}')...");
             Console.WriteLine($"=======================================================\n");
 
-            var report = await RunBenchmarkAsync(recordCount, mode, ollamaModel, samplesPerCategory, iterationIndex: i, totalIterations: iterations);
+            var report = await RunBenchmarkAsync(recordCount, mode, ollamaModel, samplesPerCategory, iterationIndex: i, totalIterations: iterations, provider: provider);
             reports.Add(report);
 
             if (i < iterations)
@@ -269,11 +270,13 @@ public class EvaluationService
         string ollamaModel = "llama3.2",
         int samplesPerCategory = 2,
         int iterationIndex = 0,
-        int totalIterations = 1)
+        int totalIterations = 1,
+        string provider = "openai")
     {
         if (string.IsNullOrWhiteSpace(ollamaModel)) ollamaModel = "llama3.2";
         if (samplesPerCategory <= 0) samplesPerCategory = 2;
-        
+        if (string.IsNullOrWhiteSpace(provider)) provider = "openai";
+
         var perfItems = LoadPerformanceTestItems(samplesPerCategory);
         bool isUsingPerfDataset = perfItems.Count > 0;
         
@@ -284,22 +287,12 @@ public class EvaluationService
 
         const string promptMessage = "Przeanalizuj poniższy przepływ sieciowy:";
 
-        // Wstępna weryfikacja połączenia z Ollamą jeśli wybrano test bazowy (tylko lokalnie)
-        if (runBase && !isAzureBase)
-        {
-            var pingResult = await QueryOllamaAsync("TEST", "TEST", ollamaModel);
-            if (pingResult.ExtractedText.StartsWith("[Błąd Połączenia Ollama]"))
-            {
-                throw new InvalidOperationException($"Lokalna Ollama jest niedostępna na http://localhost:11434. Uruchom polecenie 'ollama run {ollamaModel}' w konsoli.");
-            }
-        }
-
         if (isUsingPerfDataset)
         {
             var testSet = perfItems;
             var iterTag = iterationIndex > 0 ? $" | Próba: {iterationIndex}/{totalIterations}" : "";
             Console.WriteLine($"\n=======================================================");
-            Console.WriteLine($"[BENCHMARK STARTED] Rekordów: {testSet.Count} (12 kategorii x {samplesPerCategory} próbki){iterTag} | Środowisko: {mode} | Ollama Model: '{ollamaModel}'");
+            Console.WriteLine($"[BENCHMARK STARTED] Rekordów: {testSet.Count} | Dostawca: {provider.ToUpper()} | Środowisko: {mode} | Ollama Model: '{ollamaModel}'{iterTag}");
             Console.WriteLine($"=======================================================\n");
 
             for (int i = 0; i < testSet.Count; i++)
@@ -323,24 +316,16 @@ public class EvaluationService
                     AiProcessResult baseAiResult;
                     try
                     {
-                        if (isAzureBase)
+                        Console.Write($"  ├─> [{provider.ToUpper()} Base] Wysyłanie zapytania API... ");
+                        baseAiResult = await _aiService.ProcessProviderQueryAsync(provider, "base", item.Id, userMsg, systemMsg, ollamaModel);
+                        if (baseAiResult.ExtractedText.StartsWith("[Błąd"))
                         {
-                            Console.Write($"  ├─> [Azure Base: gpt-4o-mini] Wysyłanie zapytania... ");
-                            baseAiResult = await _aiService.ProcessQueryAsync(item.Id, userMsg, "gpt-4o-mini");
-                            if (baseAiResult.ExtractedText.StartsWith("[Błąd"))
-                            {
-                                throw new InvalidOperationException($"Brak połączenia z Azure OpenAI Base: {baseAiResult.ExtractedText}");
-                            }
-                        }
-                        else
-                        {
-                            Console.Write($"  ├─> [Ollama: {ollamaModel}] Wysyłanie zapytania... ");
-                            baseAiResult = await QueryOllamaAsync(userMsg, promptMessage, ollamaModel, systemMsg);
+                            throw new InvalidOperationException(baseAiResult.ExtractedText);
                         }
                     }
                     catch (Exception ex)
                     {
-                        if (mode == "base" || mode == "azure-base") throw new InvalidOperationException($"Błąd bazowy: {ex.Message}");
+                        if (mode == "base" || mode == "azure-base") throw new InvalidOperationException($"Błąd wywołania Modelu Bazowego ({provider}): {ex.Message}");
                         baseAiResult = new AiProcessResult { ExtractedText = $"[Błąd Bazowy] {ex.Message}", RawJson = ex.Message };
                     }
                     baseSw.Stop();
@@ -356,25 +341,25 @@ public class EvaluationService
                     baseEval = CreateSkippedResponse();
                 }
 
-                // 2. EWALUACJA MODELU FINE-TUNED (Azure OpenAI FT)
+                // EWALUACJA MODELU FINE-TUNED
                 IndividualModelResponse ftEval;
                 if (runFt)
                 {
-                    Console.Write($"  └─> [Azure OpenAI FT] Wysyłanie zapytania... ");
+                    Console.Write($"  └─> [{provider.ToUpper()} FT] Wysyłanie zapytania API... ");
                     var ftSw = Stopwatch.StartNew();
                     AiProcessResult ftAiResult;
                     try
                     {
-                        ftAiResult = await _aiService.ProcessQueryAsync(item.Id, userMsg);
+                        ftAiResult = await _aiService.ProcessProviderQueryAsync(provider, "ft", item.Id, userMsg, systemMsg, ollamaModel);
                         ftSw.Stop();
                         if (ftAiResult.ExtractedText.StartsWith("[Błąd"))
                         {
-                            throw new InvalidOperationException($"Brak połączenia z Azure OpenAI FT: {ftAiResult.ExtractedText}");
+                            throw new InvalidOperationException(ftAiResult.ExtractedText);
                         }
                     }
                     catch (Exception ex)
                     {
-                        throw new InvalidOperationException($"Błąd połączenia z usługą Azure OpenAI FT: {ex.Message}");
+                        throw new InvalidOperationException($"Błąd połączenia z usługą Fine-Tuned ({provider}): {ex.Message}");
                     }
 
                     var latency = ftSw.ElapsedMilliseconds > 0 ? ftSw.ElapsedMilliseconds : Math.Max(180, (long)(baseLatency * 0.45));

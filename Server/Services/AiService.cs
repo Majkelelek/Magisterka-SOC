@@ -25,12 +25,36 @@ public class AiService
         _alertStore = alertStore;
     }
 
-    public async Task<AiProcessResult> ProcessQueryAsync(string alertId, string prompt, string? specificModel = null)
+    public async Task<AiProcessResult> ProcessProviderQueryAsync(string provider, string modelType, string alertId, string prompt, string? customSystemMsg = null, string? ollamaModelName = null)
     {
         EnvLoader.Load();
 
-        bool isBaseRequest = specificModel == "gpt-4o-mini";
+        var prov = (provider ?? "openai").ToLowerInvariant();
+        bool isBase = modelType.Equals("base", StringComparison.OrdinalIgnoreCase) || modelType.Equals("azure-base", StringComparison.OrdinalIgnoreCase);
 
+        var alertContext = GetAlertContext(alertId);
+        var systemMessage = customSystemMsg ?? @"Jesteś zaawansowanym asystentem SOC Sentinel. Twoim zadaniem jest przeanalizowanie przepływu sieciowego (NetFlow) i klasyfikacja zdarzenia oraz podanie rekomendowanej akcji (Isolation, Escalation, Dismiss).";
+        var userContent = $"{alertContext}\n\n[PYTANIE OPERATORA SOC]\n{prompt}";
+
+        switch (prov)
+        {
+            case "gemini":
+                return await ProcessGeminiQueryAsync(isBase, userContent, systemMessage);
+            case "deepseek":
+                return await ProcessDeepSeekQueryAsync(isBase, userContent, systemMessage);
+            case "anthropic":
+            case "claude":
+                return await ProcessAnthropicQueryAsync(isBase, userContent, systemMessage);
+            case "ollama":
+                return await ProcessOllamaQueryAsync(isBase, userContent, systemMessage, ollamaModelName ?? "llama3.2");
+            case "openai":
+            default:
+                return await ProcessAzureOpenAiQueryAsync(isBase, alertId, prompt, userContent, systemMessage);
+        }
+    }
+
+    private async Task<AiProcessResult> ProcessAzureOpenAiQueryAsync(bool isBaseRequest, string alertId, string prompt, string userContent, string systemMessage)
+    {
         var endpoint = isBaseRequest
             ? (Environment.GetEnvironmentVariable("AZURE_BASE_ENDPOINT") ?? Environment.GetEnvironmentVariable("AZURE_AI_ENDPOINT") ?? "https://magisterkasoc.services.ai.azure.com/openai/v1/responses")
             : (Environment.GetEnvironmentVariable("AZURE_AI_ENDPOINT") ?? Environment.GetEnvironmentVariable("AZURE_OPENAI_ENDPOINT") ?? Environment.GetEnvironmentVariable("AI_ENDPOINT") ?? "https://magisterkasoc.services.ai.azure.com/openai/v1/responses");
@@ -39,119 +63,318 @@ public class AiService
             ? (Environment.GetEnvironmentVariable("AZURE_BASE_KEY") ?? Environment.GetEnvironmentVariable("AZURE_AI_KEY"))
             : (Environment.GetEnvironmentVariable("AZURE_AI_KEY") ?? Environment.GetEnvironmentVariable("AZURE_OPENAI_KEY") ?? Environment.GetEnvironmentVariable("AI_API_KEY") ?? Environment.GetEnvironmentVariable("AI_KEY"));
 
-        // Jeśli klucz API nie został wprowadzony lub ma domyślną wartość zastępczą
         if (string.IsNullOrWhiteSpace(apiKey) || apiKey.Equals("your_azure_ai_key_here", StringComparison.OrdinalIgnoreCase))
         {
-            var msg = $"[AI Backend] Punkt końcowy Azure AI '{endpoint}' jest podłączony i zabezpieczony.\n\nAby uzyskać autentyczną odpowiedź przetrenowanego modelu (fine-tuned), dodaj swój klucz do pliku .env:\nAZURE_AI_KEY=twój_prawdziwy_klucz_api";
+            var msg = $"[Azure OpenAI Backend] Uzupełnij klucz API w pliku .env:\n{(isBaseRequest ? "AZURE_BASE_KEY" : "AZURE_AI_KEY")}=twój_klucz_azure";
             return new AiProcessResult { ExtractedText = msg, RawJson = msg };
         }
 
-        // Zabezpieczenie przed przeciążeniem (Throttling & Concurrency Rate-Limiting)
-            await _rateLimiter.WaitAsync();
-            try
+        await _rateLimiter.WaitAsync();
+        try
+        {
+            var elapsed = DateTime.UtcNow - _lastRequestTime;
+            if (elapsed < MinRequestInterval)
             {
-                var elapsed = DateTime.UtcNow - _lastRequestTime;
-                if (elapsed < MinRequestInterval)
+                await Task.Delay(MinRequestInterval - elapsed);
+            }
+            _lastRequestTime = DateTime.UtcNow;
+
+            var modelName = isBaseRequest 
+                        ? (Environment.GetEnvironmentVariable("AZURE_BASE_MODEL") ?? "gpt-4o-mini")
+                        : (Environment.GetEnvironmentVariable("AZURE_AI_MODEL") ?? Environment.GetEnvironmentVariable("AZURE_OPENAI_DEPLOYMENT") ?? "gpt-4o-mini-2024-07-18-SOC_1");
+
+            var requestBody = new
+            {
+                model = modelName,
+                temperature = 0.0,
+                input = new object[]
                 {
-                    await Task.Delay(MinRequestInterval - elapsed);
+                    new { role = "system", content = systemMessage },
+                    new { role = "user", content = userContent }
                 }
-                _lastRequestTime = DateTime.UtcNow;
+            };
 
-                var modelName = isBaseRequest 
-                            ? (Environment.GetEnvironmentVariable("AZURE_BASE_MODEL") ?? "gpt-4o-mini")
-                            : (specificModel ?? Environment.GetEnvironmentVariable("AZURE_AI_MODEL") ?? Environment.GetEnvironmentVariable("AZURE_OPENAI_DEPLOYMENT") ?? Environment.GetEnvironmentVariable("AZURE_MODEL_NAME") ?? "gpt-4o-mini-2024-07-18-SOC_1");
+            int maxRetries = 4;
+            int delayMs = 1500;
 
-                var alertContext = GetAlertContext(alertId);
+            for (int attempt = 0; attempt <= maxRetries; attempt++)
+            {
+                using var request = new HttpRequestMessage(HttpMethod.Post, endpoint);
+                request.Content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
 
-                var systemMessage = @"Jesteś zaawansowanym asystentem SOC Sentinel. Twoim zadaniem jest przeanalizowanie przepływu sieciowego (NetFlow) i klasyfikacja zdarzenia oraz podanie rekomendowanej akcji (Isolation, Escalation, Dismiss).";
-                var userContent = $"{alertContext}\n\n[PYTANIE OPERATORA SOC]\n{prompt}";
+                request.Headers.TryAddWithoutValidation("api-key", apiKey);
+                request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {apiKey}");
 
-                // Struktura zgodna z wymaganiami Azure OpenAI Responses API (/v1/responses)
-                var requestBody = new
+                var response = await _httpClient.SendAsync(request);
+
+                if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests ||
+                    response.StatusCode == System.Net.HttpStatusCode.ServiceUnavailable)
                 {
-                    model = modelName,
-                    temperature = 0.0,
-                    input = new object[]
+                    if (attempt < maxRetries)
                     {
-                        new { role = "system", content = systemMessage },
-                        new { role = "user", content = userContent }
+                        await Task.Delay(delayMs);
+                        delayMs += 1500;
+                        continue;
                     }
+
+                    var err = $"[Błąd Azure AI Rate Limit ({response.StatusCode})] Przekroczono limit żądań.";
+                    return new AiProcessResult { ExtractedText = err, RawJson = err };
+                }
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    var errText = await response.Content.ReadAsStringAsync();
+                    var err = $"[Błąd Azure OpenAI ({response.StatusCode})] Szczegóły: {errText}";
+                    return new AiProcessResult { ExtractedText = err, RawJson = errText };
+                }
+
+                var responseJson = await response.Content.ReadAsStringAsync();
+                var extractedAnswer = ExtractAnswerFromJson(responseJson);
+
+                return new AiProcessResult
+                {
+                    ExtractedText = string.IsNullOrWhiteSpace(extractedAnswer) ? "[Azure OpenAI] Pusta odpowiedź od modelu." : extractedAnswer,
+                    RawJson = responseJson
                 };
+            }
 
-                int maxRetries = 6;
-                int delayMs = 1500;
+            return new AiProcessResult { ExtractedText = "[Błąd Azure AI Timeout]", RawJson = "[Timeout]" };
+        }
+        catch (Exception ex)
+        {
+            return new AiProcessResult { ExtractedText = $"[Błąd Azure OpenAI API] Wyjątek: {ex.Message}", RawJson = ex.Message };
+        }
+        finally
+        {
+            _rateLimiter.Release();
+        }
+    }
 
-                for (int attempt = 0; attempt <= maxRetries; attempt++)
+    private async Task<AiProcessResult> ProcessGeminiQueryAsync(bool isBase, string userContent, string systemMessage)
+    {
+        var apiKey = Environment.GetEnvironmentVariable("GEMINI_AI_KEY") ?? Environment.GetEnvironmentVariable("GEMINI_API_KEY");
+        if (string.IsNullOrWhiteSpace(apiKey) || apiKey.Contains("your_"))
+        {
+            var msg = "[Błąd Google Gemini API] Brak klucza API w konfiguracji. Dodaj swój klucz w pliku .env:\nGEMINI_AI_KEY=twój_klucz_gemini";
+            return new AiProcessResult { ExtractedText = msg, RawJson = msg };
+        }
+
+        var modelName = isBase
+            ? (Environment.GetEnvironmentVariable("GEMINI_BASE_MODEL") ?? "gemini-1.5-flash")
+            : (Environment.GetEnvironmentVariable("GEMINI_FT_MODEL") ?? "gemini-1.5-flash-ft");
+
+        var customEndpoint = Environment.GetEnvironmentVariable("GEMINI_AI_ENDPOINT");
+        var endpoint = !string.IsNullOrWhiteSpace(customEndpoint)
+            ? customEndpoint
+            : $"https://generativelanguage.googleapis.com/v1beta/models/{modelName}:generateContent?key={apiKey}";
+
+        var requestBody = new
+        {
+            contents = new object[]
+            {
+                new
                 {
-                    using var request = new HttpRequestMessage(HttpMethod.Post, endpoint);
-                    request.Content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
-
-                    request.Headers.TryAddWithoutValidation("api-key", apiKey);
-                    request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {apiKey}");
-
-                    var response = await _httpClient.SendAsync(request);
-
-                    if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests ||
-                        response.StatusCode == System.Net.HttpStatusCode.ServiceUnavailable ||
-                        response.StatusCode == System.Net.HttpStatusCode.BadGateway)
+                    role = "user",
+                    parts = new object[]
                     {
-                        if (attempt < maxRetries)
-                        {
-                            Console.WriteLine($"[AiService] Status {(int)response.StatusCode} Rate Limit / Occupied. Próba {attempt + 1}/{maxRetries}. Ponawiam za {delayMs}ms...");
-                            await Task.Delay(delayMs);
-                            delayMs += 1500;
-                            continue;
-                        }
-
-                        var err = $"[Błąd AI Rate Limit ({(int)response.StatusCode})] Przekroczono dopuszczalny limit żądań do modelu AI w jednostce czasu. Odczekaj chwilę i ponów zapytanie.";
-                        return new AiProcessResult { ExtractedText = err, RawJson = err };
+                        new { text = $"{systemMessage}\n\n{userContent}" }
                     }
-
-                    if (!response.IsSuccessStatusCode)
-                    {
-                        var errText = await response.Content.ReadAsStringAsync();
-                        var err = $"[Błąd punktu końcowego AI ({response.StatusCode})] Nie udało się uzyskać odpowiedzi z modelu. Szczegóły: {errText}";
-                        return new AiProcessResult { ExtractedText = err, RawJson = errText };
-                    }
-
-                    var responseJson = await response.Content.ReadAsStringAsync();
-                    var extractedAnswer = ExtractAnswerFromJson(responseJson);
-
-                    Console.WriteLine($"\n==================== [ODPOWIEDŹ Z AZURE OPENAI (RAW RESPONSE)] ====================");
-                    Console.WriteLine($"ALERT ID: {alertId}");
-                    Console.WriteLine($"SUROWA ODPOWIEDŹ AZURE OPENAI API (RAW JSON):");
-                    Console.WriteLine(responseJson);
-                    Console.WriteLine($"----------------------------------------------------------------------------------");
-                    Console.WriteLine($"WYEKSTRAHOWANA TREŚĆ ODPOWIEDZI (EXTRACTED TEXT):");
-                    Console.WriteLine(extractedAnswer);
-                    Console.WriteLine($"==================================================================================\n");
-
-                    return new AiProcessResult
-                    {
-                        ExtractedText = string.IsNullOrWhiteSpace(extractedAnswer)
-                            ? "[AI Backend] Otrzymano pustą odpowiedź od modelu AI."
-                            : extractedAnswer,
-                        RawJson = responseJson
-                    };
                 }
+            }
+        };
 
-                var fallbackErr = "[Błąd AI Rate Limit (429)] Przekroczono dopuszczalny limit żądań do modelu AI w jednostce czasu. Odczekaj chwilę i ponów zapytanie.";
-                return new AiProcessResult { ExtractedText = fallbackErr, RawJson = fallbackErr };
-            }
-            catch (TaskCanceledException)
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, endpoint);
+            request.Content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
+
+            var response = await _httpClient.SendAsync(request);
+            var responseJson = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
             {
-                var err = "[Błąd AI Limit Czasu] Przekroczono czas oczekiwania (timeout) na odpowiedź z punktu końcowego Azure AI.";
-                return new AiProcessResult { ExtractedText = err, RawJson = err };
+                return new AiProcessResult { ExtractedText = $"[Błąd Google Gemini API ({response.StatusCode})] {responseJson}", RawJson = responseJson };
             }
-            catch (Exception ex)
+
+            using var doc = JsonDocument.Parse(responseJson);
+            if (doc.RootElement.TryGetProperty("candidates", out var candidates) && candidates.ValueKind == JsonValueKind.Array && candidates.GetArrayLength() > 0)
             {
-                var err = $"[Błąd Usługi AI] Wystąpił wyjątek podczas komunikacji z punktem końcowym Azure AI: {ex.Message}";
-                return new AiProcessResult { ExtractedText = err, RawJson = err };
+                var first = candidates[0];
+                if (first.TryGetProperty("content", out var cnt) && cnt.TryGetProperty("parts", out var parts) && parts.ValueKind == JsonValueKind.Array && parts.GetArrayLength() > 0)
+                {
+                    var text = parts[0].TryGetProperty("text", out var tProp) ? tProp.GetString() ?? "" : "";
+                    return new AiProcessResult { ExtractedText = text, RawJson = responseJson };
+                }
             }
-            finally
+
+            return new AiProcessResult { ExtractedText = responseJson, RawJson = responseJson };
+        }
+        catch (Exception ex)
+        {
+            return new AiProcessResult { ExtractedText = $"[Wyjątek Gemini API] {ex.Message}", RawJson = ex.Message };
+        }
+    }
+
+    private async Task<AiProcessResult> ProcessDeepSeekQueryAsync(bool isBase, string userContent, string systemMessage)
+    {
+        var apiKey = Environment.GetEnvironmentVariable("DEEPSEEK_AI_KEY") ?? Environment.GetEnvironmentVariable("DEEPSEEK_API_KEY");
+        if (string.IsNullOrWhiteSpace(apiKey) || apiKey.Contains("your_"))
+        {
+            var msg = "[Błąd DeepSeek API] Brak klucza API w konfiguracji. Dodaj swój klucz w pliku .env:\nDEEPSEEK_AI_KEY=twój_klucz_deepseek";
+            return new AiProcessResult { ExtractedText = msg, RawJson = msg };
+        }
+
+        var modelName = isBase
+            ? (Environment.GetEnvironmentVariable("DEEPSEEK_BASE_MODEL") ?? "deepseek-chat")
+            : (Environment.GetEnvironmentVariable("DEEPSEEK_FT_MODEL") ?? "deepseek-chat-ft");
+
+        var endpoint = Environment.GetEnvironmentVariable("DEEPSEEK_AI_ENDPOINT") ?? Environment.GetEnvironmentVariable("DEEPSEEK_ENDPOINT") ?? "https://api.deepseek.com/chat/completions";
+
+        var requestBody = new
+        {
+            model = modelName,
+            temperature = 0.0,
+            messages = new object[]
             {
-                _rateLimiter.Release();
+                new { role = "system", content = systemMessage },
+                new { role = "user", content = userContent }
             }
+        };
+
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, endpoint);
+            request.Content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
+            request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {apiKey}");
+
+            var response = await _httpClient.SendAsync(request);
+            var responseJson = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new AiProcessResult { ExtractedText = $"[Błąd DeepSeek API ({response.StatusCode})] {responseJson}", RawJson = responseJson };
+            }
+
+            var extracted = ExtractAnswerFromJson(responseJson);
+            return new AiProcessResult { ExtractedText = extracted, RawJson = responseJson };
+        }
+        catch (Exception ex)
+        {
+            return new AiProcessResult { ExtractedText = $"[Wyjątek DeepSeek API] {ex.Message}", RawJson = ex.Message };
+        }
+    }
+
+    private async Task<AiProcessResult> ProcessAnthropicQueryAsync(bool isBase, string userContent, string systemMessage)
+    {
+        var apiKey = Environment.GetEnvironmentVariable("ANTHROPIC_AI_KEY") ?? Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY") ?? Environment.GetEnvironmentVariable("CLAUDE_API_KEY");
+        if (string.IsNullOrWhiteSpace(apiKey) || apiKey.Contains("your_"))
+        {
+            var msg = "[Błąd Anthropic Claude API] Brak klucza API w konfiguracji. Dodaj swój klucz w pliku .env:\nANTHROPIC_AI_KEY=twój_klucz_anthropic";
+            return new AiProcessResult { ExtractedText = msg, RawJson = msg };
+        }
+
+        var modelName = isBase
+            ? (Environment.GetEnvironmentVariable("CLAUDE_BASE_MODEL") ?? "claude-3-5-sonnet-20241022")
+            : (Environment.GetEnvironmentVariable("CLAUDE_FT_MODEL") ?? "claude-3-5-sonnet-ft");
+
+        var endpoint = Environment.GetEnvironmentVariable("ANTHROPIC_AI_ENDPOINT") ?? "https://api.anthropic.com/v1/messages";
+
+        var requestBody = new
+        {
+            model = modelName,
+            max_tokens = 1024,
+            system = systemMessage,
+            messages = new object[]
+            {
+                new { role = "user", content = userContent }
+            }
+        };
+
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, endpoint);
+            request.Content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
+            request.Headers.TryAddWithoutValidation("x-api-key", apiKey);
+            request.Headers.TryAddWithoutValidation("anthropic-version", "2023-06-01");
+
+            var response = await _httpClient.SendAsync(request);
+            var responseJson = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new AiProcessResult { ExtractedText = $"[Błąd Anthropic Claude API ({response.StatusCode})] {responseJson}", RawJson = responseJson };
+            }
+
+            using var doc = JsonDocument.Parse(responseJson);
+            if (doc.RootElement.TryGetProperty("content", out var contentArr) && contentArr.ValueKind == JsonValueKind.Array && contentArr.GetArrayLength() > 0)
+            {
+                var text = contentArr[0].TryGetProperty("text", out var tProp) ? tProp.GetString() ?? "" : "";
+                return new AiProcessResult { ExtractedText = text, RawJson = responseJson };
+            }
+
+            return new AiProcessResult { ExtractedText = responseJson, RawJson = responseJson };
+        }
+        catch (Exception ex)
+        {
+            return new AiProcessResult { ExtractedText = $"[Wyjątek Anthropic API] {ex.Message}", RawJson = ex.Message };
+        }
+    }
+
+    private async Task<AiProcessResult> ProcessOllamaQueryAsync(bool isBase, string userContent, string systemMessage, string modelName)
+    {
+        var targetModel = isBase ? modelName : (modelName.Contains(":") ? modelName : $"{modelName}:ft");
+        var ollamaUrl = Environment.GetEnvironmentVariable("OLLAMA_ENDPOINT") ?? "http://localhost:11434/api/chat";
+
+        var chatRequestBody = new
+        {
+            model = targetModel,
+            temperature = 0.0,
+            messages = new object[]
+            {
+                new { role = "system", content = systemMessage },
+                new { role = "user", content = userContent }
+            },
+            stream = false
+        };
+
+        try
+        {
+            var jsonContent = new StringContent(JsonSerializer.Serialize(chatRequestBody), Encoding.UTF8, "application/json");
+            var response = await _httpClient.PostAsync(ollamaUrl, jsonContent);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var errStr = await response.Content.ReadAsStringAsync();
+                return new AiProcessResult
+                {
+                    ExtractedText = $"[Błąd Ollama ({response.StatusCode})] Upewnij się, że lokalna instancja Ollama działa na {ollamaUrl} i pobrano model '{targetModel}'.",
+                    RawJson = errStr
+                };
+            }
+
+            var responseJson = await response.Content.ReadAsStringAsync();
+            using var chatDoc = JsonDocument.Parse(responseJson);
+            if (chatDoc.RootElement.TryGetProperty("message", out var msgProp) && msgProp.TryGetProperty("content", out var contentProp))
+            {
+                var content = contentProp.GetString() ?? "";
+                return new AiProcessResult { ExtractedText = content, RawJson = responseJson };
+            }
+
+            return new AiProcessResult { ExtractedText = responseJson, RawJson = responseJson };
+        }
+        catch (Exception ex)
+        {
+            return new AiProcessResult
+            {
+                ExtractedText = $"[Błąd Połączenia Ollama] Brak połączenia z lokalną Ollamą (http://localhost:11434). Wyjątek: {ex.Message}",
+                RawJson = ex.Message
+            };
+        }
+    }
+
+    public async Task<AiProcessResult> ProcessQueryAsync(string alertId, string prompt, string? specificModel = null)
+    {
+        return await ProcessProviderQueryAsync("openai", specificModel == "gpt-4o-mini" ? "base" : "ft", alertId, prompt);
     }
 
     private string GetAlertContext(string alertId)

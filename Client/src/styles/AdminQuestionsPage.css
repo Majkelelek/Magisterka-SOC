@@ -36,9 +36,9 @@
 /* Extracted AdminQuestionsPage Styles */
 .admin-q-wrapper {
   width: 100%;
-  max-width: 1400px;
+  max-width: 98%;
   margin: 0 auto;
-  padding: 1rem 0;
+  padding: 1rem 0.5rem;
 }
 
 .admin-q-header {

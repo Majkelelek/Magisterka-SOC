@@ -70,40 +70,6 @@ public class AlertsController : ControllerBase
         return Ok(new { message = $"Stan alertu {id} został zmieniony na '{request.Status}'." });
     }
 
-    [HttpPost("session/submit")]
-    public ActionResult SubmitSession([FromBody] TestSession session)
-    {
-        _alertStore.AddTestSession(session);
-        return Ok(new { message = "Sesja testowa została zapisana pomyślnie.", sessionId = session.SessionId });
-    }
-
-    [HttpGet("session")]
-    [Authorize(Roles = "Administrator")]
-    public ActionResult<IEnumerable<TestSession>> GetSessions()
-    {
-        return Ok(_alertStore.GetTestSessions());
-    }
-
-    [HttpDelete("session/all")]
-    [Authorize(Roles = "Administrator")]
-    public ActionResult DeleteAllSessions()
-    {
-        _alertStore.ClearAllTestSessions();
-        return Ok(new { message = "Wszystkie wyniki testów zostały pomyślnie usunięte." });
-    }
-
-    [HttpDelete("session/{sessionId}")]
-    [Authorize(Roles = "Administrator")]
-    public ActionResult DeleteSession(string sessionId)
-    {
-        bool deleted = _alertStore.DeleteTestSession(sessionId);
-        if (!deleted)
-        {
-            return NotFound(new { message = $"Sesja testowa o ID '{sessionId}' nie została odnaleziona." });
-        }
-        return Ok(new { message = $"Sesja testowa '{sessionId}' została usunięta." });
-    }
-
     private string GetTestSetFilePath()
     {
         string path = Path.Combine(Directory.GetCurrentDirectory(), "Data", "test_pytania.json");
@@ -295,6 +261,63 @@ public class AlertsController : ControllerBase
         }
     }
 
+    [HttpGet("datasets")]
+    public ActionResult GetAvailableDatasets()
+    {
+        var list = AttackSampleImporter.GetAvailableDatasets()
+            .Select(d => new { fileName = d.FileName, displayName = d.DisplayName, count = d.Count })
+            .ToList();
+        return Ok(list);
+    }
+
+    public class ImportDatasetRequest
+    {
+        public string DatasetFile { get; set; } = "eval_ALL.json";
+    }
+
+    [HttpPost("import-dataset")]
+    [Authorize(Roles = "Administrator")]
+    public async Task<ActionResult> ImportDataset([FromBody] ImportDatasetRequest req)
+    {
+        try
+        {
+            string fileName = string.IsNullOrWhiteSpace(req?.DatasetFile) ? "eval_ALL.json" : req.DatasetFile;
+            var alerts = AttackSampleImporter.ConvertPerformanceFilesToAlerts(fileName);
+            if (alerts.Count == 0)
+            {
+                return BadRequest(new { message = $"Nie odnaleziono pytań w wybranym zestawie: {fileName}" });
+            }
+
+            _alertStore.SetAlerts(alerts);
+            SaveTestSetToAllFiles(alerts);
+
+            if (_mongoContext?.IsConnectedToMongo == true && _mongoContext.Alerts != null)
+            {
+                try
+                {
+                    await _mongoContext.Alerts.DeleteManyAsync(MongoDB.Driver.Builders<Alert>.Filter.Empty);
+                    var bulkOps = alerts.Select(a => new MongoDB.Driver.ReplaceOneModel<Alert>(
+                        MongoDB.Driver.Builders<Alert>.Filter.Eq(x => x.Id, a.Id), a) { IsUpsert = true }).ToList();
+                    if (bulkOps.Count > 0)
+                    {
+                        await _mongoContext.Alerts.BulkWriteAsync(bulkOps);
+                    }
+                    Console.WriteLine($"[MongoDB Atlas] Zaimportowano {alerts.Count} pytań z zestawu '{fileName}'!");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[MongoDB Atlas] Błąd zapisu bazy dla zestawu: {ex.Message}");
+                }
+            }
+
+            return Ok(new { message = $"Pomyślnie załadowano zestaw '{fileName}' ({alerts.Count} pytań).", importedCount = alerts.Count, alerts });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = $"Błąd podczas ładowania zestawu pytań: {ex.Message}" });
+        }
+    }
+
     [HttpPost("import-attack-samples")]
     [Authorize(Roles = "Administrator")]
     public async Task<ActionResult> ImportAttackSamples()
@@ -302,52 +325,57 @@ public class AlertsController : ControllerBase
         try
         {
             string samplesPath = AttackSampleImporter.FindAttackSamplesFilePath();
-            if (string.IsNullOrEmpty(samplesPath) || !System.IO.File.Exists(samplesPath))
-            {
-                return NotFound(new { message = "Nie odnaleziono pliku próbek 'próbki_ataków_zbiorcze.json' w katalogach projektu." });
-            }
+            List<Alert> sampleAlerts;
 
-            string testSetPath = GetTestSetFilePath();
-            List<Alert> existingAlerts = new();
-            if (System.IO.File.Exists(testSetPath))
+            if (!string.IsNullOrEmpty(samplesPath) && System.IO.File.Exists(samplesPath))
             {
-                var jsonText = await System.IO.File.ReadAllTextAsync(testSetPath);
-                var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                existingAlerts = System.Text.Json.JsonSerializer.Deserialize<List<Alert>>(jsonText, options) ?? new();
-            }
+                string testSetPath = GetTestSetFilePath();
+                List<Alert> existingAlerts = new();
+                if (System.IO.File.Exists(testSetPath))
+                {
+                    var jsonText = await System.IO.File.ReadAllTextAsync(testSetPath);
+                    var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                    existingAlerts = System.Text.Json.JsonSerializer.Deserialize<List<Alert>>(jsonText, options) ?? new();
+                }
 
-            int startIndex = existingAlerts.Count + 1;
-            var sampleAlerts = AttackSampleImporter.ConvertSamplesToAlerts(samplesPath, startIndex);
+                int startIndex = existingAlerts.Count + 1;
+                sampleAlerts = AttackSampleImporter.ConvertSamplesToAlerts(samplesPath, startIndex);
+
+                if (sampleAlerts.Count > 0)
+                {
+                    var mergedMap = existingAlerts.ToDictionary(a => a.Id, a => a);
+                    foreach (var s in sampleAlerts)
+                    {
+                        mergedMap[s.Id] = s;
+                    }
+                    sampleAlerts = mergedMap.Values.ToList();
+                }
+            }
+            else
+            {
+                // Fallback: convert all performance files in Dane/dane_do_wydajności
+                sampleAlerts = AttackSampleImporter.ConvertPerformanceFilesToAlerts("eval_ALL.json");
+            }
 
             if (sampleAlerts.Count == 0)
             {
-                return BadRequest(new { message = "Brak poprawnych próbek w pliku 'próbki_ataków_zbiorcze.json' do zaimportowania." });
+                return BadRequest(new { message = "Brak dostępnych próbek/zestawów pytań do zaimportowania z folderu Dane." });
             }
 
-            // Dołącz lub zaktualizuj pytania
-            var mergedMap = existingAlerts.ToDictionary(a => a.Id, a => a);
-            foreach (var s in sampleAlerts)
-            {
-                mergedMap[s.Id] = s;
-            }
+            SaveTestSetToAllFiles(sampleAlerts);
+            _alertStore.SetAlerts(sampleAlerts);
 
-            var updatedAlerts = mergedMap.Values.ToList();
-
-            // Zapis do test_pytania.json w obu lokalizacjach
-            SaveTestSetToAllFiles(updatedAlerts);
-
-            // Zapis w AlertStore w pamięci
-            _alertStore.SetAlerts(updatedAlerts);
-
-            // Zapis w MongoDB Atlas
             if (_mongoContext?.IsConnectedToMongo == true && _mongoContext.Alerts != null)
             {
                 try
                 {
-                    var bulkOps = updatedAlerts.Select(a => new MongoDB.Driver.ReplaceOneModel<Alert>(
+                    var bulkOps = sampleAlerts.Select(a => new MongoDB.Driver.ReplaceOneModel<Alert>(
                         MongoDB.Driver.Builders<Alert>.Filter.Eq(x => x.Id, a.Id), a) { IsUpsert = true }).ToList();
-                    await _mongoContext.Alerts.BulkWriteAsync(bulkOps);
-                    Console.WriteLine($"[MongoDB Atlas] Zaimportowano {sampleAlerts.Count} próbek ataków z próbki_ataków_zbiorcze.json!");
+                    if (bulkOps.Count > 0)
+                    {
+                        await _mongoContext.Alerts.BulkWriteAsync(bulkOps);
+                    }
+                    Console.WriteLine($"[MongoDB Atlas] Zaimportowano {sampleAlerts.Count} pytań testowych!");
                 }
                 catch (Exception ex)
                 {
@@ -355,16 +383,11 @@ public class AlertsController : ControllerBase
                 }
             }
 
-            return Ok(new
-            {
-                message = $"Pomyślnie zaimportowano i znormalizowano {sampleAlerts.Count} próbek z pliku 'próbki_ataków_zbiorcze.json' do bazy pytań testowych! Łączna liczba pytań: {updatedAlerts.Count}.",
-                importedCount = sampleAlerts.Count,
-                totalCount = updatedAlerts.Count
-            });
+            return Ok(new { message = $"Zaimportowano {sampleAlerts.Count} pytań ze zbioru wydajnościowego/próbek.", importedCount = sampleAlerts.Count, totalCount = sampleAlerts.Count });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { message = $"Błąd podczas importu próbek ataków: {ex.Message}" });
+            return StatusCode(500, new { message = $"Błąd podczas importu próbek: {ex.Message}" });
         }
     }
 

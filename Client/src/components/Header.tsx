@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Bot, Eye, UserCheck, Home, LogOut, Database, Users, BarChart2, HelpCircle, Sparkles } from 'lucide-react';
+import { Shield, UserCheck, Home, LogOut, Database, Users, HelpCircle, Sparkles } from 'lucide-react';
 import type { UserSession } from '../types/alert';
 import { getAuthStatus, type SystemHealthStatus } from '../services/api';
 import '../styles/Header.css';
 
 interface HeaderProps {
-  activeTab: 'home' | 'no-ai' | 'with-ai' | 'test-results' | 'admin-users' | 'admin-questions' | 'benchmark';
-  onTabChange: (tab: 'home' | 'no-ai' | 'with-ai' | 'test-results' | 'admin-users' | 'admin-questions' | 'benchmark') => void;
+  activeTab: 'home' | 'admin-users' | 'admin-questions' | 'benchmark';
+  onTabChange: (tab: 'home' | 'admin-users' | 'admin-questions' | 'benchmark') => void;
   userSession: UserSession | null;
   onLogout: () => void;
 }
@@ -33,7 +33,6 @@ export const Header: React.FC<HeaderProps> = ({
     };
 
     checkHealth();
-    // Sprawdzaj status co 30 sekund zamiast co 4 sekundy, aby nie spamować konsoli sieciowej (Network)
     const interval = setInterval(checkHealth, 30000);
     return () => {
       isMounted = false;
@@ -45,7 +44,7 @@ export const Header: React.FC<HeaderProps> = ({
     <header className="soc-header">
       <div className="soc-header-inner">
         {/* Left: Logo & Dynamic System / DB Status Badges */}
-        <div className="soc-logo soc-logo-clickable" onClick={() => onTabChange('home')}>
+        <div className="soc-logo soc-logo-clickable" onClick={() => onTabChange('benchmark')}>
           <div className="soc-logo-icon">
             <Shield size={22} />
           </div>
@@ -80,40 +79,12 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
 
             <button
-              className={`soc-tab ${activeTab === 'no-ai' ? 'active-no-ai' : ''}`}
-              onClick={() => onTabChange('no-ai')}
+              className={`soc-tab ${activeTab === 'benchmark' ? 'active-ai' : ''}`}
+              onClick={() => onTabChange('benchmark')}
             >
-              <Eye size={16} />
-              <span>Test 1: Bez AI</span>
+              <Sparkles size={16} color="#a855f7" />
+              <span className="soc-tab-label-benchmark">Ewaluacja AI (Benchmark)</span>
             </button>
-
-            <button
-              className={`soc-tab ${activeTab === 'with-ai' ? 'active-ai' : ''}`}
-              onClick={() => onTabChange('with-ai')}
-            >
-              <Bot size={16} />
-              <span>Test 2: Z AI</span>
-            </button>
-
-            {userSession.role === 'Administrator' && (
-              <button
-                className={`soc-tab ${activeTab === 'test-results' ? 'active-ai' : ''}`}
-                onClick={() => onTabChange('test-results')}
-              >
-                <BarChart2 size={16} color="#38bdf8" />
-                <span>Wyniki Testów</span>
-              </button>
-            )}
-
-            {userSession.role === 'Administrator' && (
-              <button
-                className={`soc-tab ${activeTab === 'benchmark' ? 'active-ai' : ''}`}
-                onClick={() => onTabChange('benchmark')}
-              >
-                <Sparkles size={16} color="#a855f7" />
-                <span className="soc-tab-label-benchmark">Ewaluacja AI (Benchmark)</span>
-              </button>
-            )}
 
             {userSession.role === 'Administrator' && (
               <button

@@ -5,6 +5,182 @@ namespace Server.Services;
 
 public static class AttackSampleImporter
 {
+    public static string FindPerformanceDatasetDirectory()
+    {
+        string[] candidates = new[]
+        {
+            Path.Combine(Directory.GetCurrentDirectory(), "Dane", "dane_do_wydajności"),
+            Path.Combine(Directory.GetCurrentDirectory(), "..", "Dane", "dane_do_wydajności"),
+            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Dane", "dane_do_wydajności"),
+            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "..", "Dane", "dane_do_wydajności"),
+            @"C:\Users\Majki\Desktop\Magisterka\APKA MGR\Dane\dane_do_wydajności"
+        };
+
+        foreach (var path in candidates)
+        {
+            if (Directory.Exists(path))
+            {
+                return Path.GetFullPath(path);
+            }
+        }
+
+        return string.Empty;
+    }
+
+    public static List<(string FileName, string DisplayName, int Count)> GetAvailableDatasets()
+    {
+        var result = new List<(string FileName, string DisplayName, int Count)>();
+        string dir = FindPerformanceDatasetDirectory();
+        if (string.IsNullOrEmpty(dir) || !Directory.Exists(dir)) return result;
+
+        var files = Directory.GetFiles(dir, "eval_*.json").OrderBy(f => f).ToList();
+        int totalAllCount = 0;
+
+        foreach (var file in files)
+        {
+            try
+            {
+                var text = File.ReadAllText(file);
+                using var doc = JsonDocument.Parse(text);
+                if (doc.RootElement.ValueKind == JsonValueKind.Array)
+                {
+                    int count = doc.RootElement.GetArrayLength();
+                    totalAllCount += count;
+                    string name = Path.GetFileName(file);
+                    string category = name.Replace("eval_", "").Replace("_100.json", "").Replace(".json", "").Replace("___", " - ");
+                    result.Add((name, $"Zestaw {category} ({count} pytań)", count));
+                }
+            }
+            catch { }
+        }
+
+        if (result.Count > 0)
+        {
+            result.Insert(0, ("eval_ALL.json", $"Wszystkie Zestawy Wydajnościowe (Łącznie {totalAllCount} pytań)", totalAllCount));
+        }
+
+        return result;
+    }
+
+    public static List<Alert> ConvertPerformanceFilesToAlerts(string datasetFileName = "eval_ALL.json")
+    {
+        var alerts = new List<Alert>();
+        string dir = FindPerformanceDatasetDirectory();
+        if (string.IsNullOrEmpty(dir) || !Directory.Exists(dir)) return alerts;
+
+        List<string> filesToProcess = new();
+        if (datasetFileName.Equals("eval_ALL.json", StringComparison.OrdinalIgnoreCase) || datasetFileName.Equals("ALL", StringComparison.OrdinalIgnoreCase))
+        {
+            filesToProcess = Directory.GetFiles(dir, "eval_*.json").OrderBy(f => f).ToList();
+        }
+        else
+        {
+            string singleFile = Path.Combine(dir, datasetFileName);
+            if (File.Exists(singleFile))
+            {
+                filesToProcess.Add(singleFile);
+            }
+            else
+            {
+                // Try fuzzy match
+                var match = Directory.GetFiles(dir, "*").FirstOrDefault(f => Path.GetFileName(f).Equals(datasetFileName, StringComparison.OrdinalIgnoreCase));
+                if (match != null) filesToProcess.Add(match);
+            }
+        }
+
+        int index = 1;
+        foreach (var file in filesToProcess)
+        {
+            try
+            {
+                string jsonText = File.ReadAllText(file);
+                var items = JsonSerializer.Deserialize<List<PerformanceTestItem>>(jsonText, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+
+                if (items == null) continue;
+
+                foreach (var item in items)
+                {
+                    var groundTruthCategory = string.IsNullOrWhiteSpace(item.GroundTruth) ? "Unknown" : item.GroundTruth.Trim();
+                    bool isThreat = !groundTruthCategory.Equals("BENIGN", StringComparison.OrdinalIgnoreCase);
+
+                    var systemMsg = item.Messages?.FirstOrDefault(m => m.Role.Equals("system", StringComparison.OrdinalIgnoreCase))?.Content ?? "";
+                    var userMsg = item.Messages?.FirstOrDefault(m => m.Role.Equals("user", StringComparison.OrdinalIgnoreCase))?.Content ?? "";
+                    var assistantMsg = item.Messages?.FirstOrDefault(m => m.Role.Equals("assistant", StringComparison.OrdinalIgnoreCase))?.Content ?? "";
+
+                    string severity = "Medium";
+                    if (!isThreat) severity = "Low";
+                    else if (groundTruthCategory.ToUpperInvariant().Contains("DDOS") || groundTruthCategory.ToUpperInvariant().Contains("HULK") || groundTruthCategory.ToUpperInvariant().Contains("SQL") || groundTruthCategory.ToUpperInvariant().Contains("INFILTRATION"))
+                        severity = "Critical";
+                    else
+                        severity = "High";
+
+                    string title = isThreat 
+                        ? $"Zdarzenie #{index:D3}: Wykryto Incydent sieciowy {groundTruthCategory} ({item.Id})"
+                        : $"Zdarzenie #{index:D3}: Rutynowy Przepływ Sieciowy BENIGN ({item.Id})";
+
+                    string correctAction = !string.IsNullOrWhiteSpace(item.ExpectedAction) ? item.ExpectedAction : (isThreat ? "Isolation" : "Dismiss");
+                    string mitre = GetMitreForCategory(groundTruthCategory);
+
+                    string desc = !string.IsNullOrWhiteSpace(assistantMsg)
+                        ? assistantMsg
+                        : $"Rekord z bazy wydajnościowej dla kategorii: {groundTruthCategory}. Oczekiwana akcja: {correctAction}.";
+
+                    var alert = new Alert
+                    {
+                        Id = string.IsNullOrWhiteSpace(item.Id) ? $"ALT-{index:D3}" : item.Id,
+                        Title = title,
+                        Severity = severity,
+                        Category = groundTruthCategory,
+                        Status = "New",
+                        Timestamp = DateTime.UtcNow.AddMinutes(-((index * 15) % 1440)),
+                        SourceIp = isThreat ? $"185.220.101.{(index % 240) + 10}" : $"192.168.10.{(index % 40) + 5}",
+                        DestinationHost = "Web Server 16 Public (192.168.10.50 / Port 80)",
+                        UserAccount = isThreat ? $"EXTERNAL_ATTACKER\\node_{index:D2}" : "CORP\\user_analyst",
+                        MitreTechnique = mitre,
+                        Description = desc,
+                        RawLogs = new List<string> { string.IsNullOrWhiteSpace(userMsg) ? "NetFlow Raw Data" : userMsg },
+                        IsThreat = isThreat,
+                        CorrectAction = correctAction
+                    };
+
+                    alerts.Add(alert);
+                    index++;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[AttackSampleImporter] Błąd przetwarzania {Path.GetFileName(file)}: {ex.Message}");
+            }
+        }
+
+        return alerts;
+    }
+
+    private static string GetMitreForCategory(string category)
+    {
+        switch (category.ToUpperInvariant())
+        {
+            case "BENIGN": return "N/A - Legitimate Activity";
+            case "DDOS": return "T1498.001 - Direct Volume Flood";
+            case "BOT": return "T1071.001 - Web Protocols Command & Control";
+            case "DOS GOLDENEYE": return "T1498.001 - Direct Volume Flood (GoldenEye)";
+            case "DOS HULK": return "T1498.001 - Direct Volume Flood (HULK DoS)";
+            case "DOS SLOWHTTPTEST": return "T1499.002 - Service Exhaustion Flood (Slow HTTP)";
+            case "DOS SLOWLORIS": return "T1499.002 - Service Exhaustion Flood (Slowloris)";
+            case "FTP-PATATOR": return "T1110.001 - Password Spraying / Brute Force (FTP)";
+            case "PORTSCAN": return "T1046 - Network Service Discovery (Port Scan)";
+            case "SSH-PATATOR": return "T1110.001 - Password Spraying / Brute Force (SSH)";
+            case "WEB ATTACK - BRUTE FORCE":
+            case "WEB ATTACK – BRUTE FORCE": return "T1110.001 - Password Guessing (Web)";
+            case "WEB ATTACK - XSS":
+            case "WEB ATTACK – XSS": return "T1059.007 - JavaScript XSS Injection";
+            default: return $"T1059 - {category}";
+        }
+    }
+
     public static string FindAttackSamplesFilePath()
     {
         string[] candidates = new[]
@@ -31,7 +207,8 @@ public static class AttackSampleImporter
         var alerts = new List<Alert>();
         if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath))
         {
-            return alerts;
+            // Fallback: convert all performance files in Dane/dane_do_wydajności
+            return ConvertPerformanceFilesToAlerts("eval_ALL.json");
         }
 
         try
@@ -42,7 +219,7 @@ public static class AttackSampleImporter
 
             if (root.ValueKind != JsonValueKind.Array)
             {
-                return alerts;
+                return ConvertPerformanceFilesToAlerts("eval_ALL.json");
             }
 
             int index = startIdIndex;

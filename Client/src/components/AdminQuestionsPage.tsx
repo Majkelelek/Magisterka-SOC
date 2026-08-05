@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Search, Filter, HelpCircle, CheckCircle, AlertTriangle, RefreshCw, Shield, Upload, Sparkles, Loader2 } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, Filter, HelpCircle, CheckCircle, AlertTriangle, RefreshCw, Shield, Upload, Loader2, Database, FolderOpen } from 'lucide-react';
 import type { Alert } from '../types/alert';
-import { fetchTestSet, addTestAlertItem, updateTestAlertItem, deleteTestAlertItem, deleteAllTestAlerts, importAttackSamples, generateSingleAiAnalysis, generateAllAiAnalyses } from '../services/api';
+import { fetchTestSet, addTestAlertItem, updateTestAlertItem, deleteTestAlertItem, deleteAllTestAlerts, importAttackSamples, fetchAvailableDatasets, importDataset } from '../services/api';
 import '../styles/AdminQuestionsPage.css';
 
 export const AdminQuestionsPage: React.FC = () => {
@@ -12,8 +12,11 @@ export const AdminQuestionsPage: React.FC = () => {
   const [filterThreat, setFilterThreat] = useState('ALL');
   const [deletingAll, setDeletingAll] = useState(false);
   const [importing, setImporting] = useState(false);
-  const [generatingAiId, setGeneratingAiId] = useState<string | null>(null);
-  const [generatingAllAi, setGeneratingAllAi] = useState(false);
+
+  // Dataset Selection State
+  const [datasets, setDatasets] = useState<{ fileName: string; displayName: string; count: number }[]>([]);
+  const [selectedDataset, setSelectedDataset] = useState<string>('eval_ALL.json');
+  const [loadingDataset, setLoadingDataset] = useState(false);
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -47,9 +50,38 @@ export const AdminQuestionsPage: React.FC = () => {
     }
   };
 
+  const loadDatasets = async () => {
+    try {
+      const list = await fetchAvailableDatasets();
+      setDatasets(list);
+    } catch (err) {
+      console.error('Błąd ładowania listy zestawów danych:', err);
+    }
+  };
+
   useEffect(() => {
     loadQuestions();
+    loadDatasets();
   }, []);
+
+  const handleImportDatasetClick = async (targetFile?: string) => {
+    const fileToLoad = targetFile || selectedDataset;
+    setLoadingDataset(true);
+    setStatusMsg(null);
+    try {
+      const res = await importDataset(fileToLoad);
+      if (res.success) {
+        setStatusMsg({ text: res.message, type: 'success' });
+        loadQuestions();
+      } else {
+        setStatusMsg({ text: res.message, type: 'error' });
+      }
+    } catch (err: any) {
+      setStatusMsg({ text: err.message || 'Błąd podczas ładowania zestawu danych.', type: 'error' });
+    } finally {
+      setLoadingDataset(false);
+    }
+  };
 
   const handleOpenAddModal = () => {
     setEditingAlert(null);
@@ -110,37 +142,6 @@ export const AdminQuestionsPage: React.FC = () => {
     setStatusMsg(null);
     const res = await importAttackSamples();
     setImporting(false);
-
-    if (res.success) {
-      setStatusMsg({ text: res.message, type: 'success' });
-      loadQuestions();
-    } else {
-      setStatusMsg({ text: res.message, type: 'error' });
-    }
-  };
-
-  const handleGenerateSingleAi = async (id: string) => {
-    setGeneratingAiId(id);
-    setStatusMsg(null);
-    const res = await generateSingleAiAnalysis(id);
-    setGeneratingAiId(null);
-
-    if (res.success) {
-      setStatusMsg({ text: res.message, type: 'success' });
-      loadQuestions();
-    } else {
-      setStatusMsg({ text: res.message, type: 'error' });
-    }
-  };
-
-  const handleGenerateAllAi = async () => {
-    if (!window.confirm(`Czy chcesz wygenerować i zapisać wstępne analizy AI dla WSZYSTKICH ${alerts.length} pytań w bazie? Ta operacja zajmie chwilę.`)) {
-      return;
-    }
-    setGeneratingAllAi(true);
-    setStatusMsg(null);
-    const res = await generateAllAiAnalyses();
-    setGeneratingAllAi(false);
 
     if (res.success) {
       setStatusMsg({ text: res.message, type: 'success' });
@@ -234,28 +235,93 @@ export const AdminQuestionsPage: React.FC = () => {
             </button>
 
             <button
-              onClick={handleGenerateAllAi}
-              disabled={generatingAllAi || loading || alerts.length === 0}
-              className="btn-action admin-q-btn-sparkles"
-              title="Wstępnie wygeneruj i zapisz analizy AI w bazie dla wszystkich pytań testowych"
-            >
-              {generatingAllAi ? (
-                <>
-                  <Loader2 size={14} className="animate-spin" /> Generowanie AI...
-                </>
-              ) : (
-                <>
-                  <Sparkles size={14} /> Wygeneruj AI Dla Wszystkich Pytań
-                </>
-              )}
-            </button>
-
-            <button
               onClick={handleDeleteAll}
               disabled={deletingAll}
               className="btn-action admin-q-btn-danger"
             >
               <Trash2 size={14} /> {deletingAll ? 'Usuwanie...' : 'Usuń Wszystkie Pytania z Bazy'}
+            </button>
+          </div>
+        </div>
+
+        {/* Dynamic Benchmark Dataset Selection Bar */}
+        <div style={{
+          marginTop: '1.25rem',
+          padding: '1rem 1.25rem',
+          background: 'rgba(15, 23, 42, 0.65)',
+          borderRadius: '10px',
+          border: '1px solid rgba(56, 189, 248, 0.25)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '1rem'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <Database size={20} style={{ color: '#38bdf8' }} />
+            <div>
+              <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#f8fafc', letterSpacing: '0.02em', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                Zbiory Pytań i Benchmarki Wydajnościowe (<span style={{ color: '#38bdf8' }}>Dane/dane_do_wydajności</span>)
+              </div>
+              <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                Wybierz plik z katalogu wyjściowego danych, aby natychmiastowo załadować dedykowaną klasę ataków do ewaluacji.
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <select
+              value={selectedDataset}
+              onChange={(e) => setSelectedDataset(e.target.value)}
+              style={{
+                background: '#0f172a',
+                color: '#e2e8f0',
+                border: '1px solid #334155',
+                borderRadius: '6px',
+                padding: '0.45rem 0.85rem',
+                fontSize: '0.85rem',
+                outline: 'none',
+                cursor: 'pointer',
+                minWidth: '280px'
+              }}
+            >
+              {datasets.length > 0 ? (
+                datasets.map(d => (
+                  <option key={d.fileName} value={d.fileName}>
+                    {d.displayName}
+                  </option>
+                ))
+              ) : (
+                <option value="eval_ALL.json">Wszystkie Pliki Wydajnościowe (dane_do_wydajności)</option>
+              )}
+            </select>
+
+            <button
+              onClick={() => handleImportDatasetClick()}
+              disabled={loadingDataset}
+              className="btn-action"
+              style={{
+                background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+                color: '#ffffff',
+                border: 'none',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.45rem 1rem',
+                borderRadius: '6px',
+                cursor: loadingDataset ? 'not-allowed' : 'pointer'
+              }}
+            >
+              {loadingDataset ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" /> Ładowanie Zestawu...
+                </>
+              ) : (
+                <>
+                  <FolderOpen size={14} /> Załaduj Wybrany Zestaw
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -348,7 +414,6 @@ export const AdminQuestionsPage: React.FC = () => {
                   <th className="admin-q-table-th">SEVERITY</th>
                   <th className="admin-q-table-th">TYP (IS THREAT)</th>
                   <th className="admin-q-table-th">WZORCOWA ODPOWIEDŹ (CORRECT ACTION)</th>
-                  <th className="admin-q-table-th">ANALIZA AI</th>
                   <th className="admin-q-table-th">ŹRÓDŁO IP</th>
                   <th className="admin-q-table-th" style={{ textAlign: 'right' }}>AKCJE</th>
                 </tr>
@@ -368,9 +433,6 @@ export const AdminQuestionsPage: React.FC = () => {
                     correctLabelColor = '#c084fc';
                     correctLabelBg = 'rgba(168, 85, 247, 0.15)';
                   }
-
-                  const hasPreGeneratedAi = Boolean(alert.aiAnalysis && !alert.aiAnalysis.includes('[Błąd'));
-
                   return (
                     <tr key={alert.id} className="admin-q-table-row">
                       <td className="admin-q-table-td-id">{alert.id}</td>
@@ -407,33 +469,9 @@ export const AdminQuestionsPage: React.FC = () => {
                           {alert.correctAction || (alert.isThreat ? 'Isolate Host / Block' : 'Dismiss / False Positive')}
                         </span>
                       </td>
-                      <td className="admin-q-table-td">
-                        {hasPreGeneratedAi ? (
-                          <span className="admin-q-ai-badge ready">
-                            <Sparkles size={11} /> AI Gotowe
-                          </span>
-                        ) : (
-                          <span className="admin-q-ai-badge live">
-                            ⚪ Brak (Na żywo)
-                          </span>
-                        )}
-                      </td>
                       <td className="admin-q-table-td-ip">{alert.sourceIp}</td>
                       <td className="admin-q-table-td" style={{ textAlign: 'right' }}>
                         <div className="admin-q-row-actions">
-                          <button
-                            onClick={() => handleGenerateSingleAi(alert.id)}
-                            disabled={generatingAiId === alert.id || generatingAllAi}
-                            className={`admin-q-row-btn-sparkles ${hasPreGeneratedAi ? 'ready' : 'live'}`}
-                            title={hasPreGeneratedAi ? "Wygeneruj ponownie wstępną analizę AI dla tego pytania" : "Wygeneruj i zapisz wstępną analizę AI w bazie"}
-                          >
-                            {generatingAiId === alert.id ? (
-                              <Loader2 size={12} className="animate-spin" />
-                            ) : (
-                              <Sparkles size={12} />
-                            )}
-                            {hasPreGeneratedAi ? 'Odśwież AI' : 'Generuj AI'}
-                          </button>
                           <button
                             onClick={() => handleOpenEditModal(alert)}
                             className="admin-q-row-btn-edit"

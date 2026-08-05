@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { registerUserByAdmin, fetchRegisteredUsers, fetchActiveSessions, changeUserPasswordByAdmin, deleteAllTestAlerts, importAttackSamples } from '../services/api';
 import type { UserSession } from '../types/alert';
-import { UserPlus, ShieldAlert, Users, Lock, User, CheckCircle2, AlertCircle, RefreshCw, ShieldCheck, UserCheck, KeyRound, Key, ChevronDown, ChevronUp, Clock, BarChart2, Trash2, Upload } from 'lucide-react';
+import { UserPlus, ShieldAlert, Users, Lock, User, CheckCircle2, AlertCircle, RefreshCw, ShieldCheck, UserCheck, KeyRound, Key, Trash2, Upload } from 'lucide-react';
 import '../styles/AdminUserPanel.css';
 
 interface AdminUserPanelProps {
@@ -11,8 +11,6 @@ interface AdminUserPanelProps {
 export const AdminUserPanel: React.FC<AdminUserPanelProps> = ({ userSession }) => {
   const [usersList, setUsersList] = useState<Array<{ id: string; username: string; email: string; role: string }>>([]);
   const [activeSessions, setActiveSessions] = useState<Array<{ id: string; username: string; role: string; createdAt: string; expiresAt: string }>>([]);
-  const [testSessions, setTestSessions] = useState<Array<any>>([]);
-  const [expandedSessionId, setExpandedSessionId] = useState<string | null>(null);
   const [loadingUsers, setLoadingUsers] = useState<boolean>(true);
   const [loadingSessions, setLoadingSessions] = useState<boolean>(true);
 
@@ -52,80 +50,10 @@ export const AdminUserPanel: React.FC<AdminUserPanelProps> = ({ userSession }) =
     setLoadingSessions(false);
   };
 
-  const loadTestResults = async () => {
-    const { fetchTestSessions } = await import('../services/api');
-    const data = await fetchTestSessions();
-    setTestSessions(data);
-  };
-
   useEffect(() => {
     loadUsers();
     loadSessions();
-    loadTestResults();
   }, []);
-
-  // Helper do kondensacji sesji testowych (grupowanie pojedynczych prób testowych)
-  const getCondensedTestSessions = (rawSessions: Array<any>) => {
-    if (!rawSessions || !Array.isArray(rawSessions)) return [];
-
-    const map = new Map<string, any>();
-
-    rawSessions.forEach((s) => {
-      const operator = s.operatorName || s.OperatorName || 'Anonim';
-      const mode = s.mode || s.Mode || 'NoAI';
-      const startTime = s.startTime || s.StartTime || '';
-      const sessionId = s.sessionId || s.SessionId;
-      
-      // Klucz grupowania: sessionId jeśli istnieje, w przeciwnym razie kombinacja z minutą
-      let key = sessionId;
-      if (!key) {
-        const dateKey = startTime ? new Date(startTime).toISOString().substring(0, 16) : 'unknown';
-        key = `${operator}_${mode}_${dateKey}`;
-      }
-
-      const currentCount = s.alertsHandledCount || s.AlertsHandledCount || (s.decisions?.length || s.Decisions?.length || 0);
-      const existing = map.get(key);
-
-      if (!existing) {
-        map.set(key, s);
-      } else {
-        const existingCount = existing.alertsHandledCount || existing.AlertsHandledCount || (existing.decisions?.length || existing.Decisions?.length || 0);
-        if (currentCount >= existingCount) {
-          map.set(key, s);
-        }
-      }
-    });
-
-    return Array.from(map.values()).sort((a, b) => {
-      const tA = new Date(a.startTime || a.StartTime || 0).getTime();
-      const tB = new Date(b.startTime || b.StartTime || 0).getTime();
-      return tB - tA;
-    });
-  };
-
-  const condensedSessions = getCondensedTestSessions(testSessions);
-
-  const formatDuration = (totalSec: number) => {
-    if (!totalSec || totalSec <= 0) return '0 sek';
-    if (totalSec < 60) return `${totalSec} sek`;
-    const mins = Math.floor(totalSec / 60);
-    const secs = totalSec % 60;
-    return `${mins} min ${secs} sek`;
-  };
-
-  const getActionBadge = (action: string) => {
-    const act = (action || '').toLowerCase();
-    if (act.includes('isolate') || act.includes('izoluj')) {
-      return { label: 'Izolacja Hosta', className: 'badge-action-isolate' };
-    }
-    if (act.includes('block') || act.includes('zablokuj')) {
-      return { label: 'Blokada IP', className: 'badge-action-block' };
-    }
-    if (act.includes('escalat') || act.includes('eskaluj')) {
-      return { label: 'Eskalacja', className: 'badge-action-escalate' };
-    }
-    return { label: 'Odrzucenie (Dismiss)', className: 'badge-action-dismiss' };
-  };
 
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -191,7 +119,6 @@ export const AdminUserPanel: React.FC<AdminUserPanelProps> = ({ userSession }) =
 
     if (res.success) {
       setDatasetMsg({ isError: false, text: res.message });
-      // Odśwież widok pytań
       setTimeout(() => window.location.reload(), 1500);
     } else {
       setDatasetMsg({ isError: true, text: res.message });
@@ -231,10 +158,10 @@ export const AdminUserPanel: React.FC<AdminUserPanelProps> = ({ userSession }) =
         <div className="admin-header-top">
           <div>
             <div className="admin-header-pill">
-              <ShieldCheck size={14} /> PANEL KONTROLI ADMINISTRATORA & SESSIONS
+              <ShieldCheck size={14} /> PANEL KONTROLI ADMINISTRATORA
             </div>
             <h1 className="admin-header-title">
-              Zarządzanie Kontami i Aktywnymi Sesjami
+              Zarządzanie Kontami i Zbiorem Danych
             </h1>
             <p className="admin-header-subtitle">
               Rejestruj nowych operatorów w MongoDB oraz zarządzaj aktywnymi tokenami sesji i zbiorami danych.
@@ -393,10 +320,10 @@ export const AdminUserPanel: React.FC<AdminUserPanelProps> = ({ userSession }) =
                 </div>
                 <div>
                   <h3 className="admin-table-title">
-                    Aktywne Sesje w Bazię MongoDB (`Sessions`) ({activeSessions.length})
+                    Aktywne Sesje w Bazie MongoDB (`Sessions`) ({activeSessions.length})
                   </h3>
                   <p className="admin-table-subtitle">
-                    Możliwość zdalnego unieważnienia (wylogowania) dowolnej aktywnej sesji
+                    Zdalny podgląd aktywnych tokenów sesji
                   </p>
                 </div>
               </div>
@@ -435,169 +362,6 @@ export const AdminUserPanel: React.FC<AdminUserPanelProps> = ({ userSession }) =
                         </td>
                       </tr>
                     ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-
-          {/* Wyniki Testów Operatorów */}
-          <div className="soc-card admin-table-card">
-            <div className="admin-table-card-header">
-              <div className="admin-table-title-box">
-                <div className="admin-icon-box-purple">
-                  <ShieldCheck size={20} />
-                </div>
-                <div>
-                  <h3 className="admin-table-title">
-                    Skondensowane Wyniki Testów Operatorów ({condensedSessions.length} sesji)
-                  </h3>
-                  <p className="admin-table-subtitle">
-                    Zagregowany podgląd zakończonych podejść badawczych i statystyk czasowych
-                  </p>
-                </div>
-              </div>
-              <button onClick={loadTestResults} className="btn-action admin-btn-action-small">
-                <RefreshCw size={14} /> Odśwież Wyniki
-              </button>
-            </div>
-
-            {condensedSessions.length === 0 ? (
-              <div className="admin-table-empty">
-                Brak zarejestrowanych sesji testowych w bazie.
-              </div>
-            ) : (
-              <div style={{ overflowX: 'auto' }}>
-                <table className="admin-table">
-                  <thead>
-                    <tr className="admin-table-header-row">
-                      <th>Operator</th>
-                      <th>Tryb Testu</th>
-                      <th>Postęp / Zdarzenia</th>
-                      <th>Czas Łączny</th>
-                      <th>Śr. Czas / Zdarzenie</th>
-                      <th>Data Rozpoczęcia</th>
-                      <th style={{ textAlign: 'right' }}>Szczegóły</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {condensedSessions.map((ts, idx) => {
-                      const operator = ts.operatorName || ts.OperatorName || 'Anonim';
-                      const mode = ts.mode || ts.Mode || 'NoAI';
-                      const handledCount = ts.alertsHandledCount || ts.AlertsHandledCount || (ts.decisions?.length || ts.Decisions?.length || 0);
-                      const durationSec = ts.totalDurationSeconds || ts.TotalDurationSeconds || 0;
-                      const startTime = ts.startTime || ts.StartTime ? new Date(ts.startTime || ts.StartTime).toLocaleString() : 'N/A';
-                      const decisionsList = ts.decisions || ts.Decisions || [];
-                      const keyId = ts.sessionId || ts.SessionId || `${operator}_${idx}`;
-                      const isExpanded = expandedSessionId === keyId;
-                      const avgSecPerAlert = handledCount > 0 ? (durationSec / handledCount).toFixed(1) : '0';
-
-                      return (
-                        <React.Fragment key={keyId}>
-                          <tr className={`admin-table-row ${isExpanded ? 'expanded' : ''}`}>
-                            <td className="admin-td-highlight">
-                              <div className="admin-flex-align">
-                                <User size={14} color="var(--ai-cyan)" />
-                                <span>{operator}</span>
-                              </div>
-                            </td>
-                            <td>
-                              <span className={`admin-mode-badge ${mode === 'WithAI' ? 'with-ai' : 'no-ai'}`}>
-                                {mode === 'WithAI' ? 'Test 2 (Wsparcie AI)' : 'Test 1 (Bez AI)'}
-                              </span>
-                            </td>
-                            <td>
-                              <div className="admin-flex-align">
-                                <span className={`admin-progress-text ${handledCount >= 75 ? 'success' : 'primary'}`}>
-                                  {handledCount} / 75
-                                </span>
-                                {handledCount >= 75 ? (
-                                  <span className="admin-badge-success-small">
-                                    Ukończony
-                                  </span>
-                                ) : (
-                                  <span className="admin-badge-primary-small">
-                                    W trakcie
-                                  </span>
-                                )}
-                              </div>
-                            </td>
-                            <td className="admin-td-highlight-bold">
-                              <div className="admin-flex-align">
-                                <Clock size={13} color="var(--text-muted)" />
-                                <span>{formatDuration(durationSec)}</span>
-                              </div>
-                            </td>
-                            <td className="admin-td-muted-medium">
-                              ~{avgSecPerAlert}s / alert
-                            </td>
-                            <td className="admin-td-muted-small">
-                              {startTime}
-                            </td>
-                            <td style={{ textAlign: 'right' }}>
-                              <button
-                                onClick={() => setExpandedSessionId(isExpanded ? null : keyId)}
-                                className={`btn-action admin-expand-btn ${isExpanded ? 'expanded' : ''}`}
-                              >
-                                {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                                <span>{isExpanded ? 'Ukryj' : `Decyzje (${decisionsList.length})`}</span>
-                              </button>
-                            </td>
-                          </tr>
-
-                          {/* Accordion Row z rozbiciem na pojedyncze decyzje */}
-                          {isExpanded && (
-                            <tr>
-                              <td colSpan={7} className="admin-nested-td">
-                                <div className="admin-nested-container">
-                                  <h4 className="admin-nested-title">
-                                    <BarChart2 size={15} /> Podjęte Decyzje w Sesji (Łącznie: {decisionsList.length})
-                                  </h4>
-
-                                  {decisionsList.length === 0 ? (
-                                    <p className="admin-nested-empty">Brak zarejestrowanych jednostkowych decyzji w tej sesji.</p>
-                                  ) : (
-                                    <table className="admin-nested-table">
-                                      <thead>
-                                        <tr className="admin-nested-th-row">
-                                          <th className="admin-nested-th">#</th>
-                                          <th className="admin-nested-th">ID Alertu</th>
-                                          <th className="admin-nested-th">Podjęta Akcja</th>
-                                          <th className="admin-nested-th">Czas Decyzji</th>
-                                          <th className="admin-nested-th">Znacznik Czasu</th>
-                                        </tr>
-                                      </thead>
-                                      <tbody>
-                                        {decisionsList.map((d: any, dIdx: number) => {
-                                          const badge = getActionBadge(d.actionTaken || d.ActionTaken);
-                                          return (
-                                            <tr key={dIdx} className="admin-nested-tr">
-                                              <td className="admin-nested-td-muted">{dIdx + 1}</td>
-                                              <td className="admin-nested-td-highlight">{d.alertId || d.AlertId}</td>
-                                              <td className="admin-nested-td">
-                                                <span className={badge.className}>
-                                                  {badge.label}
-                                                </span>
-                                              </td>
-                                              <td className="admin-nested-td-highlight-slate">
-                                                {d.decisionTimeSeconds || d.DecisionTimeSeconds || 0}s
-                                              </td>
-                                              <td className="admin-nested-td-muted">
-                                                {d.timestamp || d.Timestamp ? new Date(d.timestamp || d.Timestamp).toLocaleTimeString() : 'N/A'}
-                                              </td>
-                                            </tr>
-                                          );
-                                        })}
-                                      </tbody>
-                                    </table>
-                                  )}
-                                </div>
-                              </td>
-                            </tr>
-                          )}
-                        </React.Fragment>
-                      );
-                    })}
                   </tbody>
                 </table>
               </div>

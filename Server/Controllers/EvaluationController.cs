@@ -24,15 +24,17 @@ public class EvaluationController : ControllerBase
         [FromQuery] string mode = "both",
         [FromQuery] string ollamaModel = "llama3.2",
         [FromQuery] int samplesPerCategory = 2,
-        [FromQuery] int iterations = 1)
+        [FromQuery] int iterations = 1,
+        [FromQuery] string provider = "openai")
     {
         try
         {
             if (count <= 0) count = 24;
             if (samplesPerCategory <= 0) samplesPerCategory = 2;
             if (iterations <= 0) iterations = 1;
+            if (string.IsNullOrWhiteSpace(provider)) provider = "openai";
 
-            var reports = await _evaluationService.RunBenchmarkBatchAsync(count, mode, ollamaModel, samplesPerCategory, iterations);
+            var reports = await _evaluationService.RunBenchmarkBatchAsync(count, mode, ollamaModel, samplesPerCategory, iterations, provider);
             var latestReport = reports.LastOrDefault();
             
             var msg = iterations > 1 
