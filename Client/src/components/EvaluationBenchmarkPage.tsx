@@ -1262,32 +1262,20 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                       {(() => {
                         if (!filteredHistoricalReports || filteredHistoricalReports.length === 0) return null;
 
-                        let sumOllamaBaseAcc = 0, sumOllamaBasePrec = 0, sumOllamaBaseRec = 0, sumOllamaBaseF1 = 0, sumOllamaBaseLat = 0;
-                        let sumAzureBaseAcc = 0, sumAzureBasePrec = 0, sumAzureBaseRec = 0, sumAzureBaseF1 = 0, sumAzureBaseLat = 0;
-                        let sumFtAcc = 0, sumFtPrec = 0, sumFtRec = 0, sumFtF1 = 0, sumFtLat = 0;
-                        let validOllamaBaseCnt = 0, validAzureBaseCnt = 0, validFtCnt = 0;
+                        let sumBaseAcc = 0, sumBasePrec = 0, sumBaseRec = 0, sumBaseF1 = 0, sumBaseLat = 0, validBaseCnt = 0;
+                        let sumFtAcc = 0, sumFtPrec = 0, sumFtRec = 0, sumFtF1 = 0, sumFtLat = 0, validFtCnt = 0;
 
                         filteredHistoricalReports.forEach(h => {
                           const bm = computeStrictMetrics(h.baseModelMetrics, h.itemResults, true) || h.baseModelMetrics;
                           const ftm = computeStrictMetrics(h.fineTunedModelMetrics, h.itemResults, false) || h.fineTunedModelMetrics;
-                          const isAzureBase = bm?.modelName?.toLowerCase().includes('azure');
 
                           if (bm && !bm.isSkipped && (bm.accuracy > 0 || bm.averageLatencyMs > 0)) {
-                            if (isAzureBase) {
-                              sumAzureBaseAcc += bm.accuracy || 0;
-                              sumAzureBasePrec += bm.precision || 0;
-                              sumAzureBaseRec += bm.recall || 0;
-                              sumAzureBaseF1 += bm.f1Score || 0;
-                              sumAzureBaseLat += bm.averageLatencyMs || 0;
-                              validAzureBaseCnt++;
-                            } else {
-                              sumOllamaBaseAcc += bm.accuracy || 0;
-                              sumOllamaBasePrec += bm.precision || 0;
-                              sumOllamaBaseRec += bm.recall || 0;
-                              sumOllamaBaseF1 += bm.f1Score || 0;
-                              sumOllamaBaseLat += bm.averageLatencyMs || 0;
-                              validOllamaBaseCnt++;
-                            }
+                            sumBaseAcc += bm.accuracy || 0;
+                            sumBasePrec += bm.precision || 0;
+                            sumBaseRec += bm.recall || 0;
+                            sumBaseF1 += bm.f1Score || 0;
+                            sumBaseLat += bm.averageLatencyMs || 0;
+                            validBaseCnt++;
                           }
                           if (ftm && !ftm.isSkipped && (ftm.accuracy > 0 || ftm.averageLatencyMs > 0)) {
                             sumFtAcc += ftm.accuracy || 0;
@@ -1300,17 +1288,11 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                         });
 
                         const cnt = filteredHistoricalReports.length;
-                        const avgOllamaBaseAcc = validOllamaBaseCnt > 0 ? sumOllamaBaseAcc / validOllamaBaseCnt : 0;
-                        const avgOllamaBasePrec = validOllamaBaseCnt > 0 ? sumOllamaBasePrec / validOllamaBaseCnt : 0;
-                        const avgOllamaBaseRec = validOllamaBaseCnt > 0 ? sumOllamaBaseRec / validOllamaBaseCnt : 0;
-                        const avgOllamaBaseF1 = validOllamaBaseCnt > 0 ? sumOllamaBaseF1 / validOllamaBaseCnt : 0;
-                        const avgOllamaBaseLat = validOllamaBaseCnt > 0 ? sumOllamaBaseLat / validOllamaBaseCnt : 0;
-
-                        const avgAzureBaseAcc = validAzureBaseCnt > 0 ? sumAzureBaseAcc / validAzureBaseCnt : 0;
-                        const avgAzureBasePrec = validAzureBaseCnt > 0 ? sumAzureBasePrec / validAzureBaseCnt : 0;
-                        const avgAzureBaseRec = validAzureBaseCnt > 0 ? sumAzureBaseRec / validAzureBaseCnt : 0;
-                        const avgAzureBaseF1 = validAzureBaseCnt > 0 ? sumAzureBaseF1 / validAzureBaseCnt : 0;
-                        const avgAzureBaseLat = validAzureBaseCnt > 0 ? sumAzureBaseLat / validAzureBaseCnt : 0;
+                        const avgBaseAcc = validBaseCnt > 0 ? sumBaseAcc / validBaseCnt : 0;
+                        const avgBasePrec = validBaseCnt > 0 ? sumBasePrec / validBaseCnt : 0;
+                        const avgBaseRec = validBaseCnt > 0 ? sumBaseRec / validBaseCnt : 0;
+                        const avgBaseF1 = validBaseCnt > 0 ? sumBaseF1 / validBaseCnt : 0;
+                        const avgBaseLat = validBaseCnt > 0 ? sumBaseLat / validBaseCnt : 0;
 
                         const avgFtAcc = validFtCnt > 0 ? sumFtAcc / validFtCnt : 0;
                         const avgFtPrec = validFtCnt > 0 ? sumFtPrec / validFtCnt : 0;
@@ -1318,40 +1300,49 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                         const avgFtF1 = validFtCnt > 0 ? sumFtF1 / validFtCnt : 0;
                         const avgFtLat = validFtCnt > 0 ? sumFtLat / validFtCnt : 0;
 
-                        const baseSummaryLabel = validOllamaBaseCnt > 0 && validAzureBaseCnt > 0
-                          ? 'Ollama / Azure Base'
-                          : validAzureBaseCnt > 0
-                            ? 'Azure Base'
-                            : 'Ollama';
+                        const getSummaryLabels = () => {
+                          const pMap: Record<ProviderTab, { base: string; ft: string }> = {
+                            all: { base: 'Model Bazowy', ft: 'Model FT' },
+                            openai: { base: 'Azure OpenAI Base', ft: 'Azure OpenAI FT' },
+                            gemini: { base: 'Google Gemini Base', ft: 'Google Gemini FT' },
+                            deepseek: { base: 'DeepSeek AI Base', ft: 'DeepSeek AI FT' },
+                            anthropic: { base: 'Anthropic Claude Base', ft: 'Anthropic Claude FT' },
+                            ollama: { base: `Ollama (${selectedOllamaModel})`, ft: 'Ollama FT' }
+                          };
+                          return pMap[providerTab] || { base: 'Model Bazowy', ft: 'Model FT' };
+                        };
+
+                        const { base: baseLabelName, ft: ftLabelName } = getSummaryLabels();
+
+                        const baseSummaryLabel = validBaseCnt > 0 && validFtCnt > 0
+                          ? `${baseLabelName} + ${ftLabelName}`
+                          : validFtCnt > 0
+                            ? ftLabelName
+                            : baseLabelName;
 
                         const accuracyEntries = [
-                          ...(validOllamaBaseCnt > 0 ? [{ label: 'Ollama', value: `${avgOllamaBaseAcc.toFixed(1)}%` }] : []),
-                          ...(validAzureBaseCnt > 0 ? [{ label: 'Azure Base', value: `${avgAzureBaseAcc.toFixed(1)}%` }] : []),
-                          ...(validFtCnt > 0 ? [{ label: 'Azure FT', value: `${avgFtAcc.toFixed(1)}%` }] : [])
+                          ...(validBaseCnt > 0 ? [{ label: baseLabelName, value: `${avgBaseAcc.toFixed(1)}%` }] : []),
+                          ...(validFtCnt > 0 ? [{ label: ftLabelName, value: `${avgFtAcc.toFixed(1)}%` }] : [])
                         ];
 
                         const precisionEntries = [
-                          ...(validOllamaBaseCnt > 0 ? [{ label: 'Ollama', value: `${avgOllamaBasePrec.toFixed(1)}%` }] : []),
-                          ...(validAzureBaseCnt > 0 ? [{ label: 'Azure Base', value: `${avgAzureBasePrec.toFixed(1)}%` }] : []),
-                          ...(validFtCnt > 0 ? [{ label: 'Azure FT', value: `${avgFtPrec.toFixed(1)}%` }] : [])
+                          ...(validBaseCnt > 0 ? [{ label: baseLabelName, value: `${avgBasePrec.toFixed(1)}%` }] : []),
+                          ...(validFtCnt > 0 ? [{ label: ftLabelName, value: `${avgFtPrec.toFixed(1)}%` }] : [])
                         ];
 
                         const recallEntries = [
-                          ...(validOllamaBaseCnt > 0 ? [{ label: 'Ollama', value: `${avgOllamaBaseRec.toFixed(1)}%` }] : []),
-                          ...(validAzureBaseCnt > 0 ? [{ label: 'Azure Base', value: `${avgAzureBaseRec.toFixed(1)}%` }] : []),
-                          ...(validFtCnt > 0 ? [{ label: 'Azure FT', value: `${avgFtRec.toFixed(1)}%` }] : [])
+                          ...(validBaseCnt > 0 ? [{ label: baseLabelName, value: `${avgBaseRec.toFixed(1)}%` }] : []),
+                          ...(validFtCnt > 0 ? [{ label: ftLabelName, value: `${avgFtRec.toFixed(1)}%` }] : [])
                         ];
 
                         const f1Entries = [
-                          ...(validOllamaBaseCnt > 0 ? [{ label: 'Ollama', value: `${avgOllamaBaseF1.toFixed(1)}%` }] : []),
-                          ...(validAzureBaseCnt > 0 ? [{ label: 'Azure Base', value: `${avgAzureBaseF1.toFixed(1)}%` }] : []),
-                          ...(validFtCnt > 0 ? [{ label: 'Azure FT', value: `${avgFtF1.toFixed(1)}%` }] : [])
+                          ...(validBaseCnt > 0 ? [{ label: baseLabelName, value: `${avgBaseF1.toFixed(1)}%` }] : []),
+                          ...(validFtCnt > 0 ? [{ label: ftLabelName, value: `${avgFtF1.toFixed(1)}%` }] : [])
                         ];
 
                         const latencyEntries = [
-                          ...(validOllamaBaseCnt > 0 ? [{ label: 'Ollama', value: `${avgOllamaBaseLat.toFixed(0)} ms` }] : []),
-                          ...(validAzureBaseCnt > 0 ? [{ label: 'Azure Base', value: `${avgAzureBaseLat.toFixed(0)} ms` }] : []),
-                          ...(validFtCnt > 0 ? [{ label: 'Azure FT', value: `${avgFtLat.toFixed(0)} ms` }] : [])
+                          ...(validBaseCnt > 0 ? [{ label: baseLabelName, value: `${avgBaseLat.toFixed(0)} ms` }] : []),
+                          ...(validFtCnt > 0 ? [{ label: ftLabelName, value: `${avgFtLat.toFixed(0)} ms` }] : [])
                         ];
 
                         return (
