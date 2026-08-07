@@ -70,13 +70,23 @@ export const EvaluationBenchmarkPage: React.FC = () => {
     setElapsedSeconds(0);
     setStatusMsg(null);
 
-    const modeText = mode === 'base'
-      ? `Ollama (${selectedOllamaModel}) - ${iterations} ${iterations === 1 ? 'próba' : 'próby'}`
-      : mode === 'azure-base'
-        ? `Azure OpenAI (Base) - ${iterations} ${iterations === 1 ? 'próba' : 'próby'}`
-        : mode === 'ft'
-          ? `Azure OpenAI FT - ${iterations} ${iterations === 1 ? 'próba' : 'próby'}`
-          : `Ollama + Azure OpenAI FT - ${iterations} ${iterations === 1 ? 'próba' : 'próby'}`;
+    const providerNameMap: Record<ProviderTab, string> = {
+      all: 'Wszystkie Dostawcy',
+      openai: 'Azure OpenAI',
+      gemini: 'Google Gemini',
+      deepseek: 'DeepSeek AI',
+      anthropic: 'Anthropic Claude',
+      ollama: `Ollama (${selectedOllamaModel})`
+    };
+
+    const provName = providerNameMap[providerTab] || providerTab.toUpperCase();
+    const iterText = `${iterations} ${iterations === 1 ? 'próba' : 'próby'}`;
+
+    const modeText = mode === 'base' || mode === 'azure-base'
+      ? `${provName} (Base) - ${iterText}`
+      : mode === 'ft'
+        ? `${provName} (FT) - ${iterText}`
+        : `${provName} (Base vs FT) - ${iterText}`;
     setActiveModeText(modeText);
 
     const timerInterval = setInterval(() => {
@@ -275,34 +285,32 @@ export const EvaluationBenchmarkPage: React.FC = () => {
     const baseName = (r.baseModelMetrics?.modelName || '').toLowerCase();
     const ftName = (r.fineTunedModelMetrics?.modelName || '').toLowerCase();
     const isBmSkipped = baseName.includes('pominięty') || (r.baseModelMetrics?.accuracy === 0 && r.baseModelMetrics?.averageLatencyMs === 0);
+    const isFtmSkipped = ftName.includes('pominięty') || (r.fineTunedModelMetrics?.accuracy === 0 && r.fineTunedModelMetrics?.averageLatencyMs === 0);
+
+    const checkMatch = (pattern: RegExp) => {
+      if (!isBmSkipped && !pattern.test(baseName)) return false;
+      if (!isFtmSkipped && !pattern.test(ftName)) return false;
+      if (isBmSkipped && isFtmSkipped) return false;
+      return (isBmSkipped ? false : pattern.test(baseName)) || (isFtmSkipped ? false : pattern.test(ftName));
+    };
 
     switch (tab) {
       case 'openai':
-        // Both fine-tuned and base (if not skipped) MUST be OpenAI / Azure
-        if (!/openai|azure|gpt/i.test(ftName)) return false;
-        if (!isBmSkipped && !/openai|azure|gpt/i.test(baseName)) return false;
-        return true;
+        return checkMatch(/openai|azure|gpt/i);
 
       case 'gemini':
-        if (!/gemini/i.test(ftName)) return false;
-        if (!isBmSkipped && !/gemini/i.test(baseName)) return false;
-        return true;
+        return checkMatch(/gemini/i);
 
       case 'deepseek':
-        if (!/deepseek/i.test(ftName)) return false;
-        if (!isBmSkipped && !/deepseek/i.test(baseName)) return false;
-        return true;
+        return checkMatch(/deepseek/i);
 
       case 'anthropic':
-        if (!/claude|anthropic/i.test(ftName)) return false;
-        if (!isBmSkipped && !/claude|anthropic/i.test(baseName)) return false;
-        return true;
+        return checkMatch(/claude|anthropic/i);
 
       case 'ollama':
-        // Both models MUST be local Ollama models (no cloud providers)
-        if (/azure|openai|gpt|gemini|deepseek|claude|anthropic/i.test(ftName)) return false;
+        if (!isFtmSkipped && /azure|openai|gpt|gemini|deepseek|claude|anthropic/i.test(ftName)) return false;
         if (!isBmSkipped && /azure|openai|gpt|gemini|deepseek|claude|anthropic/i.test(baseName)) return false;
-        return /ollama|llama|mistral|qwen|gemma|phi/i.test(ftName) || /ollama|llama|mistral|qwen|gemma|phi/i.test(baseName);
+        return checkMatch(/ollama|llama|mistral|qwen|gemma|phi/i);
 
       default:
         return true;
@@ -313,10 +321,11 @@ export const EvaluationBenchmarkPage: React.FC = () => {
     const bm = r.baseModelMetrics?.modelName || '';
     const ftm = r.fineTunedModelMetrics?.modelName || '';
     const isBmSkipped = bm.includes('Pominięty') || (r.baseModelMetrics?.accuracy === 0 && r.baseModelMetrics?.averageLatencyMs === 0);
+    const isFtmSkipped = ftm.includes('Pominięty') || (r.fineTunedModelMetrics?.accuracy === 0 && r.fineTunedModelMetrics?.averageLatencyMs === 0);
 
-    if (isBmSkipped) {
-      return `Tylko ${ftm || 'Azure OpenAI FT'}`;
-    }
+    if (isBmSkipped && isFtmSkipped) return 'Brak Danych';
+    if (isBmSkipped) return `Tylko ${ftm.replace(' (Pominięty)', '')}`;
+    if (isFtmSkipped) return `Tylko ${bm.replace(' (Pominięty)', '')}`;
 
     const cleanBm = bm.replace('Model Bazowy (Ollama: ', '').replace('Model Bazowy (', '').replace(')', '').trim();
     const cleanFtm = ftm.replace('Model Dostrojony (', '').replace(')', '').trim();
@@ -1398,15 +1407,38 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                         const isBaseActive = bm && !bm.isSkipped && (bm.accuracy > 0 || bm.averageLatencyMs > 0);
                         const isFtActive = ftm && !ftm.isSkipped && (ftm.accuracy > 0 || ftm.averageLatencyMs > 0);
 
-                        const isAzureBase = bm?.modelName?.toLowerCase().includes('azure');
-                        const baseLabel = isAzureBase ? 'Azure Base' : 'Ollama';
-                        const modeBadge = isBaseActive && isFtActive
-                          ? <span className="benchmark-mode-badge both">{baseLabel} + Azure FT</span>
-                          : isFtActive
-                            ? <span className="benchmark-mode-badge ft-only">⚡ Tylko Azure OpenAI FT</span>
-                            : isAzureBase
-                              ? <span className="benchmark-mode-badge base-only" style={{ background: 'rgba(59, 130, 246, 0.2)', color: '#60a5fa', border: '1px solid rgba(59, 130, 246, 0.3)' }}>☁️ Azure (Base)</span>
-                              : <span className="benchmark-mode-badge base-only">🦙 Ollama ({(bm?.modelName || 'Ollama').replace('Model Bazowy (Ollama: ', '').replace(')', '')})</span>;
+                        const baseLabel = bm?.modelName ? bm.modelName.replace(' (Pominięty)', '') : 'Base';
+                        const ftLabel = ftm?.modelName ? ftm.modelName.replace(' (Pominięty)', '') : 'FT';
+
+                        const getDynamicBadge = () => {
+                          const bmName = bm?.modelName || '';
+                          const ftmName = ftm?.modelName || '';
+
+                          if (isBaseActive && isFtActive) {
+                            return <span className="benchmark-mode-badge both">⚡ {bmName} + {ftmName}</span>;
+                          }
+                          if (isFtActive) {
+                            return <span className="benchmark-mode-badge ft-only" style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.3)' }}>⚡ {ftmName.replace(' (Pominięty)', '')}</span>;
+                          }
+                          if (isBaseActive) {
+                            if (/deepseek/i.test(bmName)) {
+                              return <span className="benchmark-mode-badge base-only" style={{ background: 'rgba(220, 38, 38, 0.2)', color: '#fca5a5', border: '1px solid rgba(220, 38, 38, 0.3)' }}>🐳 {bmName.replace(' (Pominięty)', '')}</span>;
+                            }
+                            if (/gemini/i.test(bmName)) {
+                              return <span className="benchmark-mode-badge base-only" style={{ background: 'rgba(22, 163, 74, 0.2)', color: '#86efac', border: '1px solid rgba(22, 163, 74, 0.3)' }}>✨ {bmName.replace(' (Pominięty)', '')}</span>;
+                            }
+                            if (/claude|anthropic/i.test(bmName)) {
+                              return <span className="benchmark-mode-badge base-only" style={{ background: 'rgba(217, 119, 6, 0.2)', color: '#fcd34d', border: '1px solid rgba(217, 119, 6, 0.3)' }}>🟧 {bmName.replace(' (Pominięty)', '')}</span>;
+                            }
+                            if (/azure|openai|gpt/i.test(bmName)) {
+                              return <span className="benchmark-mode-badge base-only" style={{ background: 'rgba(59, 130, 246, 0.2)', color: '#60a5fa', border: '1px solid rgba(59, 130, 246, 0.3)' }}>☁️ {bmName.replace(' (Pominięty)', '')}</span>;
+                            }
+                            return <span className="benchmark-mode-badge base-only">🦙 Ollama ({(bmName || 'Ollama').replace('Model Bazowy (Ollama: ', '').replace(')', '')})</span>;
+                          }
+                          return <span className="benchmark-mode-badge">Brak danych</span>;
+                        };
+
+                        const modeBadge = getDynamicBadge();
 
                         return (
                           <tr
@@ -1430,31 +1462,31 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                             <td style={{ padding: '0.65rem 0.75rem', fontWeight: 800, color: '#4ade80' }}>
                               {renderMetricStack([
                                 ...(isBaseActive ? [{ label: `${baseLabel} (detekcja)`, value: `${bm.accuracy.toFixed(1)}%` }] : []),
-                                ...(isFtActive ? [{ label: 'Azure FT (detekcja)', value: `${ftm.accuracy.toFixed(1)}%` }] : [])
+                                ...(isFtActive ? [{ label: `${ftLabel} (detekcja)`, value: `${ftm.accuracy.toFixed(1)}%` }] : [])
                               ])}
                             </td>
                             <td className="benchmark-runs-td teal-bold">
                               {renderMetricStack([
                                 ...(isBaseActive ? [{ label: baseLabel, value: `${bm.precision.toFixed(1)}%` }] : []),
-                                ...(isFtActive ? [{ label: 'Azure FT', value: `${ftm.precision.toFixed(1)}%` }] : [])
+                                ...(isFtActive ? [{ label: ftLabel, value: `${ftm.precision.toFixed(1)}%` }] : [])
                               ])}
                             </td>
                             <td className="benchmark-runs-td teal-bold">
                               {renderMetricStack([
                                 ...(isBaseActive ? [{ label: baseLabel, value: `${bm.recall.toFixed(1)}%` }] : []),
-                                ...(isFtActive ? [{ label: 'Azure FT', value: `${ftm.recall.toFixed(1)}%` }] : [])
+                                ...(isFtActive ? [{ label: ftLabel, value: `${ftm.recall.toFixed(1)}%` }] : [])
                               ])}
                             </td>
                             <td className="benchmark-runs-td purple-bold">
                               {renderMetricStack([
                                 ...(isBaseActive ? [{ label: baseLabel, value: `${bm.f1Score.toFixed(1)}%` }] : []),
-                                ...(isFtActive ? [{ label: 'Azure FT', value: `${ftm.f1Score.toFixed(1)}%` }] : [])
+                                ...(isFtActive ? [{ label: ftLabel, value: `${ftm.f1Score.toFixed(1)}%` }] : [])
                               ])}
                             </td>
                             <td className="benchmark-runs-td blue-bold">
                               {renderMetricStack([
                                 ...(isBaseActive ? [{ label: baseLabel, value: `${bm.averageLatencyMs.toFixed(0)} ms` }] : []),
-                                ...(isFtActive ? [{ label: 'Azure FT', value: `${ftm.averageLatencyMs.toFixed(0)} ms` }] : [])
+                                ...(isFtActive ? [{ label: ftLabel, value: `${ftm.averageLatencyMs.toFixed(0)} ms` }] : [])
                               ])}
                             </td>
                             <td className="benchmark-runs-td right">

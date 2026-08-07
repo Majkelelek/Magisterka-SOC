@@ -491,12 +491,39 @@ public class EvaluationService
             }
         }
 
-        // Kalkulacja metryk dla obu modeli
-        var baseMetricsName = runBase 
-            ? (isAzureBase ? "Model Bazowy (Azure: gpt-4o-mini)" : $"Model Bazowy (Ollama: {ollamaModel})") 
-            : $"Model Bazowy (Ollama: {ollamaModel} - Pominięty)";
-        var ftModelDeploy = Environment.GetEnvironmentVariable("AZURE_AI_MODEL") ?? "gpt-4o-mini-ft";
-        var ftMetricsName = runFt ? $"Model Wyfinetuningowany ({ftModelDeploy})" : $"Model Wyfinetuningowany ({ftModelDeploy} - Pominięty)";
+        // Kalkulacja metryk dla obu modeli w zależności od wskazanego dostawcy (provider)
+        string baseModelLabel;
+        string ftModelLabel;
+
+        var prov = (provider ?? "openai").ToLowerInvariant();
+        switch (prov)
+        {
+            case "gemini":
+                baseModelLabel = $"Google Gemini Base ({Environment.GetEnvironmentVariable("GEMINI_BASE_MODEL") ?? "gemini-1.5-flash"})";
+                ftModelLabel = $"Google Gemini FT ({Environment.GetEnvironmentVariable("GEMINI_FT_MODEL") ?? "gemini-1.5-flash-ft"})";
+                break;
+            case "deepseek":
+                baseModelLabel = $"DeepSeek AI Base ({Environment.GetEnvironmentVariable("DEEPSEEK_BASE_MODEL") ?? "deepseek-chat"})";
+                ftModelLabel = $"DeepSeek AI FT ({Environment.GetEnvironmentVariable("DEEPSEEK_FT_MODEL") ?? "deepseek-chat-ft"})";
+                break;
+            case "anthropic":
+            case "claude":
+                baseModelLabel = $"Anthropic Claude Base ({Environment.GetEnvironmentVariable("CLAUDE_BASE_MODEL") ?? "claude-3-5-sonnet"})";
+                ftModelLabel = $"Anthropic Claude FT ({Environment.GetEnvironmentVariable("CLAUDE_FT_MODEL") ?? "claude-3-5-sonnet-ft"})";
+                break;
+            case "ollama":
+                baseModelLabel = $"Local Ollama Base ({ollamaModel})";
+                ftModelLabel = $"Local Ollama FT ({ollamaModel}:ft)";
+                break;
+            case "openai":
+            default:
+                baseModelLabel = $"Azure OpenAI Base ({Environment.GetEnvironmentVariable("AZURE_BASE_MODEL") ?? "gpt-4o-mini"})";
+                ftModelLabel = $"Azure OpenAI FT ({Environment.GetEnvironmentVariable("AZURE_AI_MODEL") ?? "gpt-4o-mini-ft"})";
+                break;
+        }
+
+        var baseMetricsName = runBase ? baseModelLabel : $"{baseModelLabel} (Pominięty)";
+        var ftMetricsName = runFt ? ftModelLabel : $"{ftModelLabel} (Pominięty)";
 
         var baseMetrics = CalculateModelMetrics(baseMetricsName, itemResults.Select(r => (r.BaseModelResponse, r.GroundTruthIsThreat, r.GroundTruthAction)).ToList(), runBase);
         var ftMetrics = CalculateModelMetrics(ftMetricsName, itemResults.Select(r => (r.FineTunedModelResponse, r.GroundTruthIsThreat, r.GroundTruthAction)).ToList(), runFt);

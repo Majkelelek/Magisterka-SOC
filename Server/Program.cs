@@ -40,50 +40,73 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-// Automatyczna synchronizacja bazy MongoDB Atlas pytaniami testowymi z pliku przy starcie
+// Inicjalizacja pytań testowych przy starcie (bez nadpisywania istniejących w MongoDB Atlas)
 try
 {
     var alertStore = app.Services.GetRequiredService<AlertStore>();
     var mongoCtx = app.Services.GetRequiredService<MongoDbContext>();
 
-    string testSetPath = Path.Combine(Directory.GetCurrentDirectory(), "Data", "test_pytania.json");
-    if (!File.Exists(testSetPath))
+    Func<List<Alert>> loadFromFile = () =>
     {
-        testSetPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "test_pytania.json");
-    }
-
-    List<Alert> alerts = new();
-    if (File.Exists(testSetPath))
-    {
-        var jsonText = File.ReadAllText(testSetPath);
-        var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-        alerts = System.Text.Json.JsonSerializer.Deserialize<List<Alert>>(jsonText, options) ?? new();
-    }
-
-    if (alerts.Count > 0)
-    {
-        alertStore.SetAlerts(alerts);
-        if (mongoCtx.IsConnectedToMongo && mongoCtx.Alerts != null)
+        string testSetPath = Path.Combine(Directory.GetCurrentDirectory(), "Data", "test_pytania.json");
+        if (!File.Exists(testSetPath))
         {
-            var bulkOps = alerts.Select(a => new ReplaceOneModel<Alert>(
-                Builders<Alert>.Filter.Eq(x => x.Id, a.Id), a) { IsUpsert = true }).ToList();
-            mongoCtx.Alerts.BulkWrite(bulkOps);
-            Console.WriteLine($"[MongoDB Atlas] AUTOMATYCZNIE ZAPISANO {alerts.Count} PYTAŃ W BAZIE DANYCH MONGODB!");
+            testSetPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "test_pytania.json");
+        }
+
+        if (File.Exists(testSetPath))
+        {
+            var jsonText = File.ReadAllText(testSetPath);
+            var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            return System.Text.Json.JsonSerializer.Deserialize<List<Alert>>(jsonText, options) ?? new();
+        }
+        return new List<Alert>();
+    };
+
+    if (mongoCtx.IsConnectedToMongo && mongoCtx.Alerts != null)
+    {
+        long existingCount = mongoCtx.Alerts.CountDocuments(Builders<Alert>.Filter.Empty);
+        if (existingCount > 0)
+        {
+            var mongoAlerts = mongoCtx.Alerts.Find(Builders<Alert>.Filter.Empty).ToList();
+            alertStore.SetAlerts(mongoAlerts);
+            Console.WriteLine($"[MongoDB Atlas] Pomyślnie wczytano {mongoAlerts.Count} pytań z bazy danych.");
+        }
+        else
+        {
+            List<Alert> fileAlerts = loadFromFile();
+            if (fileAlerts.Count > 0)
+            {
+                alertStore.SetAlerts(fileAlerts);
+                var bulkOps = fileAlerts.Select(a => new ReplaceOneModel<Alert>(
+                    Builders<Alert>.Filter.Eq(x => x.Id, a.Id), a) { IsUpsert = true }).ToList();
+                mongoCtx.Alerts.BulkWrite(bulkOps);
+                Console.WriteLine($"[MongoDB Atlas] Baza pytań była pusta. Zainicjowano {fileAlerts.Count} pytań z pliku.");
+            }
+        }
+
+        if (mongoCtx.Users != null)
+        {
+            try
+            {
+                mongoCtx.Users.Database.DropCollection("Sessions");
+            }
+            catch { }
         }
     }
-
-    if (mongoCtx.IsConnectedToMongo && mongoCtx.Users != null)
+    else
     {
-        try
+        List<Alert> fileAlerts = loadFromFile();
+        if (fileAlerts.Count > 0)
         {
-            mongoCtx.Users.Database.DropCollection("Sessions");
+            alertStore.SetAlerts(fileAlerts);
+            Console.WriteLine($"[AlertStore] Tryb bez MongoDB: Wczytano {fileAlerts.Count} pytań z pliku lokalnego.");
         }
-        catch { }
     }
 }
 catch (Exception ex)
 {
-    Console.WriteLine($"[MongoDB Seeder BŁĄD] {ex.Message}");
+    Console.WriteLine($"[Inicjalizacja Startowa BŁĄD] {ex.Message}");
 }
 
 // Configure the HTTP request pipeline.

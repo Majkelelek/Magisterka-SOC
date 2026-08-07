@@ -41,7 +41,7 @@ public class EvaluationController : ControllerBase
                 ? $"Pomyślnie przeprowadzono {reports.Count} prób(y) testowych dla modelu '{ollamaModel}' (łącznie {reports.Count * count} pytania)."
                 : mode switch
                 {
-                    "base" => $"Pomyślnie przeprowadzono test Modelu Bazowego (Ollama '{ollamaModel}') dla {latestReport?.TotalRecordsTested} rekordów.",
+                    "base" => $"Pomyślnie przeprowadzono test Modelu Bazowego ({provider.ToUpper()}) dla {latestReport?.TotalRecordsTested} rekordów.",
                     "azure-base" => $"Pomyślnie przeprowadzono test Modelu Bazowego (Azure) dla {latestReport?.TotalRecordsTested} rekordów.",
                     "ft" => $"Pomyślnie przeprowadzono test Modelu Wyfinetuningowanego (Azure OpenAI FT) dla {latestReport?.TotalRecordsTested} rekordów.",
                     _ => $"Pomyślnie przeprowadzono pełny benchmark porównawczy dla {latestReport?.TotalRecordsTested} rekordów."
