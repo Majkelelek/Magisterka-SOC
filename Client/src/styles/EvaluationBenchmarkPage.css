@@ -74,13 +74,6 @@
   box-shadow: 0 4px 12px rgba(249, 115, 22, 0.25);
 }
 
-.provider-tab-btn.active.ollama {
-  background: linear-gradient(135deg, rgba(168, 85, 247, 0.25), rgba(147, 51, 234, 0.25));
-  color: #c084fc;
-  border-color: rgba(168, 85, 247, 0.5);
-  box-shadow: 0 4px 12px rgba(168, 85, 247, 0.25);
-}
-
 .benchmark-page-container {
   padding-bottom: 3rem;
 }
@@ -2209,30 +2202,54 @@
   color: #f6c229;
 }
 
-/* Runs table action cell */
-.benchmark-runs-action-cell {
+/* Metric stack layout and alignment in tables */
+.benchmark-metric-stack {
   display: flex;
+  flex-direction: column;
+  gap: 3px;
   align-items: center;
-  justify-content: flex-end;
-  gap: 6px;
+  justify-content: center;
+  width: 100%;
 }
 
-/* Average row badge */
-.benchmark-average-row-badge {
+.benchmark-metric-stack-item {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  background: #38bdf8;
-  color: #0f172a;
-  padding: 0.15rem 0.5rem;
-  border-radius: 4px;
-  font-weight: 800;
-  font-size: 0.775rem;
+  justify-content: center;
+  gap: 5px;
 }
 
-.benchmark-summary-mode-badge {
-  padding: 0.2rem 0.5rem;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.1);
-  font-size: 0.725rem;
+.benchmark-metric-stack-label {
+  font-size: 0.625rem;
+  font-weight: 800;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
 }
+
+.benchmark-metric-stack-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 800;
+  font-size: 0.825rem;
+}
+
+.benchmark-runs-th.center,
+.benchmark-runs-td.center {
+  text-align: center !important;
+}
+
+.benchmark-runs-table th {
+  padding: 0.75rem 0.85rem;
+  font-size: 0.725rem;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.benchmark-runs-table td {
+  padding: 0.75rem 0.85rem;
+  vertical-align: middle;
+}
+
+
+

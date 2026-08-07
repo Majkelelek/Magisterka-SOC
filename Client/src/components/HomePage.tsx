@@ -57,7 +57,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
             </h3>
 
             <p className="home-card-desc">
-              Automatyczny moduł testowania modeli AI (Ollama vs Azure OpenAI Base / Fine-Tuned). Oblicza dokładność detekcji (Accuracy), Precision, Recall, F1-Score oraz średnią latencję z opcją eksportu wyników do CSV/Excel.
+              Automatyczny moduł testowania dostawców AI (Azure OpenAI, Google Gemini, DeepSeek, Anthropic Claude). Oblicza dokładność detekcji (Accuracy), Precision, Recall, F1-Score oraz średnią latencję z opcją eksportu wyników do CSV/Excel.
             </p>
           </div>
 

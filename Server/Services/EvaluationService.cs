@@ -134,39 +134,7 @@ public class EvaluationService
         }
     }
 
-    public async Task<List<string>> GetAvailableOllamaModelsAsync()
-    {
-        var ollamaTagsUrl = "http://localhost:11434/api/tags";
-        using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(4) };
-        try
-        {
-            var response = await client.GetAsync(ollamaTagsUrl);
-            if (!response.IsSuccessStatusCode) return new List<string>();
 
-            var json = await response.Content.ReadAsStringAsync();
-            using var doc = JsonDocument.Parse(json);
-            var modelsList = new List<string>();
-            if (doc.RootElement.TryGetProperty("models", out var modelsProp) && modelsProp.ValueKind == JsonValueKind.Array)
-            {
-                foreach (var item in modelsProp.EnumerateArray())
-                {
-                    if (item.TryGetProperty("name", out var nameProp))
-                    {
-                        var name = nameProp.GetString();
-                        if (!string.IsNullOrEmpty(name))
-                        {
-                            modelsList.Add(name);
-                        }
-                    }
-                }
-            }
-            return modelsList;
-        }
-        catch
-        {
-            return new List<string>();
-        }
-    }
 
     public static List<PerformanceTestItem> LoadPerformanceTestItems(int samplesPerCategory = 2)
     {
@@ -238,7 +206,6 @@ public class EvaluationService
     public async Task<List<EvaluationReport>> RunBenchmarkBatchAsync(
         int recordCount = 24,
         string mode = "both",
-        string ollamaModel = "llama3.2",
         int samplesPerCategory = 2,
         int iterations = 1,
         string provider = "openai")
@@ -249,10 +216,10 @@ public class EvaluationService
         for (int i = 1; i <= iterations; i++)
         {
             Console.WriteLine($"\n=======================================================");
-            Console.WriteLine($"[BENCHMARK BATCH] Rozpoczynanie próby {i}/{iterations} ({recordCount} pytań, Provider: '{provider}', Model: '{ollamaModel}')...");
+            Console.WriteLine($"[BENCHMARK BATCH] Rozpoczynanie próby {i}/{iterations} ({recordCount} pytań, Provider: '{provider}')...");
             Console.WriteLine($"=======================================================\n");
 
-            var report = await RunBenchmarkAsync(recordCount, mode, ollamaModel, samplesPerCategory, iterationIndex: i, totalIterations: iterations, provider: provider);
+            var report = await RunBenchmarkAsync(recordCount, mode, samplesPerCategory, iterationIndex: i, totalIterations: iterations, provider: provider);
             reports.Add(report);
 
             if (i < iterations)
@@ -267,13 +234,11 @@ public class EvaluationService
     public async Task<EvaluationReport> RunBenchmarkAsync(
         int recordCount = 24,
         string mode = "both",
-        string ollamaModel = "llama3.2",
         int samplesPerCategory = 2,
         int iterationIndex = 0,
         int totalIterations = 1,
         string provider = "openai")
     {
-        if (string.IsNullOrWhiteSpace(ollamaModel)) ollamaModel = "llama3.2";
         if (samplesPerCategory <= 0) samplesPerCategory = 2;
         if (string.IsNullOrWhiteSpace(provider)) provider = "openai";
 
@@ -292,7 +257,7 @@ public class EvaluationService
             var testSet = perfItems;
             var iterTag = iterationIndex > 0 ? $" | Próba: {iterationIndex}/{totalIterations}" : "";
             Console.WriteLine($"\n=======================================================");
-            Console.WriteLine($"[BENCHMARK STARTED] Rekordów: {testSet.Count} | Dostawca: {provider.ToUpper()} | Środowisko: {mode} | Ollama Model: '{ollamaModel}'{iterTag}");
+            Console.WriteLine($"[BENCHMARK STARTED] Rekordów: {testSet.Count} | Dostawca: {provider.ToUpper()} | Środowisko: {mode}{iterTag}");
             Console.WriteLine($"=======================================================\n");
 
             for (int i = 0; i < testSet.Count; i++)
@@ -317,7 +282,7 @@ public class EvaluationService
                     try
                     {
                         Console.Write($"  ├─> [{provider.ToUpper()} Base] Wysyłanie zapytania API... ");
-                        baseAiResult = await _aiService.ProcessProviderQueryAsync(provider, "base", item.Id, userMsg, systemMsg, ollamaModel);
+                        baseAiResult = await _aiService.ProcessProviderQueryAsync(provider, "base", item.Id, userMsg, systemMsg);
                         if (baseAiResult.ExtractedText.StartsWith("[Błąd"))
                         {
                             throw new InvalidOperationException(baseAiResult.ExtractedText);
@@ -350,7 +315,7 @@ public class EvaluationService
                     AiProcessResult ftAiResult;
                     try
                     {
-                        ftAiResult = await _aiService.ProcessProviderQueryAsync(provider, "ft", item.Id, userMsg, systemMsg, ollamaModel);
+                        ftAiResult = await _aiService.ProcessProviderQueryAsync(provider, "ft", item.Id, userMsg, systemMsg);
                         ftSw.Stop();
                         if (ftAiResult.ExtractedText.StartsWith("[Błąd"))
                         {
@@ -406,7 +371,7 @@ public class EvaluationService
             }
 
             var testSet = allAlerts.Take(Math.Min(recordCount, allAlerts.Count)).ToList();
-            Console.WriteLine($"[EvaluationService] Benchmark ({mode}): {testSet.Count} alertów z AlertStore. Ollama Model: '{ollamaModel}'");
+            Console.WriteLine($"[EvaluationService] Benchmark ({mode}): {testSet.Count} alertów z AlertStore. Provider: '{provider}'");
 
             foreach (var alert in testSet)
             {
@@ -423,17 +388,10 @@ public class EvaluationService
                     AiProcessResult baseAiResult;
                     try
                     {
-                        if (isAzureBase)
+                        baseAiResult = await _aiService.ProcessProviderQueryAsync(provider, "base", alert.Id, promptMessage);
+                        if (baseAiResult.ExtractedText.StartsWith("[Błąd"))
                         {
-                            baseAiResult = await _aiService.ProcessQueryAsync(alert.Id, promptMessage, "gpt-4o-mini");
-                            if (baseAiResult.ExtractedText.StartsWith("[Błąd"))
-                            {
-                                throw new InvalidOperationException($"Brak połączenia z Azure OpenAI Base: {baseAiResult.ExtractedText}");
-                            }
-                        }
-                        else
-                        {
-                            baseAiResult = await QueryOllamaAsync(alertContext, promptMessage, ollamaModel);
+                            throw new InvalidOperationException($"Brak połączenia z Modelem Bazowym ({provider}): {baseAiResult.ExtractedText}");
                         }
                     }
                     catch (Exception ex)
@@ -503,17 +461,13 @@ public class EvaluationService
                 ftModelLabel = $"Google Gemini FT ({Environment.GetEnvironmentVariable("GEMINI_FT_MODEL") ?? "gemini-1.5-flash-ft"})";
                 break;
             case "deepseek":
-                baseModelLabel = $"DeepSeek AI Base ({Environment.GetEnvironmentVariable("DEEPSEEK_BASE_MODEL") ?? "deepseek-chat"})";
-                ftModelLabel = $"DeepSeek AI FT ({Environment.GetEnvironmentVariable("DEEPSEEK_FT_MODEL") ?? "deepseek-chat-ft"})";
+                baseModelLabel = $"DeepSeek AI Base ({Environment.GetEnvironmentVariable("DEEPSEEK_BASE_MODEL") ?? "deepseek-v4-flash"})";
+                ftModelLabel = $"DeepSeek AI FT ({Environment.GetEnvironmentVariable("DEEPSEEK_FT_MODEL") ?? "deepseek-v4-flash-ft"})";
                 break;
             case "anthropic":
             case "claude":
                 baseModelLabel = $"Anthropic Claude Base ({Environment.GetEnvironmentVariable("CLAUDE_BASE_MODEL") ?? "claude-3-5-sonnet"})";
                 ftModelLabel = $"Anthropic Claude FT ({Environment.GetEnvironmentVariable("CLAUDE_FT_MODEL") ?? "claude-3-5-sonnet-ft"})";
-                break;
-            case "ollama":
-                baseModelLabel = $"Local Ollama Base ({ollamaModel})";
-                ftModelLabel = $"Local Ollama FT ({ollamaModel}:ft)";
                 break;
             case "openai":
             default:
@@ -581,82 +535,7 @@ public class EvaluationService
         };
     }
 
-    private static async Task<AiProcessResult> QueryOllamaAsync(string userMessage, string defaultPrompt, string modelName, string? customSystemPrompt = null)
-    {
-        var ollamaUrl = Environment.GetEnvironmentVariable("OLLAMA_ENDPOINT") ?? "http://localhost:11434/api/chat";
-        using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(180) };
 
-        var systemPrompt = customSystemPrompt ?? @"Jesteś zaawansowanym asystentem SOC Sentinel. Twoim zadaniem jest przeanalizowanie przepływu sieciowego (NetFlow) i klasyfikacja zdarzenia oraz podanie rekomendowanej akcji (Isolation, Escalation, Dismiss).";
-
-        var fullUserContent = customSystemPrompt != null ? userMessage : $"{defaultPrompt}\n{userMessage}";
-
-        var chatRequestBody = new
-        {
-            model = modelName,
-            temperature = 0.0,
-            messages = new object[]
-            {
-                new { role = "system", content = systemPrompt },
-                new { role = "user", content = fullUserContent }
-            },
-            stream = false
-        };
-
-        try
-        {
-            var jsonContent = new StringContent(JsonSerializer.Serialize(chatRequestBody), Encoding.UTF8, "application/json");
-            var response = await client.PostAsync(ollamaUrl, jsonContent);
-
-            if (!response.IsSuccessStatusCode)
-            {
-                var genUrl = ollamaUrl.Replace("/api/chat", "/api/generate");
-                var genRequestBody = new
-                {
-                    model = modelName,
-                    prompt = $"{systemPrompt}\n\nUser: {fullUserContent}\nAssistant:",
-                    stream = false
-                };
-
-                var genContent = new StringContent(JsonSerializer.Serialize(genRequestBody), Encoding.UTF8, "application/json");
-                var genResponse = await client.PostAsync(genUrl, genContent);
-
-                if (!genResponse.IsSuccessStatusCode)
-                {
-                    var errStr = await genResponse.Content.ReadAsStringAsync();
-                    return new AiProcessResult
-                    {
-                        ExtractedText = $"[Błąd Ollama ({genResponse.StatusCode})] Upewnij się, że lokalna Ollama działa pod http://localhost:11434 i pobrano model '{modelName}' (ollama run {modelName}).",
-                        RawJson = errStr
-                    };
-                }
-
-                var genResponseJson = await genResponse.Content.ReadAsStringAsync();
-                using var doc = JsonDocument.Parse(genResponseJson);
-                if (doc.RootElement.TryGetProperty("response", out var respProp))
-                {
-                    return new AiProcessResult { ExtractedText = respProp.GetString() ?? "", RawJson = genResponseJson };
-                }
-            }
-
-            var responseJson = await response.Content.ReadAsStringAsync();
-            using var chatDoc = JsonDocument.Parse(responseJson);
-            if (chatDoc.RootElement.TryGetProperty("message", out var msgProp) && msgProp.TryGetProperty("content", out var contentProp))
-            {
-                var content = contentProp.GetString() ?? "";
-                return new AiProcessResult { ExtractedText = content, RawJson = responseJson };
-            }
-
-            return new AiProcessResult { ExtractedText = responseJson, RawJson = responseJson };
-        }
-        catch (Exception ex)
-        {
-            return new AiProcessResult
-            {
-                ExtractedText = $"[Błąd Połączenia Ollama] Brak połączenia z lokalną instancją Ollamy na http://localhost:11434. Uruchom polecenie 'ollama run {modelName}'. Wyjątek: {ex.Message}",
-                RawJson = ex.Message
-            };
-        }
-    }
 
     private static string BuildAlertContext(Alert alert)
     {

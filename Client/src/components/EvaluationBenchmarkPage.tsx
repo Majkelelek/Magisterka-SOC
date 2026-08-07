@@ -1,19 +1,34 @@
 import React, { useState, useEffect } from 'react';
 import { Play, BarChart2, CheckCircle2, XCircle, Clock, Zap, Shield, Sparkles, RefreshCw, AlertTriangle, Layers, ChevronDown, ChevronUp, FileText, Cpu, Cloud, FileSpreadsheet, Filter, Trash2, Info } from 'lucide-react';
 import type { EvaluationReport, EvaluationItemResult, ModelEvaluationMetrics } from '../types/evaluation';
-import { runModelEvaluation, getLatestEvaluationReport, getEvaluationHistory, fetchOllamaModels, deleteEvaluationReport } from '../services/api';
+import { runModelEvaluation, getLatestEvaluationReport, getEvaluationHistory, deleteEvaluationReport } from '../services/api';
 import '../styles/EvaluationBenchmarkPage.css';
 
-export const EvaluationBenchmarkPage: React.FC = () => {
+import type { ProviderTab } from './Sidebar';
+export type { ProviderTab };
+
+export interface EvaluationBenchmarkPageProps {
+  providerTab?: ProviderTab;
+  onProviderTabChange?: (tab: ProviderTab) => void;
+}
+
+export const EvaluationBenchmarkPage: React.FC<EvaluationBenchmarkPageProps> = ({
+  providerTab: externalProviderTab,
+  onProviderTabChange
+}) => {
   const [report, setReport] = useState<EvaluationReport | null>(null);
   const [historicalReports, setHistoricalReports] = useState<EvaluationReport[]>([]);
   const [selectedBaseReportId, setSelectedBaseReportId] = useState<string>('');
   const [selectedModelFilter, setSelectedModelFilter] = useState<string>('ALL');
   const [activeMetricHelp, setActiveMetricHelp] = useState<{ label: string; description: string; tone: 'green' | 'teal' | 'purple' | 'blue' } | null>(null);
 
-  // Sub-tabs State for AI Providers (including 'all' tab)
-  type ProviderTab = 'all' | 'openai' | 'gemini' | 'deepseek' | 'anthropic' | 'ollama';
-  const [providerTab, setProviderTab] = useState<ProviderTab>('all');
+  // Sub-tabs State for AI Providers
+  const [internalProviderTab, setInternalProviderTab] = useState<ProviderTab>('all');
+  const providerTab = externalProviderTab ?? internalProviderTab;
+  const setProviderTab = (tab: ProviderTab) => {
+    setInternalProviderTab(tab);
+    onProviderTabChange?.(tab);
+  };
 
   const [loading, setLoading] = useState<boolean>(true);
   const [running, setRunning] = useState<boolean>(false);
@@ -22,11 +37,6 @@ export const EvaluationBenchmarkPage: React.FC = () => {
   const [statusMsg, setStatusMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
   const [filterMode, setFilterMode] = useState<'ALL' | 'MISMATCHED' | 'CORRECT'>('ALL');
-
-  // Ollama Model Selection state
-  const [availableOllamaModels, setAvailableOllamaModels] = useState<string[]>([]);
-  const [selectedOllamaModel, setSelectedOllamaModel] = useState<string>('llama3.2');
-  const [isOllamaOnline, setIsOllamaOnline] = useState<boolean>(false);
 
   const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
   const [activeModeText, setActiveModeText] = useState<string>('');
@@ -50,19 +60,8 @@ export const EvaluationBenchmarkPage: React.FC = () => {
     setLoading(false);
   };
 
-  const loadOllamaModels = async () => {
-    const res = await fetchOllamaModels();
-    setIsOllamaOnline(res.isOllamaOnline);
-    if (res.success && res.models.length > 0) {
-      setAvailableOllamaModels(res.models);
-      const preferred = res.models.find(m => m.includes('llama3.2')) || res.models[0];
-      setSelectedOllamaModel(preferred);
-    }
-  };
-
   useEffect(() => {
     loadReportsData();
-    loadOllamaModels();
   }, []);
 
   const handleStartBenchmark = async (mode: 'both' | 'base' | 'ft' | 'azure-base') => {
@@ -75,8 +74,7 @@ export const EvaluationBenchmarkPage: React.FC = () => {
       openai: 'Azure OpenAI',
       gemini: 'Google Gemini',
       deepseek: 'DeepSeek AI',
-      anthropic: 'Anthropic Claude',
-      ollama: `Ollama (${selectedOllamaModel})`
+      anthropic: 'Anthropic Claude'
     };
 
     const provName = providerNameMap[providerTab] || providerTab.toUpperCase();
@@ -93,7 +91,7 @@ export const EvaluationBenchmarkPage: React.FC = () => {
       setElapsedSeconds(prev => prev + 1);
     }, 1000);
 
-    const res = await runModelEvaluation(recordCount, mode, selectedOllamaModel, 2, iterations, providerTab);
+    const res = await runModelEvaluation(recordCount, mode, 2, iterations, providerTab);
     clearInterval(timerInterval);
 
     setRunning(false);
@@ -307,11 +305,6 @@ export const EvaluationBenchmarkPage: React.FC = () => {
       case 'anthropic':
         return checkMatch(/claude|anthropic/i);
 
-      case 'ollama':
-        if (!isFtmSkipped && /azure|openai|gpt|gemini|deepseek|claude|anthropic/i.test(ftName)) return false;
-        if (!isBmSkipped && /azure|openai|gpt|gemini|deepseek|claude|anthropic/i.test(baseName)) return false;
-        return checkMatch(/ollama|llama|mistral|qwen|gemma|phi/i);
-
       default:
         return true;
     }
@@ -327,7 +320,7 @@ export const EvaluationBenchmarkPage: React.FC = () => {
     if (isBmSkipped) return `Tylko ${ftm.replace(' (Pominięty)', '')}`;
     if (isFtmSkipped) return `Tylko ${bm.replace(' (Pominięty)', '')}`;
 
-    const cleanBm = bm.replace('Model Bazowy (Ollama: ', '').replace('Model Bazowy (', '').replace(')', '').trim();
+    const cleanBm = bm.replace('Model Bazowy (', '').replace(')', '').trim();
     const cleanFtm = ftm.replace('Model Dostrojony (', '').replace(')', '').trim();
 
     return `${cleanBm} ➔ ${cleanFtm}`;
@@ -377,8 +370,7 @@ export const EvaluationBenchmarkPage: React.FC = () => {
       { key: 'openai', sheetName: 'OpenAI', label: 'OpenAI (Azure / Direct)', matches: (m: string) => /openai|gpt|azure/i.test(m) },
       { key: 'gemini', sheetName: 'Google Gemini', label: 'Google Gemini', matches: (m: string) => /gemini/i.test(m) },
       { key: 'deepseek', sheetName: 'DeepSeek', label: 'DeepSeek AI', matches: (m: string) => /deepseek/i.test(m) },
-      { key: 'anthropic', sheetName: 'Anthropic', label: 'Anthropic Claude', matches: (m: string) => /claude|anthropic/i.test(m) },
-      { key: 'ollama', sheetName: 'Local Ollama', label: 'Local Ollama (SLM/LLM)', matches: (m: string) => /ollama|llama|mistral|qwen/i.test(m) }
+      { key: 'anthropic', sheetName: 'Anthropic', label: 'Anthropic Claude', matches: (m: string) => /claude|anthropic/i.test(m) }
     ];
 
     let xml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -429,13 +421,9 @@ export const EvaluationBenchmarkPage: React.FC = () => {
         p.matches(r.fineTunedModelMetrics?.modelName || '')
       );
 
-      // Fallback distribution for OpenAI and Ollama if no explicit naming matches
-      if (pReports.length === 0) {
-        if (p.key === 'openai') {
-          pReports = allReports.filter(r => (r.fineTunedModelMetrics?.totalRecordsTested || r.totalRecordsTested || 0) > 0 || r.baseModelMetrics?.modelName?.toLowerCase().includes('azure'));
-        } else if (p.key === 'ollama') {
-          pReports = allReports.filter(r => (r.baseModelMetrics?.totalRecordsTested || r.totalRecordsTested || 0) > 0);
-        }
+      // Fallback distribution for OpenAI if no explicit naming matches
+      if (pReports.length === 0 && p.key === 'openai') {
+        pReports = allReports.filter(r => (r.fineTunedModelMetrics?.totalRecordsTested || r.totalRecordsTested || 0) > 0 || r.baseModelMetrics?.modelName?.toLowerCase().includes('azure'));
       }
 
       xml += ` <Worksheet ss:Name="${escapeXml(p.sheetName)}">\n  <Table>\n`;
@@ -676,7 +664,7 @@ export const EvaluationBenchmarkPage: React.FC = () => {
             setSelectedModelFilter('ALL');
           }}
         >
-          <Zap size={16} color="#f87171" /> DeepSeek (V3 / R1)
+          <Zap size={16} color="#f87171" /> DeepSeek (v4-flash)
         </button>
 
         <button
@@ -689,17 +677,6 @@ export const EvaluationBenchmarkPage: React.FC = () => {
         >
           <Shield size={16} color="#fb923c" /> Anthropic (Claude 3.5)
         </button>
-
-        <button
-          type="button"
-          className={`provider-tab-btn ollama ${providerTab === 'ollama' ? 'active' : ''}`}
-          onClick={() => {
-            setProviderTab('ollama');
-            setSelectedModelFilter('ALL');
-          }}
-        >
-          <Cpu size={16} color="#c084fc" /> Local Ollama (SLM / LLM)
-        </button>
       </div>
 
       {/* Header Section */}
@@ -711,7 +688,7 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                 <BarChart2 size={24} color="#c084fc" />
               </div>
               <h1 className="benchmark-hero-main-title">
-                Model Benchmark & Evaluation — {providerTab === 'all' ? 'Wszystkie Modele (Pełne Zestawienie)' : providerTab === 'openai' ? 'OpenAI / Azure' : providerTab === 'gemini' ? 'Google Gemini' : providerTab === 'deepseek' ? 'DeepSeek AI' : providerTab === 'anthropic' ? 'Anthropic Claude' : 'Local Ollama'}
+                Model Benchmark & Evaluation — {providerTab === 'all' ? 'Wszystkie Modele (Pełne Zestawienie)' : providerTab === 'openai' ? 'OpenAI / Azure' : providerTab === 'gemini' ? 'Google Gemini' : providerTab === 'deepseek' ? 'DeepSeek AI' : 'Anthropic Claude'}
               </h1>
             </div>
           </div>
@@ -752,40 +729,6 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                   <option value={10} style={{ background: '#0f172a' }}>10 prób (240 pytań)</option>
                 </select>
               </div>
-
-              {/* Ollama Model Selector — only on All/Ollama tabs */}
-              {(providerTab === 'all' || providerTab === 'ollama') && (
-                <div className="benchmark-select-wrapper-blue">
-                  <Cpu size={14} color="#38bdf8" />
-                  <span className="benchmark-select-label-blue">Model Ollama:</span>
-                  {availableOllamaModels.length > 0 ? (
-                    <select
-                      value={selectedOllamaModel}
-                      onChange={e => setSelectedOllamaModel(e.target.value)}
-                      disabled={running}
-                      className="benchmark-select-inner-green"
-                    >
-                      {availableOllamaModels.map(m => (
-                        <option key={m} value={m} style={{ background: '#0f172a', color: '#ffffff' }}>
-                          {m}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input
-                      type="text"
-                      value={selectedOllamaModel}
-                      onChange={e => setSelectedOllamaModel(e.target.value)}
-                      disabled={running}
-                      placeholder="np. llama3.2"
-                      className="benchmark-input-text"
-                    />
-                  )}
-                  <span className={`benchmark-status-badge ${isOllamaOnline ? 'online' : 'offline'}`}>
-                    {isOllamaOnline ? 'ONLINE' : 'OFFLINE'}
-                  </span>
-                </div>
-              )}
             </div>
 
             {/* ── Dedicated Test Buttons Per Provider Tab ── */}
@@ -794,14 +737,6 @@ export const EvaluationBenchmarkPage: React.FC = () => {
               {/* ═══ TAB: Wszystkie Modele ═══ */}
               {providerTab === 'all' && (
                 <>
-                  <button
-                    onClick={() => handleStartBenchmark('base')}
-                    disabled={running}
-                    title="Wysyła zapytania WYŁĄCZNIE do lokalnej instancji Ollamy"
-                    className="benchmark-btn-cpu"
-                  >
-                    <Cpu size={14} /> Testuj Ollamę
-                  </button>
                   <button
                     onClick={() => handleStartBenchmark('azure-base')}
                     disabled={running}
@@ -991,44 +926,6 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                   </button>
                 </>
               )}
-
-              {/* ═══ TAB: Local Ollama ═══ */}
-              {providerTab === 'ollama' && (
-                <>
-                  <button
-                    onClick={() => handleStartBenchmark('base')}
-                    disabled={running}
-                    title={`Testuj WYŁĄCZNIE bazowy lokalny model Ollama: ${selectedOllamaModel}`}
-                    className="benchmark-btn-cpu"
-                  >
-                    {running ? (
-                      <><RefreshCw size={14} className="animate-spin" /> Testowanie {selectedOllamaModel} Base...</>
-                    ) : (
-                      <><Cpu size={14} /> Testuj {selectedOllamaModel} Base</>
-                    )}
-                  </button>
-                  <button
-                    onClick={() => handleStartBenchmark('ft')}
-                    disabled={running}
-                    title={`Testuj WYŁĄCZNIE dostrojony lokalny model ${selectedOllamaModel} FT`}
-                    className="benchmark-btn-cloud"
-                  >
-                    {running ? (
-                      <><RefreshCw size={14} className="animate-spin" /> Testowanie {selectedOllamaModel} FT...</>
-                    ) : (
-                      <><Cpu size={14} /> Testuj {selectedOllamaModel} FT</>
-                    )}
-                  </button>
-                  <button
-                    onClick={() => handleStartBenchmark('both')}
-                    disabled={running}
-                    title={`Porównaj ${selectedOllamaModel} (Base) vs ${selectedOllamaModel} (FT) obok siebie`}
-                    className="benchmark-btn-both"
-                  >
-                    <Play size={14} fill="#ffffff" /> Porównaj {selectedOllamaModel} (Base vs FT)
-                  </button>
-                </>
-              )}
             </div>
           </div>
         </div>
@@ -1137,13 +1034,13 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                       const bm = computeStrictMetrics(h.baseModelMetrics, h.itemResults, true) || h.baseModelMetrics;
                       const ftm = computeStrictMetrics(h.fineTunedModelMetrics, h.itemResults, false) || h.fineTunedModelMetrics;
                       const timeStr = new Date(h.timestamp).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-                      const isAzBase = bm?.modelName?.toLowerCase().includes('azure');
-                      const bmLabel = isAzBase ? 'Azure Base' : 'Ollama';
+                      const bmLabel = bm?.modelName ? bm.modelName.replace('Model Bazowy (', '').replace(')', '') : 'Base';
+                      const ftLabel = ftm?.modelName ? ftm.modelName.replace('Model Dostrojony (', '').replace(')', '') : 'FT';
                       const summaryStr = ftm.isSkipped
                         ? `${bmLabel} (Det: ${bm.accuracy.toFixed(1)}%)`
                         : bm.isSkipped
-                          ? `Azure FT (Det: ${ftm.accuracy.toFixed(1)}%)`
-                          : `${bmLabel} (Det: ${bm.accuracy.toFixed(1)}%) vs Azure FT (Det: ${ftm.accuracy.toFixed(1)}%)`;
+                          ? `${ftLabel} (Det: ${ftm.accuracy.toFixed(1)}%)`
+                          : `${bmLabel} (Det: ${bm.accuracy.toFixed(1)}%) vs ${ftLabel} (Det: ${ftm.accuracy.toFixed(1)}%)`;
                       return (
                         <option key={h.reportId} value={h.reportId} style={{ background: '#0f172a', color: '#ffffff' }}>
                           Próba #{filteredHistoricalReports.length - idx} ({timeStr}): {summaryStr}
@@ -1153,14 +1050,14 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                   </select>
                 </div>
 
-                {/* Export to Excel (5 Sheets) Button */}
+                {/* Export to Excel (4 Sheets) Button */}
                 <button
                   onClick={handleExportToExcel}
-                  title="Pobierz 1 plik Excel (.xls) zawierający 5 osobnych arkuszy (po jednym dla OpenAI, Gemini, DeepSeek, Anthropic, Ollama)"
+                  title="Pobierz 1 plik Excel (.xls) zawierający 4 osobne arkusze (po jednym dla OpenAI, Gemini, DeepSeek, Anthropic)"
                   className="benchmark-btn-export"
                 >
                   <FileSpreadsheet size={16} />
-                  Eksportuj do Excela (5 Arkuszy)
+                  Eksportuj do Excela (4 Arkusze)
                 </button>
 
                 {/* Delete Selected Report Button */}
@@ -1228,33 +1125,33 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                         <th className="benchmark-runs-th">PRÓBA #</th>
                         <th className="benchmark-runs-th">DATA I CZAS</th>
                         <th className="benchmark-runs-th">TRYB / TESTOWANY MODEL</th>
-                        <th className="benchmark-runs-th green">
+                        <th className="benchmark-runs-th green center" style={{ textAlign: 'center' }}>
                           {renderMetricHeader(
                             'DETEKCJA / KLASYFIKACJA',
                             'Pokazuje, czy model poprawnie rozpoznał atak albo ruch prawidłowy. Ta metryka jest liczona wyłącznie na podstawie klasy Atak vs Ruch Prawidłowy.',
                             'green'
                           )}
                         </th>
-                        <th className="benchmark-runs-th teal">
+                        <th className="benchmark-runs-th teal center" style={{ textAlign: 'center' }}>
                           {renderMetricHeader(
                             'PRECISION',
                             'Spośród wszystkich przypadków, które model uznał za atak, ile rzeczywiście było atakami.'
                           )}
                         </th>
-                        <th className="benchmark-runs-th teal">
+                        <th className="benchmark-runs-th teal center" style={{ textAlign: 'center' }}>
                           {renderMetricHeader(
                             'RECALL',
                             'Spośród wszystkich rzeczywistych ataków, ile model wykrył.'
                           )}
                         </th>
-                        <th className="benchmark-runs-th purple">
+                        <th className="benchmark-runs-th purple center" style={{ textAlign: 'center' }}>
                           {renderMetricHeader(
                             'F1-SCORE',
                             'Zbalansowana miara skuteczności, będąca średnią harmoniczną Precision i Recall. Pomaga ocenić model, gdy liczą się oba aspekty naraz.'
                           )}
                         </th>
-                        <th className="benchmark-runs-th blue">ŚREDNIE OPÓŹNIENIE (ms)</th>
-                        <th className="benchmark-runs-th right">AKCJA</th>
+                        <th className="benchmark-runs-th blue center" style={{ textAlign: 'center' }}>ŚREDNIE OPÓŹNIENIE (ms)</th>
+                        <th className="benchmark-runs-th right" style={{ textAlign: 'right' }}>AKCJA</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1306,13 +1203,16 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                             openai: { base: 'Azure OpenAI Base', ft: 'Azure OpenAI FT' },
                             gemini: { base: 'Google Gemini Base', ft: 'Google Gemini FT' },
                             deepseek: { base: 'DeepSeek AI Base', ft: 'DeepSeek AI FT' },
-                            anthropic: { base: 'Anthropic Claude Base', ft: 'Anthropic Claude FT' },
-                            ollama: { base: `Ollama (${selectedOllamaModel})`, ft: 'Ollama FT' }
+                            anthropic: { base: 'Anthropic Claude Base', ft: 'Anthropic Claude FT' }
                           };
                           return pMap[providerTab] || { base: 'Model Bazowy', ft: 'Model FT' };
                         };
 
                         const { base: baseLabelName, ft: ftLabelName } = getSummaryLabels();
+
+                        const showSummarySubTags = validBaseCnt > 0 && validFtCnt > 0;
+                        const baseSubTag = showSummarySubTags ? 'Base' : '';
+                        const ftSubTag = showSummarySubTags ? 'FT' : '';
 
                         const baseSummaryLabel = validBaseCnt > 0 && validFtCnt > 0
                           ? `${baseLabelName} + ${ftLabelName}`
@@ -1321,36 +1221,36 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                             : baseLabelName;
 
                         const accuracyEntries = [
-                          ...(validBaseCnt > 0 ? [{ label: baseLabelName, value: `${avgBaseAcc.toFixed(1)}%` }] : []),
-                          ...(validFtCnt > 0 ? [{ label: ftLabelName, value: `${avgFtAcc.toFixed(1)}%` }] : [])
+                          ...(validBaseCnt > 0 ? [{ label: baseSubTag, value: `${avgBaseAcc.toFixed(1)}%` }] : []),
+                          ...(validFtCnt > 0 ? [{ label: ftSubTag, value: `${avgFtAcc.toFixed(1)}%` }] : [])
                         ];
 
                         const precisionEntries = [
-                          ...(validBaseCnt > 0 ? [{ label: baseLabelName, value: `${avgBasePrec.toFixed(1)}%` }] : []),
-                          ...(validFtCnt > 0 ? [{ label: ftLabelName, value: `${avgFtPrec.toFixed(1)}%` }] : [])
+                          ...(validBaseCnt > 0 ? [{ label: baseSubTag, value: `${avgBasePrec.toFixed(1)}%` }] : []),
+                          ...(validFtCnt > 0 ? [{ label: ftSubTag, value: `${avgFtPrec.toFixed(1)}%` }] : [])
                         ];
 
                         const recallEntries = [
-                          ...(validBaseCnt > 0 ? [{ label: baseLabelName, value: `${avgBaseRec.toFixed(1)}%` }] : []),
-                          ...(validFtCnt > 0 ? [{ label: ftLabelName, value: `${avgFtRec.toFixed(1)}%` }] : [])
+                          ...(validBaseCnt > 0 ? [{ label: baseSubTag, value: `${avgBaseRec.toFixed(1)}%` }] : []),
+                          ...(validFtCnt > 0 ? [{ label: ftSubTag, value: `${avgFtRec.toFixed(1)}%` }] : [])
                         ];
 
                         const f1Entries = [
-                          ...(validBaseCnt > 0 ? [{ label: baseLabelName, value: `${avgBaseF1.toFixed(1)}%` }] : []),
-                          ...(validFtCnt > 0 ? [{ label: ftLabelName, value: `${avgFtF1.toFixed(1)}%` }] : [])
+                          ...(validBaseCnt > 0 ? [{ label: baseSubTag, value: `${avgBaseF1.toFixed(1)}%` }] : []),
+                          ...(validFtCnt > 0 ? [{ label: ftSubTag, value: `${avgFtF1.toFixed(1)}%` }] : [])
                         ];
 
                         const latencyEntries = [
-                          ...(validBaseCnt > 0 ? [{ label: baseLabelName, value: `${avgBaseLat.toFixed(0)} ms` }] : []),
-                          ...(validFtCnt > 0 ? [{ label: ftLabelName, value: `${avgFtLat.toFixed(0)} ms` }] : [])
+                          ...(validBaseCnt > 0 ? [{ label: baseSubTag, value: `${avgBaseLat.toFixed(0)} ms` }] : []),
+                          ...(validFtCnt > 0 ? [{ label: ftSubTag, value: `${avgFtLat.toFixed(0)} ms` }] : [])
                         ];
 
                         return (
                           <tr
                             style={{
-                              background: 'linear-gradient(90deg, rgba(56, 189, 248, 0.22) 0%, rgba(139, 92, 246, 0.22) 100%)',
-                              borderBottom: '2px solid #38bdf8',
-                              boxShadow: '0 2px 10px rgba(56, 189, 248, 0.15)'
+                              background: 'linear-gradient(90deg, rgba(56, 189, 248, 0.18) 0%, rgba(139, 92, 246, 0.18) 100%)',
+                              borderBottom: '2px solid rgba(56, 189, 248, 0.4)',
+                              boxShadow: '0 2px 10px rgba(0, 0, 0, 0.2)'
                             }}
                           >
                             <td style={{ padding: '0.65rem 0.75rem', fontWeight: 900, color: '#ffffff', fontSize: '0.775rem' }}>
@@ -1366,19 +1266,19 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                                 {baseSummaryLabel}
                               </span>
                             </td>
-                            <td style={{ padding: '0.65rem 0.75rem', fontWeight: 900, color: '#4ade80', fontSize: '0.85rem' }}>
+                            <td style={{ padding: '0.65rem 0.75rem', fontWeight: 900, color: '#4ade80', fontSize: '0.85rem', textAlign: 'center' }}>
                               {renderMetricStack(accuracyEntries)}
                             </td>
-                            <td style={{ padding: '0.65rem 0.75rem', fontWeight: 900, color: '#14b8a6', fontSize: '0.85rem' }}>
+                            <td style={{ padding: '0.65rem 0.75rem', fontWeight: 900, color: '#14b8a6', fontSize: '0.85rem', textAlign: 'center' }}>
                               {renderMetricStack(precisionEntries)}
                             </td>
-                            <td style={{ padding: '0.65rem 0.75rem', fontWeight: 900, color: '#14b8a6', fontSize: '0.85rem' }}>
+                            <td style={{ padding: '0.65rem 0.75rem', fontWeight: 900, color: '#14b8a6', fontSize: '0.85rem', textAlign: 'center' }}>
                               {renderMetricStack(recallEntries)}
                             </td>
-                            <td style={{ padding: '0.65rem 0.75rem', fontWeight: 900, color: '#c084fc', fontSize: '0.85rem' }}>
+                            <td style={{ padding: '0.65rem 0.75rem', fontWeight: 900, color: '#c084fc', fontSize: '0.85rem', textAlign: 'center' }}>
                               {renderMetricStack(f1Entries)}
                             </td>
-                            <td style={{ padding: '0.65rem 0.75rem', fontWeight: 800, color: '#38bdf8', fontSize: '0.85rem' }}>
+                            <td style={{ padding: '0.65rem 0.75rem', fontWeight: 800, color: '#38bdf8', fontSize: '0.85rem', textAlign: 'center' }}>
                               {renderMetricStack(latencyEntries)}
                             </td>
                             <td style={{ padding: '0.65rem 0.75rem', textAlign: 'right' }}>
@@ -1398,8 +1298,9 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                         const isBaseActive = bm && !bm.isSkipped && (bm.accuracy > 0 || bm.averageLatencyMs > 0);
                         const isFtActive = ftm && !ftm.isSkipped && (ftm.accuracy > 0 || ftm.averageLatencyMs > 0);
 
-                        const baseLabel = bm?.modelName ? bm.modelName.replace(' (Pominięty)', '') : 'Base';
-                        const ftLabel = ftm?.modelName ? ftm.modelName.replace(' (Pominięty)', '') : 'FT';
+                        const showSubLabels = isBaseActive && isFtActive;
+                        const baseLabel = showSubLabels ? 'Base' : '';
+                        const ftLabel = showSubLabels ? 'FT' : '';
 
                         const getDynamicBadge = () => {
                           const bmName = bm?.modelName || '';
@@ -1424,7 +1325,7 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                             if (/azure|openai|gpt/i.test(bmName)) {
                               return <span className="benchmark-mode-badge base-only" style={{ background: 'rgba(59, 130, 246, 0.2)', color: '#60a5fa', border: '1px solid rgba(59, 130, 246, 0.3)' }}>☁️ {bmName.replace(' (Pominięty)', '')}</span>;
                             }
-                            return <span className="benchmark-mode-badge base-only">🦙 Ollama ({(bmName || 'Ollama').replace('Model Bazowy (Ollama: ', '').replace(')', '')})</span>;
+                            return <span className="benchmark-mode-badge base-only">⚙️ {(bmName || 'Base').replace('Model Bazowy (', '').replace(')', '')}</span>;
                           }
                           return <span className="benchmark-mode-badge">Brak danych</span>;
                         };
@@ -1450,31 +1351,31 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                             </td>
                             <td style={{ padding: '0.65rem 0.75rem', color: '#94a3b8' }}>{new Date(h.timestamp).toLocaleString('pl-PL')}</td>
                             <td style={{ padding: '0.65rem 0.75rem' }}>{modeBadge}</td>
-                            <td style={{ padding: '0.65rem 0.75rem', fontWeight: 800, color: '#4ade80' }}>
+                            <td style={{ padding: '0.65rem 0.75rem', fontWeight: 800, color: '#4ade80', textAlign: 'center' }}>
                               {renderMetricStack([
-                                ...(isBaseActive ? [{ label: `${baseLabel} (detekcja)`, value: `${bm.accuracy.toFixed(1)}%` }] : []),
-                                ...(isFtActive ? [{ label: `${ftLabel} (detekcja)`, value: `${ftm.accuracy.toFixed(1)}%` }] : [])
+                                ...(isBaseActive ? [{ label: baseLabel, value: `${bm.accuracy.toFixed(1)}%` }] : []),
+                                ...(isFtActive ? [{ label: ftLabel, value: `${ftm.accuracy.toFixed(1)}%` }] : [])
                               ])}
                             </td>
-                            <td className="benchmark-runs-td teal-bold">
+                            <td className="benchmark-runs-td teal-bold center" style={{ textAlign: 'center' }}>
                               {renderMetricStack([
                                 ...(isBaseActive ? [{ label: baseLabel, value: `${bm.precision.toFixed(1)}%` }] : []),
                                 ...(isFtActive ? [{ label: ftLabel, value: `${ftm.precision.toFixed(1)}%` }] : [])
                               ])}
                             </td>
-                            <td className="benchmark-runs-td teal-bold">
+                            <td className="benchmark-runs-td teal-bold center" style={{ textAlign: 'center' }}>
                               {renderMetricStack([
                                 ...(isBaseActive ? [{ label: baseLabel, value: `${bm.recall.toFixed(1)}%` }] : []),
                                 ...(isFtActive ? [{ label: ftLabel, value: `${ftm.recall.toFixed(1)}%` }] : [])
                               ])}
                             </td>
-                            <td className="benchmark-runs-td purple-bold">
+                            <td className="benchmark-runs-td purple-bold center" style={{ textAlign: 'center' }}>
                               {renderMetricStack([
                                 ...(isBaseActive ? [{ label: baseLabel, value: `${bm.f1Score.toFixed(1)}%` }] : []),
                                 ...(isFtActive ? [{ label: ftLabel, value: `${ftm.f1Score.toFixed(1)}%` }] : [])
                               ])}
                             </td>
-                            <td className="benchmark-runs-td blue-bold">
+                            <td className="benchmark-runs-td blue-bold center" style={{ textAlign: 'center' }}>
                               {renderMetricStack([
                                 ...(isBaseActive ? [{ label: baseLabel, value: `${bm.averageLatencyMs.toFixed(0)} ms` }] : []),
                                 ...(isFtActive ? [{ label: ftLabel, value: `${ftm.averageLatencyMs.toFixed(0)} ms` }] : [])
@@ -1535,7 +1436,7 @@ export const EvaluationBenchmarkPage: React.FC = () => {
             <div className="soc-card" style={{ padding: '2.5rem', textAlign: 'center', margin: '1.5rem 0', border: '1px dashed rgba(56, 189, 248, 0.3)', background: 'rgba(15, 23, 42, 0.6)' }}>
               <Layers size={40} color="#38bdf8" style={{ marginBottom: '1rem', opacity: 0.8 }} />
               <h3 style={{ color: '#ffffff', fontSize: '1.25rem', fontWeight: 800, margin: '0 0 0.5rem 0' }}>
-                Brak zapisanych wyników w zakładce: {providerTab === 'openai' ? 'OpenAI / Azure' : providerTab === 'gemini' ? 'Google Gemini' : providerTab === 'deepseek' ? 'DeepSeek AI' : providerTab === 'anthropic' ? 'Anthropic Claude' : providerTab === 'ollama' ? 'Local Ollama' : 'Wszystkie Modele'}
+                Brak zapisanych wyników w zakładce: {providerTab === 'openai' ? 'OpenAI / Azure' : providerTab === 'gemini' ? 'Google Gemini' : providerTab === 'deepseek' ? 'DeepSeek AI' : providerTab === 'anthropic' ? 'Anthropic Claude' : 'Wszystkie Modele'}
               </h3>
               <p style={{ color: '#94a3b8', fontSize: '0.9rem', maxWidth: '600px', margin: '0 auto 1.5rem auto', lineHeight: 1.5 }}>
                 Baza danych nie posiada jeszcze zapisanych prób benchmarkowych dla tego dostawcy AI. Wykonaj test przyciskiem powyżej, aby zarejestrować metryki dla tego modelu.
@@ -1705,9 +1606,7 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                         <th style={{ padding: '0.85rem 1rem', color: '#38bdf8', width: '28%' }}>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                             <span style={{ fontSize: '0.725rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#38bdf8', fontWeight: 800 }}>
-                              {selectedBaseReport?.baseModelMetrics?.modelName?.toLowerCase().includes('azure')
-                                ? 'MODEL BAZOWY (AZURE: GPT-4O-MINI)'
-                                : 'MODEL BAZOWY (OLLAMA)'}
+                              {selectedBaseReport?.baseModelMetrics?.modelName?.toUpperCase() || 'MODEL BAZOWY'}
                             </span>
                             <select
                               value={selectedBaseReportId || selectedBaseReport?.reportId}
@@ -1727,9 +1626,7 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                               {(validBaseReports.length > 0 ? validBaseReports : historicalReports).map((r) => {
                                 const bm = computeStrictMetrics(r.baseModelMetrics, r.itemResults, true);
                                 const rawName = bm?.modelName || 'Model Bazowy';
-                                const name = rawName.includes('Azure')
-                                  ? 'Azure Base (gpt-4o-mini)'
-                                  : rawName.replace('Model Bazowy (Ollama: ', '').replace('Model Bazowy (', '').replace(')', '');
+                                const name = rawName.replace('Model Bazowy (', '').replace(')', '');
                                 return (
                                   <option key={r.reportId} value={r.reportId}>
                                     {name} ({bm?.accuracy.toFixed(1)}% Acc) - {new Date(r.timestamp).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}
@@ -2261,7 +2158,7 @@ export const EvaluationBenchmarkPage: React.FC = () => {
                                   <div className="benchmark-inspection-expanded-grid">
                                     <div className="benchmark-inspection-expanded-box base">
                                       <div className="benchmark-inspection-expanded-title base">
-                                        MODEL BAZOWY ({baseMetrics?.modelName || 'LOKALNA OLLAMA'}):
+                                        MODEL BAZOWY ({baseMetrics?.modelName || 'BAZOWY'}):
                                       </div>
                                       <pre className="benchmark-inspection-expanded-pre">
                                         {baseResp.extractedText}

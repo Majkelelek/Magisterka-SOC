@@ -312,31 +312,15 @@ export async function importDataset(datasetFile: string): Promise<{ success: boo
   }
 }
 
-// Note: generateSingleAiAnalysis/generateAllAiAnalyses removed — unused in current workflow.
-
-export async function fetchOllamaModels(): Promise<{ success: boolean; models: string[]; isOllamaOnline: boolean }> {
-  try {
-    const res = await fetch(`${API_BASE_URL}/evaluation/ollama-models`, {
-      headers: getAuthHeaders()
-    });
-    if (!res.ok) return { success: false, models: [], isOllamaOnline: false };
-    const data = await res.json();
-    return { success: data.success, models: data.models || [], isOllamaOnline: !!data.isOllamaOnline };
-  } catch {
-    return { success: false, models: [], isOllamaOnline: false };
-  }
-}
-
 export async function runModelEvaluation(
   count: number = 24,
   mode: 'both' | 'base' | 'ft' | 'azure-base' = 'both',
-  ollamaModel: string = 'llama3.2',
   samplesPerCategory: number = 2,
   iterations: number = 1,
   provider: string = 'openai'
 ): Promise<{ success: boolean; message: string; report?: EvaluationReport; reports?: EvaluationReport[] }> {
   try {
-    const res = await fetch(`${API_BASE_URL}/evaluation/run?count=${count}&mode=${mode}&ollamaModel=${encodeURIComponent(ollamaModel)}&samplesPerCategory=${samplesPerCategory}&iterations=${iterations}&provider=${encodeURIComponent(provider)}`, {
+    const res = await fetch(`${API_BASE_URL}/evaluation/run?count=${count}&mode=${mode}&samplesPerCategory=${samplesPerCategory}&iterations=${iterations}&provider=${encodeURIComponent(provider)}`, {
       method: 'POST',
       headers: getAuthHeaders()
     });

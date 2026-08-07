@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import './styles/soc-theme.css';
 import type { UserSession } from './types/alert';
 import { logoutUser, verifyCurrentSession } from './services/api';
+import { Sidebar, type ProviderTab } from './components/Sidebar';
 import { Header } from './components/Header';
 import { HomePage } from './components/HomePage';
 import { LoginPage } from './components/LoginPage';
@@ -30,10 +31,22 @@ export const App: React.FC = () => {
     return 'benchmark';
   });
 
+  const [providerTab, setProviderTab] = useState<ProviderTab>(() => {
+    const saved = sessionStorage.getItem('soc_provider_tab');
+    if (saved && ['all', 'openai', 'gemini', 'deepseek', 'anthropic'].includes(saved)) {
+      return saved as ProviderTab;
+    }
+    return 'all';
+  });
+
   // Utrwalanie stanu w sessionStorage przy F5 / odświeżaniu
   useEffect(() => {
     sessionStorage.setItem('soc_active_tab', activeTab);
   }, [activeTab]);
+
+  useEffect(() => {
+    sessionStorage.setItem('soc_provider_tab', providerTab);
+  }, [providerTab]);
 
   // Real-time Session Monitoring — sprawdzamy ważność sesji co 5 minut
   useEffect(() => {
@@ -73,10 +86,16 @@ export const App: React.FC = () => {
     };
   }, [userSession]);
 
-  const handleTabChange = (tab: 'home' | 'admin-users' | 'admin-questions' | 'benchmark') => {
+  const handleTabChange = (
+    tab: 'home' | 'admin-users' | 'admin-questions' | 'benchmark',
+    provider?: ProviderTab
+  ) => {
     if ((tab === 'admin-questions' || tab === 'benchmark' || tab === 'admin-users') && userSession?.role !== 'Administrator') {
       setActiveTab('home');
       return;
+    }
+    if (provider) {
+      setProviderTab(provider);
     }
     setActiveTab(tab);
   };
@@ -91,34 +110,50 @@ export const App: React.FC = () => {
     setUserSession(null);
     sessionStorage.removeItem('soc_user_session');
     sessionStorage.removeItem('soc_active_tab');
+    sessionStorage.removeItem('soc_provider_tab');
   };
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <Header
-        activeTab={activeTab}
-        onTabChange={handleTabChange}
-        userSession={userSession}
-        onLogout={handleLogout}
-      />
+    <div className="soc-app-layout">
+      {userSession && (
+        <Sidebar
+          activeTab={activeTab}
+          providerTab={providerTab}
+          onTabChange={handleTabChange}
+          userSession={userSession}
+          onLogout={handleLogout}
+        />
+      )}
 
-      <main className="soc-container" style={{ flex: 1 }}>
-        {!userSession ? (
-          <LoginPage onLoginSuccess={handleLoginSuccess} />
-        ) : activeTab === 'home' ? (
-          <HomePage onNavigate={handleTabChange} />
-        ) : activeTab === 'admin-users' ? (
-          <AdminUserPanel userSession={userSession} />
-        ) : activeTab === 'admin-questions' ? (
-          <AdminQuestionsPage />
-        ) : (
-          <EvaluationBenchmarkPage />
+      <div className="soc-main-wrapper">
+        {userSession && (
+          <Header
+            activeTab={activeTab}
+            userSession={userSession}
+          />
         )}
-      </main>
 
-      <footer className="soc-footer">
-        Magisterka SOC - Moduł Ewaluacji AI Benchmark
-      </footer>
+        <main className="soc-container">
+          {!userSession ? (
+            <LoginPage onLoginSuccess={handleLoginSuccess} />
+          ) : activeTab === 'home' ? (
+            <HomePage onNavigate={handleTabChange} />
+          ) : activeTab === 'admin-users' ? (
+            <AdminUserPanel userSession={userSession} />
+          ) : activeTab === 'admin-questions' ? (
+            <AdminQuestionsPage />
+          ) : (
+            <EvaluationBenchmarkPage
+              providerTab={providerTab}
+              onProviderTabChange={setProviderTab}
+            />
+          )}
+        </main>
+
+        <footer className="soc-footer">
+          Magisterka SOC - Moduł Ewaluacji AI Benchmark
+        </footer>
+      </div>
     </div>
   );
 };

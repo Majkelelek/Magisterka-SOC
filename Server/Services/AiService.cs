@@ -25,7 +25,7 @@ public class AiService
         _alertStore = alertStore;
     }
 
-    public async Task<AiProcessResult> ProcessProviderQueryAsync(string provider, string modelType, string alertId, string prompt, string? customSystemMsg = null, string? ollamaModelName = null)
+    public async Task<AiProcessResult> ProcessProviderQueryAsync(string provider, string modelType, string alertId, string prompt, string? customSystemMsg = null)
     {
         EnvLoader.Load();
 
@@ -45,8 +45,6 @@ public class AiService
             case "anthropic":
             case "claude":
                 return await ProcessAnthropicQueryAsync(isBase, userContent, systemMessage);
-            case "ollama":
-                return await ProcessOllamaQueryAsync(isBase, userContent, systemMessage, ollamaModelName ?? "llama3.2");
             case "openai":
             default:
                 return await ProcessAzureOpenAiQueryAsync(isBase, alertId, prompt, userContent, systemMessage);
@@ -225,8 +223,8 @@ public class AiService
         }
 
         var modelName = isBase
-            ? (Environment.GetEnvironmentVariable("DEEPSEEK_BASE_MODEL") ?? "deepseek-chat")
-            : (Environment.GetEnvironmentVariable("DEEPSEEK_FT_MODEL") ?? "deepseek-chat-ft");
+            ? (Environment.GetEnvironmentVariable("DEEPSEEK_BASE_MODEL") ?? "deepseek-v4-flash")
+            : (Environment.GetEnvironmentVariable("DEEPSEEK_FT_MODEL") ?? "deepseek-v4-flash-ft");
 
         var endpoint = Environment.GetEnvironmentVariable("DEEPSEEK_AI_ENDPOINT") ?? Environment.GetEnvironmentVariable("DEEPSEEK_ENDPOINT") ?? "https://api.deepseek.com/chat/completions";
 
@@ -320,57 +318,7 @@ public class AiService
         }
     }
 
-    private async Task<AiProcessResult> ProcessOllamaQueryAsync(bool isBase, string userContent, string systemMessage, string modelName)
-    {
-        var targetModel = isBase ? modelName : (modelName.Contains(":") ? modelName : $"{modelName}:ft");
-        var ollamaUrl = Environment.GetEnvironmentVariable("OLLAMA_ENDPOINT") ?? "http://localhost:11434/api/chat";
 
-        var chatRequestBody = new
-        {
-            model = targetModel,
-            temperature = 0.0,
-            messages = new object[]
-            {
-                new { role = "system", content = systemMessage },
-                new { role = "user", content = userContent }
-            },
-            stream = false
-        };
-
-        try
-        {
-            var jsonContent = new StringContent(JsonSerializer.Serialize(chatRequestBody), Encoding.UTF8, "application/json");
-            var response = await _httpClient.PostAsync(ollamaUrl, jsonContent);
-
-            if (!response.IsSuccessStatusCode)
-            {
-                var errStr = await response.Content.ReadAsStringAsync();
-                return new AiProcessResult
-                {
-                    ExtractedText = $"[Błąd Ollama ({response.StatusCode})] Upewnij się, że lokalna instancja Ollama działa na {ollamaUrl} i pobrano model '{targetModel}'.",
-                    RawJson = errStr
-                };
-            }
-
-            var responseJson = await response.Content.ReadAsStringAsync();
-            using var chatDoc = JsonDocument.Parse(responseJson);
-            if (chatDoc.RootElement.TryGetProperty("message", out var msgProp) && msgProp.TryGetProperty("content", out var contentProp))
-            {
-                var content = contentProp.GetString() ?? "";
-                return new AiProcessResult { ExtractedText = content, RawJson = responseJson };
-            }
-
-            return new AiProcessResult { ExtractedText = responseJson, RawJson = responseJson };
-        }
-        catch (Exception ex)
-        {
-            return new AiProcessResult
-            {
-                ExtractedText = $"[Błąd Połączenia Ollama] Brak połączenia z lokalną Ollamą (http://localhost:11434). Wyjątek: {ex.Message}",
-                RawJson = ex.Message
-            };
-        }
-    }
 
     public async Task<AiProcessResult> ProcessQueryAsync(string alertId, string prompt, string? specificModel = null)
     {

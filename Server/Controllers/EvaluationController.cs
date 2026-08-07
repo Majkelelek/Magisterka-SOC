@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -22,7 +23,6 @@ public class EvaluationController : ControllerBase
     public async Task<IActionResult> RunEvaluation(
         [FromQuery] int count = 24,
         [FromQuery] string mode = "both",
-        [FromQuery] string ollamaModel = "llama3.2",
         [FromQuery] int samplesPerCategory = 2,
         [FromQuery] int iterations = 1,
         [FromQuery] string provider = "openai")
@@ -34,16 +34,16 @@ public class EvaluationController : ControllerBase
             if (iterations <= 0) iterations = 1;
             if (string.IsNullOrWhiteSpace(provider)) provider = "openai";
 
-            var reports = await _evaluationService.RunBenchmarkBatchAsync(count, mode, ollamaModel, samplesPerCategory, iterations, provider);
+            var reports = await _evaluationService.RunBenchmarkBatchAsync(count, mode, samplesPerCategory, iterations, provider);
             var latestReport = reports.LastOrDefault();
             
             var msg = iterations > 1 
-                ? $"Pomyślnie przeprowadzono {reports.Count} prób(y) testowych dla modelu '{ollamaModel}' (łącznie {reports.Count * count} pytania)."
+                ? $"Pomyślnie przeprowadzono {reports.Count} prób(y) testowych dla dostawcy '{provider.ToUpper()}' (łącznie {reports.Count * count} pytania)."
                 : mode switch
                 {
                     "base" => $"Pomyślnie przeprowadzono test Modelu Bazowego ({provider.ToUpper()}) dla {latestReport?.TotalRecordsTested} rekordów.",
-                    "azure-base" => $"Pomyślnie przeprowadzono test Modelu Bazowego (Azure) dla {latestReport?.TotalRecordsTested} rekordów.",
-                    "ft" => $"Pomyślnie przeprowadzono test Modelu Wyfinetuningowanego (Azure OpenAI FT) dla {latestReport?.TotalRecordsTested} rekordów.",
+                    "azure-base" => $"Pomyślnie przeprowadzono test Modelu Bazowego ({provider.ToUpper()}) dla {latestReport?.TotalRecordsTested} rekordów.",
+                    "ft" => $"Pomyślnie przeprowadzono test Modelu Fine-Tuned ({provider.ToUpper()}) dla {latestReport?.TotalRecordsTested} rekordów.",
                     _ => $"Pomyślnie przeprowadzono pełny benchmark porównawczy dla {latestReport?.TotalRecordsTested} rekordów."
                 };
 
@@ -63,18 +63,6 @@ public class EvaluationController : ControllerBase
                 message = ex.Message
             });
         }
-    }
-
-    [HttpGet("ollama-models")]
-    public async Task<IActionResult> GetOllamaModels()
-    {
-        var models = await _evaluationService.GetAvailableOllamaModelsAsync();
-        return Ok(new
-        {
-            success = models.Count > 0,
-            models,
-            isOllamaOnline = models.Count > 0
-        });
     }
 
     [HttpGet("latest")]

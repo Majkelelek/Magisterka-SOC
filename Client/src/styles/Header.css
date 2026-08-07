@@ -1,117 +1,98 @@
 /* styles/Header.css */
 
-.soc-header-title-box {
+.soc-top-header {
+  background: #0b0e1b;
+  border-bottom: 1px solid rgba(56, 189, 248, 0.2);
+  padding: 1.25rem 2rem;
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
+  gap: 1.5rem;
+  position: sticky;
+  top: 0;
+  z-index: 90;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
 }
 
-.soc-header-title {
+.soc-top-header-left {
+  display: flex;
+  flex-direction: column;
+}
+
+.soc-page-title {
+  font-size: 1.45rem;
+  font-weight: 800;
+  color: #ffffff;
+  margin: 0;
+  letter-spacing: -0.3px;
+  line-height: 1.25;
+}
+
+.soc-page-subtitle {
+  font-size: 0.85rem;
+  color: #94a3b8;
+  margin: 0.2rem 0 0 0;
+  font-weight: 400;
+}
+
+.soc-top-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.soc-pill-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0.35rem 0.8rem;
+  border-radius: 20px;
+  font-size: 0.725rem;
   font-weight: 700;
-  letter-spacing: 0.5px;
-  font-size: 0.95rem;
+  letter-spacing: 0.3px;
 }
 
-.status-badge-online {
+.soc-pill-badge.online {
   background: rgba(34, 197, 94, 0.15);
-  border: 1px solid rgba(34, 197, 94, 0.3);
+  border: 1px solid rgba(34, 197, 94, 0.4);
   color: #4ade80;
 }
 
-.status-badge-offline {
+.soc-pill-badge.db-online {
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  color: #38bdf8;
+}
+
+.soc-pill-badge.offline {
   background: rgba(239, 68, 68, 0.15);
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  border: 1px solid rgba(239, 68, 68, 0.4);
   color: #f87171;
 }
 
-.status-badge-checking {
-  background: rgba(148, 163, 184, 0.15);
-  border: 1px solid rgba(148, 163, 184, 0.3);
+.soc-pill-badge.checking {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   color: #94a3b8;
 }
 
-.status-badge-db-online {
-  background: rgba(56, 189, 248, 0.15);
-  border: 1px solid rgba(56, 189, 248, 0.3);
-  color: #38bdf8;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.soc-user-session-box {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.soc-user-session-info {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.soc-user-meta {
-  display: flex;
-  flex-shrink: 0;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.8rem;
-  color: var(--text-muted);
-}
-
-.soc-logo-clickable {
-  cursor: pointer;
-}
-
-.pulse-dot.checking {
-  background: #94a3b8;
+.pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  display: inline-block;
 }
 
 .pulse-dot.online {
-  background: #22c55e;
-  box-shadow: 0 0 8px #22c55e;
+  background-color: #4ade80;
+  box-shadow: 0 0 6px #4ade80;
 }
 
 .pulse-dot.offline {
-  background: #ef4444;
-  box-shadow: 0 0 8px #ef4444;
+  background-color: #f87171;
+  box-shadow: 0 0 6px #f87171;
 }
 
-.soc-tab-label-benchmark {
-  color: #a855f7;
-  font-weight: 700;
+.pulse-dot.checking {
+  background-color: #94a3b8;
 }
-
-.soc-tab-label-questions {
-  color: #38bdf8;
-}
-
-.soc-tab-label-users {
-  color: #c084fc;
-}
-
-.soc-tab-users-btn {
-  border-left: 1px solid var(--border-color);
-}
-
-.soc-username-strong {
-  color: #ffffff;
-}
-
-.soc-user-role-badge {
-  margin-left: 6px;
-  font-size: 0.725rem;
-  color: var(--text-muted);
-  font-weight: 600;
-}
-
-.soc-user-role-badge.admin {
-  color: #c084fc;
-}
-
-.soc-btn-logout-small {
-  padding: 0.35rem 0.65rem;
-  font-size: 0.775rem;
-}
-
